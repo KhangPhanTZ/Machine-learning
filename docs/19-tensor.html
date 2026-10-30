@@ -88,6 +88,43 @@ data.int()                          # đổi kiểu float → int</code></pre>
 <div class="box warn"><span class="box-title">⚠️ Kiểu dữ liệu (dtype)</span>
 <p>Mạng nơ-ron tính bằng <code>float32</code>. <code>torch.tensor([1, 2, 3])</code> cho ra <code>int64</code>, đưa vào <code>nn.Linear</code> sẽ báo lỗi. Nên luôn ghi rõ <code>dtype=torch.float32</code> cho đặc trưng. Riêng nhãn phân loại dùng cho <code>CrossEntropyLoss</code> thì phải là số nguyên (<code>int64</code>).</p></div>
 
+<h2>5. Tensor trên GPU, NumPy và autograd</h2>
+<h3>Di chuyển giữa CPU và GPU</h3>
+<pre><code class="language-python">import torch, numpy as np
+device = "cuda" if torch.cuda.is_available() else "cpu"
+x = torch.randn(1000, 1000)
+x_gpu = x.to(device)                 # chép sang GPU (nếu có)
+y = x_gpu @ x_gpu                    # tính trên GPU
+y_cpu = y.cpu()                      # muốn dùng NumPy/matplotlib thì phải về CPU
+arr = y_cpu.numpy()</code></pre>
+<p>Mọi tensor tham gia một phép tính phải nằm trên cùng thiết bị. Chép dữ liệu qua lại giữa CPU và GPU tốn thời gian, nên hãy chép <em>cả lô</em> một lần, đừng chép từng phần tử.</p>
+<h3>Bẫy bộ nhớ chung với NumPy</h3>
+<pre><code class="language-python">a = np.array([1.0, 2.0, 3.0])
+t = torch.from_numpy(a)              # DÙNG CHUNG bộ nhớ với a
+a[0] = 100.0
+print(t)                             # tensor([100., 2., 3.], dtype=torch.float64) — đổi a thì t đổi theo!
+t2 = torch.tensor(a)                 # SAO CHÉP — an toàn hơn khi không chắc</code></pre>
+<h3>Autograd: tensor biết tự tính đạo hàm</h3>
+<p>Đánh dấu <code>requires_grad=True</code> thì PyTorch ghi lại mọi phép tính trên tensor đó. Gọi <code>backward()</code> là có ngay đạo hàm, đúng như tính tay ở chương 3:</p>
+<pre><code class="language-python">w = torch.tensor([2.0, -1.0], requires_grad=True)     # tham số cần học
+x = torch.tensor([3.0, 4.0])
+y_hat = (w * x).sum()                                  # 2·3 + (−1)·4 = 2
+loss = (y_hat - 5.0) ** 2                              # (2 − 5)² = 9
+loss.backward()                                        # dloss/dw = 2·(ŷ − 5)·x
+print(w.grad)                                          # tensor([-18., -24.])
+with torch.no_grad():
+    w -= 0.01 * w.grad                                 # một bước gradient descent "bằng tay"
+w.grad.zero_()                                         # xoá trước bước tiếp theo
+print(w.detach().numpy())                               # tensor còn theo dõi gradient: .detach() trước .numpy()</code></pre>
+<p>Kiểm tra bằng tay: \(\partial L/\partial w_j = 2(\hat y - 5)\,x_j = 2 \cdot (-3) \cdot [3, 4] = [-18, -24]\). Đây chính là những gì <code>optimizer.step()</code> làm cho bạn ở chương 20, với hàng triệu tham số cùng lúc.</p>
+<table>
+  <tr><th>Tình huống</th><th>Dùng</th></tr>
+  <tr><td>Chỉ dự đoán / đánh giá, không cần gradient</td><td><code>with torch.no_grad():</code></td></tr>
+  <tr><td>Lấy giá trị ra khỏi đồ thị (để vẽ, lưu, chuyển NumPy)</td><td><code>t.detach()</code>, <code>t.detach().cpu().numpy()</code></td></tr>
+  <tr><td>Lấy một số Python</td><td><code>t.item()</code></td></tr>
+  <tr><td>Đóng băng tham số (transfer learning, chương 24)</td><td><code>p.requires_grad = False</code></td></tr>
+</table>
+
 <h2>Đi từng bước qua lab</h2>
 <ol class="steps">
   <li><strong>Tạo tensor</strong> từ list, NumPy và file <code>data.csv</code> (qua pandas). Để ý dtype: số nguyên giữ là int, có dấu chấm thập phân thành float.</li>

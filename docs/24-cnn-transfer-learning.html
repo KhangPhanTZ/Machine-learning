@@ -98,7 +98,67 @@ optimizer = optim.Adam([
 <div class="box warn"><span class="box-title">⚠️ Learning rate khi fine-tune</span>
 <p>Phần pretrained đã “biết nhiều”. Learning rate lớn (như 0.01) sẽ phá hỏng những gì nó đã học. Dùng LR nhỏ hơn 10–100 lần cho phần pretrained so với lớp mới.</p></div>
 
+<h3>Script transfer learning hoàn chỉnh cho bộ ảnh cây trồng</h3>
+<p>Ghép pipeline chương 23, hàm <code>fit()</code>/<code>run_epoch()</code> chương 27 và chiến lược hai giai đoạn: (1) chỉ huấn luyện lớp cuối, (2) mở băng khối cuối với learning rate nhỏ.</p>
+<pre><code class="language-python"># Transfer learning trọn vẹn cho bộ ảnh cây trồng: pipeline chương 23 + fit() chương 27
+import torch, torch.nn as nn, torchvision.models as models
+from torchvision import transforms
+from torch.utils.data import DataLoader, random_split
+
+weights = models.ResNet18_Weights.DEFAULT
+mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]            # thang của ImageNet
+train_tf = transforms.Compose([
+    transforms.RandomResizedCrop(224, scale=(0.6, 1.0)),
+    transforms.RandomHorizontalFlip(), transforms.RandomVerticalFlip(),
+    transforms.ColorJitter(0.2, 0.2, 0.2),
+    transforms.ToTensor(), transforms.Normalize(mean, std)])
+eval_tf = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224),
+                              transforms.ToTensor(), transforms.Normalize(mean, std)])
+
+dataset = PlantsDataset("./plants_dataset")                         # chương 23, transform=None
+n = len(dataset); n_val = n_test = int(0.15 * n)
+tr, va, te = random_split(dataset, [n - 2 * n_val, n_val, n_test], generator=torch.Generator().manual_seed(42))
+train_loader = DataLoader(SubsetWithTransform(tr, train_tf), batch_size=32, shuffle=True, num_workers=2)
+val_loader = DataLoader(SubsetWithTransform(va, eval_tf), batch_size=64, num_workers=2)
+test_loader = DataLoader(SubsetWithTransform(te, eval_tf), batch_size=64, num_workers=2)
+
+model = models.resnet18(weights=weights)
+for p in model.parameters():
+    p.requires_grad = False                                           # giai đoạn 1: đóng băng toàn bộ
+model.fc = nn.Linear(model.fc.in_features, len(dataset.class_names))  # chỉ lớp này học
+device = "cuda" if torch.cuda.is_available() else "cpu"
+loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
+
+# Giai đoạn 1: chỉ huấn luyện lớp cuối (nhanh, vài epoch)
+opt = torch.optim.AdamW(model.fc.parameters(), lr=1e-3, weight_decay=1e-2)
+fit(model, train_loader, val_loader, loss_fn, opt, device, epochs=5)
+
+# Giai đoạn 2: mở băng khối cuối, learning rate nhỏ hơn cho phần pretrained
+for p in model.layer4.parameters():
+    p.requires_grad = True
+opt = torch.optim.AdamW([{"params": model.layer4.parameters(), "lr": 1e-4},
+                         {"params": model.fc.parameters(), "lr": 5e-4}], weight_decay=1e-2)
+sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=10)
+history = fit(model, train_loader, val_loader, loss_fn, opt, device, epochs=10, scheduler=sched, patience=4)
+
+test_loss, test_acc = run_epoch(model, test_loader, loss_fn, device)
+print(f"test accuracy: {test_acc:.1%}")</code></pre>
+<p>Hai chi tiết đáng chú ý: augmentation dùng <code>RandomResizedCrop(224)</code> cho train nhưng <code>Resize(256) + CenterCrop(224)</code> cho validation/test (quy ước của ImageNet); và mean/std là của ImageNet chứ không phải của bộ cây trồng, vì mô hình pretrained đã quen thang đó. Ở chương 30, cùng bộ dữ liệu này với CNN nhỏ huấn luyện từ đầu chỉ đạt 50% trên test, nên transfer learning là bước cải thiện đầu tiên nên thử.</p>
+
+<h3>Các kiến trúc CNN nên biết</h3>
+<table>
+  <tr><th>Kiến trúc</th><th>Năm</th><th>Ý tưởng chính</th><th>Dùng khi</th></tr>
+  <tr><td>LeNet-5</td><td>1998</td><td>Conv → pool → Dense, đọc chữ số trên séc ngân hàng</td><td>Học khái niệm</td></tr>
+  <tr><td>AlexNet</td><td>2012</td><td>CNN sâu + ReLU + GPU + dropout; mở đầu làn sóng Deep Learning</td><td>Lịch sử</td></tr>
+  <tr><td>VGG</td><td>2014</td><td>Chồng nhiều conv 3×3, đơn giản, rất nhiều tham số</td><td>Ít dùng nay</td></tr>
+  <tr><td>ResNet</td><td>2015</td><td>Kết nối tắt (residual) cho phép mạng hàng trăm lớp</td><td>Mặc định tốt cho transfer learning</td></tr>
+  <tr><td>MobileNet / EfficientNet</td><td>2017–2019</td><td>Tích chập tách rời theo chiều sâu, tối ưu độ chính xác / tốc độ</td><td>Điện thoại, thiết bị nhúng</td></tr>
+  <tr><td>Vision Transformer (ViT), ConvNeXt</td><td>2020–2022</td><td>Attention trên các miếng ảnh / CNN hiện đại hoá</td><td>Khi có nhiều dữ liệu, cần độ chính xác cao nhất</td></tr>
+</table>
+<p>Tất cả đều có sẵn trong <code>torchvision.models</code> với trọng số pretrained, cách dùng giống hệt ResNet18 ở trên (chỉ khác tên lớp cuối: <code>fc</code>, <code>classifier</code> hoặc <code>heads</code>).</p>
+
 <h2>Vòng lặp huấn luyện hoàn chỉnh: thêm validation và lưu mô hình tốt nhất</h2>
+<p>Phiên bản tối giản dưới đây cho thấy ý tưởng; bản đầy đủ (lịch LR, gradient clipping, lịch sử để vẽ) là hàm <code>fit()</code> ở <a href="27-huan-luyen-tot-hon.html">chương 27</a>.</p>
 <pre><code class="language-python">best_acc, patience, bad_epochs = 0, 3, 0
 for epoch in range(30):
     model, train_loss = train_epoch(model, loss_function, optimizer, train_loader, device)

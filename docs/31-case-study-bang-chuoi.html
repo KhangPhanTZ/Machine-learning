@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>31. Case study: dữ liệu bảng & chuỗi thời gian · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 31 · Phần V</div>
+  <h1>Case study: dữ liệu bảng &amp; chuỗi thời gian</h1>
+  <p class="lede">Phần lớn dữ liệu trong doanh nghiệp nằm ở dạng bảng và chuỗi thời gian. Ba dự án trọn vẹn: phát hiện gian lận giao dịch (tài chính), dự báo nhu cầu (bán lẻ), bảo trì dự đoán (sản xuất). Mỗi case so sánh baseline, mô hình cổ điển và mô hình PyTorch trên cùng dữ liệu, và quy kết quả về tiền, ngày, số lần báo động.</p>
+  <div class="meta"><span>⏱ 50 phút đọc</span><span>💻 Code: <code>case_studies/31a–31c</code></span></div>
+</header>
+
+<div class="box lab"><span class="box-title">💻 Code chạy được</span>
+<p>Các file <code>31a_fraud_detection.py</code>, <code>31b_demand_forecast.py</code>, <code>31c_predictive_maintenance.py</code> trong <a href="https://github.com/KhangPhanTZ/Machine-learning/tree/main/case_studies" target="_blank" rel="noopener"><code>case_studies/</code></a> tự sinh dữ liệu mô phỏng (có seed cố định) và chạy trên CPU trong 1–3 phút. Cần <code>pip install torch scikit-learn pandas</code>. Dữ liệu mô phỏng được thiết kế có những “cái khó” của dữ liệu thật: lệch lớp, xu hướng thay đổi theo thời gian, mùa vụ, nhiễu, và tương tác phi tuyến. Khi áp dụng, hãy thay phần sinh dữ liệu bằng bảng của bạn.</p></div>
+
+<h2>Case A · Tài chính: phát hiện giao dịch gian lận</h2>
+<h3>Bối cảnh &amp; quyết định</h3>
+<p>Một ví điện tử muốn gắn cờ giao dịch đáng ngờ để gọi xác minh trước khi duyệt. Bỏ lọt một vụ gian lận mất trung bình khoảng 3 triệu đồng; chặn nhầm một giao dịch tốn khoảng 50 nghìn (chi phí gọi điện, khách khó chịu). Đây là con số giả định cho ví dụ, ngoài đời bạn lấy từ bộ phận rủi ro. Tỉ lệ chi phí 60:1 sẽ quyết định ngưỡng.</p>
+<h3>Dữ liệu</h3>
+<pre><code class="language-python"># 1) Dữ liệu giao dịch mô phỏng: 60 ngày, ~0.5% gian lận
+N = 120_000
+df = pd.DataFrame({
+    "day": np.sort(rng.integers(0, 60, N)),
+    "hour": rng.integers(0, 24, N),
+    "amount": np.round(rng.lognormal(12.5, 1.0, N), -3),                  # VND
+    "merchant_cat": rng.choice(["food", "fashion", "electronics", "travel", "topup", "games"], N,
+                               p=[.35, .2, .1, .1, .15, .1]),
+    "new_device": rng.random(N) &lt; 0.05,
+    "tx_last_24h": rng.poisson(2, N),
+    "dist_from_home_km": rng.exponential(5, N),
+})
+risky = df.merchant_cat.isin(["electronics", "topup", "games"])
+night = df.hour &lt; 5
+z = (-8.0 + 1.8 * df.new_device + 1.0 * night + 0.35 * df.tx_last_24h.clip(0, 8) + 0.8 * risky
+     + 1.6 * (risky &amp; (df.amount &gt; 3e6)) + 2.2 * (df.new_device &amp; night)          # tương tác: phi tuyến
+     + 0.04 * df.dist_from_home_km.clip(0, 60) + 0.015 * df.day)                  # gian lận tăng dần theo thời gian
+df["fraud"] = rng.random(N) &lt; 1 / (1 + np.exp(-z))
+print(f"tỉ lệ gian lận: {df.fraud.mean():.2%}")</code></pre>
+<p>120 000 giao dịch trong 60 ngày, <strong>0.57% là gian lận</strong>. Gian lận phụ thuộc thiết bị mới, giờ khuya, số giao dịch 24 giờ qua, ngành hàng rủi ro, kèm <em>tương tác</em> (thiết bị mới <strong>và</strong> nửa đêm thì rủi ro tăng vọt), và tỉ lệ tăng dần theo thời gian (kẻ gian thích nghi).</p>
+<h3>Chia theo thời gian và so sánh ba mô hình</h3>
+<pre><code class="language-python"># 2) Đặc trưng + chia THEO THỜI GIAN (không chia ngẫu nhiên)
+X = pd.get_dummies(df.drop(columns=["fraud", "day"]), columns=["merchant_cat"]).astype("float32")
+X["log_amount"] = np.log1p(df.amount); X["night"] = (df.hour &lt; 5).astype("float32")
+y = df.fraud.values.astype(int)
+tr, va, te = (df.day &lt; 40).values, ((df.day &gt;= 40) &amp; (df.day &lt; 50)).values, (df.day &gt;= 50).values
+print("train/val/test:", tr.sum(), va.sum(), te.sum())
+
+def report(name, p):
+    print(f"{name:22s} ROC-AUC {roc_auc_score(y[te], p):.3f}   PR-AUC {average_precision_score(y[te], p):.3f}")
+
+# 3) Ba mô hình
+sc = StandardScaler().fit(X[tr])
+lr = LogisticRegression(max_iter=2000, class_weight="balanced").fit(sc.transform(X[tr]), y[tr])
+p_lr = lr.predict_proba(sc.transform(X[te]))[:, 1]; report("Logistic (balanced)", p_lr)
+gb = HistGradientBoostingClassifier(max_iter=200, learning_rate=0.05, max_depth=3, min_samples_leaf=200,
+                                    l2_regularization=1.0, class_weight="balanced", random_state=0)
+gb.fit(X[tr], y[tr]); p_gb = gb.predict_proba(X[te])[:, 1]; report("Gradient boosting", p_gb)
+
+Xt = torch.tensor(sc.transform(X[tr]), dtype=torch.float32); yt = torch.tensor(y[tr], dtype=torch.float32).unsqueeze(1)
+net = nn.Sequential(nn.Linear(Xt.shape[1], 64), nn.ReLU(), nn.Dropout(0.2), nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, 1))
+pos_weight = torch.tensor([(1 - y[tr].mean()) / y[tr].mean()])
+loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)                   # chương 27: dữ liệu lệch lớp
+opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-3)
+loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(Xt, yt), batch_size=512, shuffle=True)
+for epoch in range(8):
+    net.train()
+    for xb, yb in loader:
+        opt.zero_grad(); loss_fn(net(xb), yb).backward(); opt.step()
+net.eval()
+with torch.no_grad():
+    p_nn = torch.sigmoid(net(torch.tensor(sc.transform(X[te]), dtype=torch.float32))).squeeze(1).numpy()
+report("Mạng nơ-ron PyTorch", p_nn)</code></pre>
+<table>
+  <tr><th>Mô hình (test = 10 ngày cuối)</th><th>ROC-AUC</th><th>PR-AUC</th></tr>
+  <tr><td>Logistic regression (<code>class_weight="balanced"</code>)</td><td>0.843</td><td>0.177</td></tr>
+  <tr><td>Gradient boosting (HistGradientBoosting)</td><td>0.824</td><td>0.147</td></tr>
+  <tr><td>Mạng nơ-ron PyTorch (<code>pos_weight</code>)</td><td>0.840</td><td>0.178</td></tr>
+</table>
+<ul>
+  <li><strong>PR-AUC mới là con số cần nhìn.</strong> ROC-AUC 0.84 nghe ổn, nhưng PR-AUC 0.18 cho biết ở hầu hết ngưỡng, phần lớn giao dịch bị gắn cờ vẫn là giao dịch thật. Với 0.57% dương tính, mô hình ngẫu nhiên có PR-AUC chỉ bằng tỉ lệ gian lận trong tập test (khoảng 0.008), nên 0.18 đã gấp hơn 20 lần ngẫu nhiên.</li>
+  <li><strong>Mô hình đơn giản ngang mô hình phức tạp.</strong> Ở đây logistic regression ngang mạng nơ-ron và hơn gradient boosting. Lời khuyên “dữ liệu bảng thì XGBoost thường thắng” là kinh nghiệm chung, không phải định luật. Luôn so trên cùng tập test. Trong tài chính, khi hiệu năng ngang nhau, chọn mô hình giải thích được.</li>
+</ul>
+<h3>Chọn ngưỡng theo chi phí, báo cáo bằng tiền</h3>
+<pre><code class="language-python"># 4) Chọn ngưỡng theo CHI PHÍ trên tập validation (dùng logistic: tốt nhất ở đây và dễ giải thích)
+COST_FN, COST_FP = 3_000_000, 50_000          # bỏ lọt 1 vụ ≈ mất 3 triệu; chặn nhầm ≈ 50 nghìn (gọi xác minh, khách phiền)
+p_va = lr.predict_proba(sc.transform(X[va]))[:, 1]
+ths = np.quantile(p_va, np.linspace(0.5, 0.999, 300))          # thử nhiều ngưỡng
+costs = [COST_FN * ((p_va &lt; t) &amp; (y[va] == 1)).sum() + COST_FP * ((p_va &gt;= t) &amp; (y[va] == 0)).sum() for t in ths]
+t_best = ths[int(np.argmin(costs))]
+flag = p_lr &gt;= t_best
+tp, fp, fn = (flag &amp; (y[te] == 1)).sum(), (flag &amp; (y[te] == 0)).sum(), (~flag &amp; (y[te] == 1)).sum()
+print(f"ngưỡng tối ưu chi phí = {t_best:.2f}: gắn cờ {flag.mean():.1%} giao dịch, bắt {tp}/{tp+fn} vụ (recall {tp/(tp+fn):.0%}), precision {tp/max(flag.sum(),1):.0%}")
+cost_model = COST_FN * fn + COST_FP * fp; cost_none = COST_FN * (y[te] == 1).sum()
+print(f"chi phí 10 ngày test: không mô hình {cost_none/1e6:,.0f} triệu → có mô hình {cost_model/1e6:,.0f} triệu")
+# precision@k: đội điều tra chỉ kiểm tra được 50 giao dịch/ngày
+k = 50 * 10
+top = np.argsort(-p_lr)[:k]
+print(f"precision@{k}: {y[te][top].mean():.0%}  (bắt {y[te][top].sum()}/{y[te].sum()} vụ khi chỉ xem {k/te.sum():.1%} giao dịch)")
+# hệ số logistic: giải thích được cho bộ phận rủi ro
+coef = pd.Series(lr.coef_[0], index=X.columns).sort_values(ascending=False)
+print("yếu tố tăng rủi ro mạnh nhất:", ", ".join(f"{k} (+{v:.2f})" for k, v in coef.head(4).items()))</code></pre>
+<pre><code>ngưỡng tối ưu chi phí = 0.59: gắn cờ 10.1% giao dịch, bắt 96/158 vụ (recall 61%), precision 5%
+chi phí 10 ngày test: không mô hình 474 triệu → có mô hình 283 triệu
+precision@500: 12%  (bắt 61/158 vụ khi chỉ xem 2.5% giao dịch)
+yếu tố tăng rủi ro mạnh nhất: new_device (+0.67), tx_last_24h (+0.58), dist_from_home_km (+0.29), night (+0.29)</code></pre>
+<p>Đây là cách trình bày cho lãnh đạo: <strong>“mô hình giảm thiệt hại ước tính từ 474 xuống 283 triệu trong 10 ngày”</strong>, kèm ràng buộc vận hành “phải gọi xác minh 10% giao dịch”. Nếu đội xác minh chỉ kiểm tra được 50 giao dịch/ngày, dùng precision@k: xem 2.5% giao dịch rủi ro nhất thì bắt được 61/158 vụ (39%). Hệ số logistic cho bộ phận rủi ro biết <em>vì sao</em> một giao dịch bị gắn cờ.</p>
+<div class="box warn"><span class="box-title">⚠️ Những điều dữ liệu mô phỏng không có</span>
+<ul>
+  <li><strong>Nhãn trễ</strong>: gian lận thường chỉ được xác nhận sau vài tuần (khách khiếu nại), nên vài ngày gần nhất luôn “thiếu nhãn dương”. Khi huấn luyện, bỏ khoảng thời gian chưa đủ độ chín của nhãn.</li>
+  <li><strong>Đối thủ thích nghi</strong>: kẻ gian đổi chiến thuật khi bị chặn. Giám sát drift hằng tuần (chương 29) và huấn luyện lại thường xuyên.</li>
+  <li><strong>Đặc trưng theo thực thể</strong>: số thiết bị trên một tài khoản, số tài khoản trên một thiết bị, quan hệ chuyển tiền (đồ thị). Đây thường là đặc trưng mạnh nhất ngoài thực tế.</li>
+</ul></div>
+
+<h2>Case B · Bán lẻ: dự báo nhu cầu theo cửa hàng</h2>
+<h3>Bối cảnh &amp; quyết định</h3>
+<p>Chuỗi 20 cửa hàng cần dự báo số đơn vị bán ra của một mặt hàng <strong>7 ngày trước</strong> để đặt hàng. Dự báo thấp thì hết hàng, mất doanh thu; dự báo cao thì tồn kho, hàng tươi bị huỷ. Thước đo: <strong>WAPE</strong> (tổng sai số tuyệt đối / tổng doanh số), dễ hiểu với người kinh doanh: “trung bình lệch bao nhiêu phần trăm”.</p>
+<div class="math-box">$$ \text{WAPE} = \frac{\sum_t |y_t - \hat y_t|}{\sum_t |y_t|} $$</div>
+<h3>Dữ liệu &amp; đặc trưng</h3>
+<pre><code class="language-python"># 1) Doanh số mô phỏng: 20 cửa hàng × 2 năm, có xu hướng, mùa vụ tuần/năm, khuyến mãi, Tết
+dates = pd.date_range("2024-01-01", "2025-12-31", freq="D")
+tet = pd.to_datetime(["2024-02-10", "2025-01-29"])
+rows = []
+for s in range(20):
+    base = rng.uniform(80, 300)
+    promo = rng.random(len(dates)) &lt; 0.08
+    days_to_tet = np.min([np.abs((dates - t).days) for t in tet], axis=0)
+    level = (base * (1 + 0.0004 * np.arange(len(dates)))                       # xu hướng tăng
+             * (1 + 0.25 * (dates.day_of_week &gt;= 5))                             # cuối tuần
+             * (1 + 0.15 * np.sin(2 * np.pi * dates.day_of_year / 365))          # mùa trong năm
+             * (1 + 0.6 * promo)                                               # khuyến mãi
+             * np.where(days_to_tet &lt;= 3, 0.3, np.where((days_to_tet &gt; 3) &amp; (days_to_tet &lt;= 15), 1.5, 1.0)))
+    rows.append(pd.DataFrame({"date": dates, "store": s, "promo": promo.astype(int),
+                              "days_to_tet": days_to_tet, "sales": rng.poisson(level)}))
+df = pd.concat(rows).sort_values(["store", "date"]).reset_index(drop=True)
+
+# 2) Đặc trưng: lịch + độ trễ (lag) — chỉ dùng thông tin CÓ SẴN lúc dự báo (dự báo trước 7 ngày)
+g = df.groupby("store")["sales"]
+for lag in [7, 14, 28]:
+    df[f"lag_{lag}"] = g.shift(lag)
+df["roll_mean_28"] = g.transform(lambda s: s.shift(7).rolling(28).mean())
+df["dow"] = df.date.dt.day_of_week; df["doy"] = df.date.dt.day_of_year; df["month"] = df.date.dt.month
+df = df.dropna().reset_index(drop=True)
+FEATS = ["store", "promo", "days_to_tet", "lag_7", "lag_14", "lag_28", "roll_mean_28", "dow", "doy", "month"]
+
+# 3) Chia THEO THỜI GIAN: 3 tháng cuối làm test, 2 tháng trước đó làm validation
+tr = df.date &lt; "2025-08-01"; va = (df.date &gt;= "2025-08-01") &amp; (df.date &lt; "2025-10-01"); te = df.date &gt;= "2025-10-01"
+def wape(y, p):                                             # sai số tuyệt đối có trọng số — dễ hiểu cho kinh doanh
+    return np.abs(y - p).sum() / np.abs(y).sum()
+y_te = df.sales[te].values</code></pre>
+<p>Hai năm doanh số theo ngày, có xu hướng tăng, cuối tuần cao hơn, mùa vụ trong năm, khuyến mãi khoảng 8% số ngày, và <strong>Tết</strong>: mua sắm tăng mạnh hai tuần trước, gần như dừng mấy ngày Tết. Đặc trưng trễ (<code>lag_7</code>, <code>lag_14</code>, <code>lag_28</code>, trung bình 28 ngày) đều lùi ít nhất 7 ngày, vì lúc dự báo trước 7 ngày ta chưa biết doanh số 6 ngày gần nhất. Dùng <code>lag_1</code> ở đây là rò rỉ tương lai.</p>
+<h3>Baseline, gradient boosting và LSTM</h3>
+<pre><code class="language-python"># 4) Baseline ngây thơ: bằng cùng thứ tuần trước
+print(f"Baseline 'tuần trước'      WAPE {wape(y_te, df.lag_7[te].values):.1%}")
+print(f"Baseline 'TB 28 ngày'      WAPE {wape(y_te, df.roll_mean_28[te].values):.1%}")
+
+# 5) Gradient boosting trên đặc trưng
+gb = HistGradientBoostingRegressor(max_iter=500, learning_rate=0.05, categorical_features=[0], random_state=0)
+gb.fit(df.loc[tr, FEATS], df.sales[tr])
+p_gb = gb.predict(df.loc[te, FEATS])
+print(f"Gradient boosting          WAPE {wape(y_te, p_gb):.1%}")</code></pre>
+<pre><code class="language-python"># 6) LSTM PyTorch: nhìn 56 ngày (đã chuẩn hoá theo cửa hàng) + lịch của ngày cần dự báo
+W, H = 56, 7
+def windows(mask_target):
+    X, C, Y, S = [], [], [], []
+    for s, d in df.groupby("store"):
+        sales = d.sales.values.astype("float32"); mu = sales[d.date.values &lt; np.datetime64("2025-08-01")].mean()
+        cal = np.stack([d.promo, d.dow / 6, d.days_to_tet.clip(0, 30) / 30, np.sin(2*np.pi*d.doy/365), np.cos(2*np.pi*d.doy/365)], 1).astype("float32")
+        m = mask_target[d.index].values
+        for t in range(W + H - 1, len(d)):
+            if m[t]:
+                X.append(sales[t - H - W + 1: t - H + 1] / mu); C.append(cal[t]); Y.append(sales[t] / mu); S.append(mu)
+    return (torch.tensor(np.array(X)).unsqueeze(-1), torch.tensor(np.array(C)), torch.tensor(np.array(Y)).unsqueeze(1), np.array(S))
+
+class LSTMForecaster(nn.Module):
+    def __init__(self, n_cal=5, hidden=32):
+        super().__init__()
+        self.lstm = nn.LSTM(1, hidden, batch_first=True)
+        self.head = nn.Sequential(nn.Linear(hidden + n_cal, 32), nn.ReLU(), nn.Linear(32, 1))
+    def forward(self, x, cal):
+        _, (h, _) = self.lstm(x)                      # h[-1]: tóm tắt 56 ngày
+        return self.head(torch.cat([h[-1], cal], dim=1))
+
+Xtr, Ctr, Ytr, _ = windows(tr); Xva, Cva, Yva, _ = windows(va); Xte, Cte, Yte, Ste = windows(te)
+model = LSTMForecaster(); opt = torch.optim.Adam(model.parameters(), lr=3e-3); loss_fn = nn.L1Loss()
+loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(Xtr, Ctr, Ytr), batch_size=256, shuffle=True)
+best, best_state = 1e9, None
+for epoch in range(15):
+    model.train()
+    for xb, cb, yb in loader:
+        opt.zero_grad(); loss_fn(model(xb, cb), yb).backward(); opt.step()
+    model.eval()
+    with torch.no_grad(): v = loss_fn(model(Xva, Cva), Yva).item()
+    if v &lt; best: best, best_state = v, {k: t.clone() for k, t in model.state_dict().items()}
+model.load_state_dict(best_state)
+with torch.no_grad(): p_lstm = model(Xte, Cte).squeeze(1).numpy() * Ste
+print(f"LSTM PyTorch               WAPE {wape(Yte.squeeze(1).numpy() * Ste, p_lstm):.1%}")</code></pre>
+<table>
+  <tr><th>Mô hình (test = quý 4/2025)</th><th>WAPE</th></tr>
+  <tr><td>Baseline “bằng cùng thứ tuần trước”</td><td>13.4%</td></tr>
+  <tr><td>Baseline “trung bình 28 ngày”</td><td>13.5%</td></tr>
+  <tr><td>Gradient boosting + đặc trưng lịch/lag/khuyến mãi/Tết</td><td><strong>8.5%</strong></td></tr>
+  <tr><td>LSTM PyTorch (56 ngày lịch sử + lịch ngày cần dự báo)</td><td>9.0%</td></tr>
+</table>
+<ul>
+  <li>Cả hai mô hình giảm sai số khoảng 33–37% so với baseline. Đây là mức cải thiện đáng triển khai.</li>
+  <li>Gradient boosting nhỉnh hơn LSTM, đơn giản hơn, huấn luyện nhanh hơn, dễ giải thích hơn. LSTM/Transformer phát huy khi có hàng nghìn chuỗi (nhiều sản phẩm × cửa hàng) và lịch sử dài, vì một mô hình học chung cho mọi chuỗi.</li>
+  <li>Hai chi tiết quan trọng của LSTM: <strong>chuẩn hoá theo từng cửa hàng</strong> (chia cho doanh số trung bình của cửa hàng đó trên tập train) để mô hình học “hình dạng” chứ không học “độ lớn”, và <strong>ghép thông tin lịch đã biết trước</strong> (khuyến mãi, thứ, khoảng cách tới Tết) vào đầu ra của LSTM.</li>
+</ul>
+<div class="box real"><span class="box-title">🛒 Từ dự báo đến quyết định đặt hàng</span>
+<p>Dự báo là một con số, còn đặt hàng cần tính đến rủi ro. Cách đơn giản: lượng đặt = dự báo + <em>tồn kho an toàn</em>, với tồn kho an toàn tỉ lệ với độ lệch của sai số dự báo trong quá khứ. Hàng tươi (chi phí huỷ cao) đặt sát dự báo; hàng khô, lợi nhuận cao (chi phí hết hàng cao) đặt dư hơn. Mô hình nâng cao có thể dự báo trực tiếp phân vị (ví dụ phân vị 80%) bằng <em>quantile loss</em> (<code>HistGradientBoostingRegressor(loss="quantile", quantile=0.8)</code>).</p></div>
+
+<h2>Case C · Sản xuất: bảo trì dự đoán</h2>
+<h3>Bối cảnh &amp; quyết định</h3>
+<p>Nhà máy có 40 máy với cảm biến rung, nhiệt độ, dòng điện đo mỗi ngày. Mỗi máy hỏng 1–3 lần/năm, mỗi lần dừng dây chuyền rất tốn kém. Mục tiêu: <strong>báo động trước khi hỏng</strong> để lên lịch bảo trì. Ràng buộc: đội bảo trì chỉ chịu được vài lần báo nhầm mỗi tháng. Báo nhầm nhiều thì họ sẽ bỏ qua mọi cảnh báo.</p>
+<h3>Đặc trưng cửa sổ và cách chia đúng</h3>
+<pre><code class="language-python"># 1) Cảm biến mô phỏng: 40 máy × 365 ngày; trước khi hỏng, độ rung và nhiệt tăng dần trong ~2–3 tuần
+rows = []
+for m in range(40):
+    base_v, base_t = rng.uniform(2, 4), rng.uniform(55, 65)
+    fail_days = np.sort(rng.choice(np.arange(40, 360), size=rng.integers(1, 4), replace=False))
+    for d in range(365):
+        nxt = fail_days[fail_days &gt;= d]
+        until = (nxt[0] - d) if len(nxt) else 999
+        wear = max(0, 20 - until) / 20 if until &lt; 999 else 0                 # 0 → 1 trong 20 ngày trước hỏng
+        rows.append({"machine": m, "day": d,
+                     "vibration": base_v * (1 + 0.3 * wear ** 2) + rng.normal(0, 0.5),
+                     "temperature": base_t + 3 * wear ** 1.5 + rng.normal(0, 2.0),
+                     "current": 10 + 0.5 * wear + rng.normal(0, 0.6),
+                     "days_to_failure": until})
+df = pd.DataFrame(rows)
+df["fail_in_7d"] = (df.days_to_failure &lt;= 7).astype(int)                     # nhãn: hỏng trong 7 ngày tới
+
+# 2) Đặc trưng cửa sổ trượt 7 ngày cho từng máy (chỉ dùng quá khứ)
+g = df.groupby("machine")
+for c in ["vibration", "temperature", "current"]:
+    df[f"{c}_mean7"] = g[c].transform(lambda s: s.rolling(7).mean())
+    df[f"{c}_std7"] = g[c].transform(lambda s: s.rolling(7).std())
+    df[f"{c}_slope7"] = g[c].transform(lambda s: s.diff(7) / 7)            # xu hướng tuần qua
+    df[f"{c}_vs_base"] = df[c] / g[c].transform(lambda s: s.iloc[:30].mean())   # so với “bình thường” của chính máy đó
+df = df.dropna().reset_index(drop=True)
+FEATS = [c for c in df.columns if c.endswith(("mean7", "std7", "slope7", "vs_base"))]
+
+# 3) Chia THEO MÁY: máy dùng để kiểm tra chưa từng xuất hiện khi huấn luyện
+val_m, test_m = set(range(25, 30)), set(range(30, 40))
+tr = df.machine &lt; 25; va = df.machine.isin(val_m); te = df.machine.isin(test_m)
+print(f"tỉ lệ ngày 'sắp hỏng': {df.fail_in_7d.mean():.1%}")</code></pre>
+<p>Hai điểm then chốt:</p>
+<ul>
+  <li><strong>So với “bình thường” của chính máy đó</strong> (<code>_vs_base</code>): mỗi máy có mức rung riêng, nên 4.0 có thể bình thường với máy này nhưng đáng lo với máy kia.</li>
+  <li><strong>Chia theo máy</strong>: máy kiểm tra chưa từng xuất hiện khi huấn luyện. Nếu chia ngẫu nhiên theo ngày, các ngày liền kề của cùng một máy rơi vào cả train và test, kết quả sẽ đẹp giả tạo.</li>
+</ul>
+<h3>Có nhãn và không có nhãn</h3>
+<pre><code class="language-python"># 4a) Có giám sát: gradient boosting
+gb = HistGradientBoostingClassifier(max_iter=300, learning_rate=0.05, class_weight="balanced", random_state=0)
+gb.fit(df.loc[tr, FEATS], df.fail_in_7d[tr])
+p_gb = gb.predict_proba(df.loc[te, FEATS])[:, 1]
+print(f"Gradient boosting  PR-AUC {average_precision_score(df.fail_in_7d[te], p_gb):.3f}")
+
+# 4b) Không cần nhãn hỏng: autoencoder học trạng thái “khoẻ” (chương 28)
+healthy = tr &amp; (df.days_to_failure &gt; 30)
+mu, sd = df.loc[healthy, FEATS].mean(), df.loc[healthy, FEATS].std()
+Xh = torch.tensor(((df.loc[healthy, FEATS] - mu) / sd).values, dtype=torch.float32)
+ae = nn.Sequential(nn.Linear(len(FEATS), 16), nn.ReLU(), nn.Linear(16, 4), nn.ReLU(), nn.Linear(4, 16), nn.ReLU(), nn.Linear(16, len(FEATS)))
+opt = torch.optim.Adam(ae.parameters(), lr=1e-3)
+for epoch in range(30):
+    for xb, in torch.utils.data.DataLoader(torch.utils.data.TensorDataset(Xh), batch_size=256, shuffle=True):
+        opt.zero_grad(); loss = ((ae(xb) - xb) ** 2).mean(); loss.backward(); opt.step()
+with torch.no_grad():
+    Xte = torch.tensor(((df.loc[te, FEATS] - mu) / sd).values, dtype=torch.float32)
+    p_ae = ((ae(Xte) - Xte) ** 2).mean(1).numpy()                          # sai số tái tạo = điểm bất thường
+print(f"Autoencoder        PR-AUC {average_precision_score(df.fail_in_7d[te], p_ae):.3f}  (không dùng nhãn hỏng khi huấn luyện)")</code></pre>
+<table>
+  <tr><th>Cách tiếp cận</th><th>PR-AUC (10 máy test)</th></tr>
+  <tr><td>Gradient boosting, nhãn “hỏng trong 7 ngày tới”</td><td>0.581</td></tr>
+  <tr><td>Autoencoder trên dữ liệu “khoẻ” (chương 28), không dùng nhãn hỏng</td><td>0.122</td></tr>
+</table>
+<p>Tỉ lệ ngày “sắp hỏng” là 4.5%, nên mô hình ngẫu nhiên có PR-AUC khoảng 0.045. Autoencoder tốt hơn ngẫu nhiên khoảng 3 lần mà không cần một nhãn hỏng nào: hữu ích khi nhà máy mới lắp cảm biến, chưa có lịch sử hỏng. Khi đã tích luỹ được nhãn, mô hình có giám sát tốt hơn hẳn.</p>
+<h3>Thước đo vận hành và chọn ngưỡng</h3>
+<pre><code class="language-python"># 5) Thước đo vận hành: bắt được bao nhiêu lần hỏng, báo trước mấy ngày, báo nhầm bao nhiêu lần/máy/tháng
+def ops_metrics(mask, scores, t):
+    d = df.loc[mask, ["machine", "day", "days_to_failure"]].copy(); d["alarm"] = scores &gt;= t
+    lead = []
+    for _, e in d[d.days_to_failure == 0].iterrows():                       # mỗi lần hỏng
+        w = d[(d.machine == e.machine) &amp; (d.day &lt; e.day) &amp; (d.day &gt;= e.day - 14) &amp; d.alarm]
+        lead.append(e.day - w.day.min() if len(w) else 0)
+    lead = np.array(lead)
+    months = d.machine.nunique() * d.day.nunique() / 30
+    false_alarms = (d.alarm &amp; (d.days_to_failure &gt; 14)).sum() / months
+    return (lead &gt; 0).mean(), np.median(lead[lead &gt; 0]) if (lead &gt; 0).any() else 0, false_alarms
+
+# chọn ngưỡng trên các máy VALIDATION: báo nhầm tối đa 0.2 lần/máy/tháng (đội bảo trì chịu được)
+p_va = gb.predict_proba(df.loc[va, FEATS])[:, 1]
+for t in np.linspace(0.5, 0.99, 50):
+    if ops_metrics(va, p_va, t)[2] &lt;= 0.2:
+        break
+for name, thr in [("ngưỡng 0.5", 0.5), (f"ngưỡng {t:.2f} (chọn trên val)", t)]:
+    c, lead, fa = ops_metrics(te, p_gb, thr)
+    print(f"{name:28s} bắt {c:.0%} lần hỏng, báo trước trung vị {lead:.0f} ngày, báo nhầm {fa:.2f} lần/máy/tháng")</code></pre>
+<pre><code>ngưỡng 0.5                   bắt 100% lần hỏng, báo trước trung vị 6 ngày, báo nhầm 0.60 lần/máy/tháng
+ngưỡng 0.65 (chọn trên val)  bắt 100% lần hỏng, báo trước trung vị 6 ngày, báo nhầm 0.42 lần/máy/tháng</code></pre>
+<p>Đây là ngôn ngữ của đội bảo trì: <em>“mọi lần hỏng trong 10 máy test đều được cảnh báo trước, trung vị 6 ngày; trung bình mỗi máy báo nhầm khoảng 0.4 lần/tháng”</em>. Để ý: ngưỡng được chọn để báo nhầm ≤ 0.2 lần/máy/tháng trên 5 máy validation, nhưng trên test thực tế là 0.42. Validation chỉ có 5 máy thì ước lượng còn dao động lớn. Trong thực tế, chạy shadow mode vài tuần (chương 29) để hiệu chỉnh ngưỡng trên dữ liệu thật.</p>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Chia dữ liệu theo đúng cách mô hình sẽ được dùng: theo thời gian (gian lận, dự báo), theo thực thể (máy, cửa hàng, bệnh nhân).</li>
+  <li>Dữ liệu lệch lớp: nhìn PR-AUC và chọn ngưỡng theo chi phí; báo cáo bằng tiền và ràng buộc vận hành.</li>
+  <li>Dự báo: luôn có baseline ngây thơ; đặc trưng trễ phải tôn trọng thời điểm dự báo; gradient boosting rất mạnh, LSTM hợp với nhiều chuỗi.</li>
+  <li>Không có nhãn thì autoencoder/phát hiện bất thường là điểm khởi đầu; có nhãn thì học có giám sát.</li>
+  <li>Mô hình đơn giản thường ngang mô hình phức tạp trên dữ liệu bảng. Hãy chứng minh bằng số liệu trước khi chọn.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Vì sao case gian lận chia train/val/test theo ngày thay vì ngẫu nhiên?</summary><p>Mô hình sẽ được dùng cho giao dịch tương lai, và gian lận thay đổi theo thời gian. Chia ngẫu nhiên cho mô hình “thấy” các ngày tương lai khi huấn luyện, làm kết quả lạc quan giả tạo.</p></details>
+<details class="quiz"><summary>Dự báo trước 7 ngày, có được dùng đặc trưng “doanh số hôm qua” không?</summary><p>Không. Tại thời điểm ra dự báo (7 ngày trước ngày cần dự báo), “hôm qua” của ngày đích vẫn là tương lai. Chỉ dùng độ trễ ≥ 7 ngày.</p></details>
+<details class="quiz"><summary>Nếu chi phí bỏ lọt gian lận tăng từ 3 triệu lên 10 triệu, ngưỡng tối ưu thay đổi thế nào?</summary><p>Ngưỡng giảm: chấp nhận gắn cờ nhiều giao dịch hơn (precision giảm) để bắt được nhiều vụ hơn (recall tăng), vì mỗi vụ bỏ lọt giờ đắt hơn.</p></details>
+</article>
+</body>
+</html>

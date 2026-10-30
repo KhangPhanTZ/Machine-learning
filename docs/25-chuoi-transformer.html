@@ -6,6 +6,7 @@
 <title>25. Văn bản, chuỗi thời gian & Transformer · Sổ tay Machine Learning &amp; Deep Learning</title>
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
 </head>
 <body class="no-js">
 <article>
@@ -13,7 +14,7 @@
   <div class="eyebrow">Chương 25 · Mở rộng</div>
   <h1>Văn bản, chuỗi thời gian &amp; Transformer</h1>
   <p class="lede">Ảnh là dữ liệu dạng lưới; văn bản, giọng nói, doanh số theo ngày là dữ liệu dạng <em>chuỗi</em>, nơi thứ tự mang ý nghĩa. Chương này giải thích, ở mức người mới, cách Deep Learning đọc chuỗi: từ embedding đến Transformer, nền móng của ChatGPT và Claude.</p>
-  <div class="meta"><span>⏱ 30 phút đọc</span><span>📚 Ngoài lab — áp dụng cho NLP &amp; dự báo</span></div>
+  <div class="meta"><span>⏱ 30 phút đọc</span><span>📚 Ngoài lab — áp dụng cho NLP &amp; dự báo</span><span>🎛 có demo</span></div>
 </header>
 
 <h2>1. Biến chữ thành số: token và embedding</h2>
@@ -51,6 +52,51 @@ logits = nn.Linear(128, 3)(h[-1])  # ví dụ: tiêu cực / trung tính / tích
   <tr><td>Decoder (sinh chữ)</td><td>GPT, Claude, Llama</td><td>Trả lời, tóm tắt, viết, lập trình: các mô hình ngôn ngữ lớn (LLM)</td></tr>
   <tr><td>Encoder–decoder</td><td>T5, mô hình dịch máy</td><td>Dịch, tóm tắt</td></tr>
 </table>
+
+<h3>Tự viết self-attention bằng PyTorch</h3>
+<p>Công thức trên chỉ là vài dòng tensor (chương 19). Viết tay một lần để hiểu, sau đó dùng bản có sẵn của PyTorch:</p>
+<pre><code class="language-python">class SelfAttention(nn.Module):
+    """Self-attention một đầu, viết tay để thấy rõ từng bước."""
+    def __init__(self, d):
+        super().__init__()
+        self.q, self.k, self.v = nn.Linear(d, d), nn.Linear(d, d), nn.Linear(d, d)
+    def forward(self, x, pad_mask=None):                   # x: [N, L, d]
+        Q, K, V = self.q(x), self.k(x), self.v(x)
+        scores = Q @ K.transpose(1, 2) / math.sqrt(x.shape[-1])          # [N, L, L]: token i "hợp" token j bao nhiêu
+        if pad_mask is not None:                                          # không chú ý vào token đệm (padding)
+            scores = scores.masked_fill(pad_mask[:, None, :], float("-inf"))
+        weights = torch.softmax(scores, dim=-1)                           # mỗi hàng có tổng = 1
+        return weights @ V, weights                                       # [N, L, d], [N, L, L]</code></pre>
+<p>Thử với lô 2 câu, mỗi câu 5 token, mỗi token 16 chiều: đầu ra <code>[2, 5, 16]</code>, ma trận chú ý <code>[2, 5, 5]</code>, và mỗi hàng của ma trận chú ý có tổng đúng bằng 1. <strong>Mask</strong> đặt điểm của token đệm thành \(-\infty\) để sau softmax trọng số của chúng bằng 0: các câu trong một lô có độ dài khác nhau nên phải đệm cho bằng nhau.</p>
+<div class="demo" data-demo="attention"></div>
+<h3>Multi-head attention và một khối Transformer</h3>
+<ul>
+  <li><strong>Nhiều đầu</strong> (multi-head): chạy song song vài attention nhỏ, mỗi đầu học một kiểu quan hệ (đầu này nối đại từ với danh từ, đầu kia nối động từ với tân ngữ…), rồi ghép lại. PyTorch: <code>nn.MultiheadAttention(embed_dim=64, num_heads=4, batch_first=True)</code>.</li>
+  <li><strong>Một khối encoder</strong> = attention → cộng tắt (residual) → LayerNorm → mạng Dense 2 lớp → cộng tắt → LayerNorm. Đây đúng là các “thuốc chữa” gradient ở chương 27.</li>
+  <li><strong>Vị trí</strong>: attention không quan tâm thứ tự (hoán vị token thì kết quả hoán vị theo), nên phải cộng thêm embedding vị trí vào embedding token.</li>
+</ul>
+<h3>Một bộ phân loại Transformer nhỏ, huấn luyện được</h3>
+<pre><code class="language-python">class TinyTransformerClassifier(nn.Module):
+    def __init__(self, vocab_size, num_classes, d=64, heads=4, layers=2, max_len=128):
+        super().__init__()
+        self.tok = nn.Embedding(vocab_size, d, padding_idx=0)
+        self.pos = nn.Embedding(max_len, d)                               # vị trí cũng là một embedding học được
+        block = nn.TransformerEncoderLayer(d_model=d, nhead=heads, dim_feedforward=4 * d,
+                                           dropout=0.1, batch_first=True, norm_first=True)
+        self.encoder = nn.TransformerEncoder(block, num_layers=layers, enable_nested_tensor=False)
+        self.head = nn.Linear(d, num_classes)
+    def forward(self, ids):                                               # ids: [N, L], 0 = padding
+        pad = ids == 0
+        pos = torch.arange(ids.shape[1], device=ids.device)
+        h = self.encoder(self.tok(ids) + self.pos(pos), src_key_padding_mask=pad)   # [N, L, d]
+        h = h.masked_fill(pad[..., None], 0).sum(1) / (~pad).sum(1, keepdim=True)   # trung bình các token thật
+        return self.head(h)</code></pre>
+<pre><code class="language-python">model = TinyTransformerClassifier(vocab_size=5000, num_classes=5)
+ids = torch.tensor([[12, 87, 431, 9, 0, 0],          # câu 4 token + 2 token đệm
+                    [5, 3021, 77, 18, 64, 2]])
+model(ids).shape                                   # [2, 5] logits → CrossEntropyLoss như chương 22
+sum(p.numel() for p in model.parameters())         # ≈ 428 nghìn tham số (GPT-3: 175 tỷ)</code></pre>
+<p>Huấn luyện bằng vòng lặp 5 bước và hàm <code>fit()</code> của chương 27 như mọi mô hình khác. Với dữ liệu ít, mô hình này thường thua TF-IDF + logistic regression (xem case study chương 30). Sức mạnh của Transformer đến từ việc <em>pretrain</em> trên lượng chữ khổng lồ rồi fine-tune, nên thực tế bạn sẽ tải mô hình pretrained (mục 4) thay vì tự huấn luyện từ đầu.</p>
 
 <h2>4. Trong thực tế: dùng mô hình có sẵn trước</h2>
 <p>Gần như không ai tự huấn luyện Transformer từ đầu cho một dự án doanh nghiệp. Thư viện <strong>Hugging Face Transformers</strong> (chạy trên PyTorch) cho phép dùng hàng nghìn mô hình chỉ với vài dòng:</p>

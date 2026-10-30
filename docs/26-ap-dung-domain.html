@@ -160,6 +160,9 @@ print("Recall trong nhóm gọi điện:", y_te[top].sum() / y_te.sum())</code><
 <div class="box note"><span class="box-title">💡 Nhị phân trong PyTorch</span>
 <p>Phân loại hai lớp có hai cách tương đương: <strong>1 logit + <code>BCEWithLogitsLoss</code></strong> (nhãn float 0/1, shape <code>[N, 1]</code>) như trên, hoặc <strong>2 logits + <code>CrossEntropyLoss</code></strong> (nhãn int 0/1, shape <code>[N]</code>) như chương 22.</p></div>
 
+<div class="box tip"><span class="box-title">➡️ Đi sâu hơn</span>
+<p>Sáu dự án trọn vẹn có code chạy được và số liệu thật nằm ở <a href="30-case-study-anh-van-ban.html">chương 30</a> (nông nghiệp, y tế, chăm sóc khách hàng) và <a href="31-case-study-bang-chuoi.html">chương 31</a> (tài chính, bán lẻ, sản xuất). Kỹ thuật huấn luyện và gỡ lỗi ở <a href="27-huan-luyen-tot-hon.html">chương 27</a>, triển khai và giám sát ở <a href="29-trien-khai-mlops.html">chương 29</a>.</p></div>
+
 <h2>Rủi ro, đạo đức và pháp lý</h2>
 <ul>
   <li><strong>Thiên lệch (bias) dữ liệu</strong>: mô hình học từ quá khứ, nên học cả định kiến của quá khứ. Đo hiệu năng riêng cho từng nhóm (giới tính, vùng miền, độ tuổi).</li>

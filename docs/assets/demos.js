@@ -562,6 +562,88 @@
     render();
   };
 
+  /* ---------- 11. Đọc đường loss (ch. 27) ---------- */
+  demos.curves = function (root) {
+    var SC = {
+      good: ["Huấn luyện tốt", "Cả hai cùng giảm và hội tụ gần nhau. Tiếp tục, hoặc thử mô hình lớn hơn nếu loss còn cao so với mục tiêu.",
+        function (e) { return 0.15 + 1.2 * Math.exp(-e / 7); }, function (e) { return 0.22 + 1.2 * Math.exp(-e / 7); }],
+      over: ["Overfitting", "Validation giảm rồi tăng lại từ khoảng epoch 12 trong khi train tiếp tục giảm. Dừng sớm ở đáy validation; thêm augmentation, weight decay, dropout, dữ liệu.",
+        function (e) { return 0.02 + 1.3 * Math.exp(-e / 6); }, function (e) { return 0.35 + 1.0 * Math.exp(-e / 5) + 0.012 * Math.max(0, e - 10) * Math.max(0, e - 10) / 4; }],
+      under: ["Underfitting", "Cả hai cao và gần nhau, giảm rất chậm. Mô hình quá nhỏ hoặc đặc trưng kém: dùng mô hình lớn hơn/pretrained, thêm đặc trưng, giảm regularization.",
+        function (e) { return 0.85 + 0.5 * Math.exp(-e / 4); }, function (e) { return 0.9 + 0.5 * Math.exp(-e / 4); }],
+      high: ["Learning rate quá lớn", "Loss dao động mạnh, có lúc vọt lên. Giảm learning rate 3–10 lần, kiểm tra chuẩn hoá dữ liệu, thêm gradient clipping.",
+        function (e) { return 0.6 + 0.35 * Math.abs(Math.sin(e * 1.7)) + 0.25 * Math.exp(-e / 10) + (e % 9 === 4 ? 0.8 : 0); }, function (e) { return 0.75 + 0.4 * Math.abs(Math.sin(e * 1.3 + 1)) + (e % 9 === 5 ? 0.9 : 0); }],
+      low: ["Learning rate quá nhỏ", "Loss giảm đều nhưng cực chậm, như một đường gần thẳng. Tăng learning rate 3–10 lần hoặc dùng scheduler có warmup.",
+        function (e) { return 1.35 - 0.012 * e; }, function (e) { return 1.4 - 0.011 * e; }],
+      leak: ["Rò rỉ dữ liệu / validation quá dễ", "Validation thấp hơn train ngay từ đầu và gần như bằng 0. Kiểm tra mẫu trùng giữa train/val, đặc trưng chứa đáp án, cách chia theo thời gian/thực thể.",
+        function (e) { return 0.2 + 1.0 * Math.exp(-e / 6); }, function (e) { return 0.03 + 0.4 * Math.exp(-e / 3); }]
+    };
+    var opts = Object.keys(SC).map(function (k) { return '<option value="' + k + '">' + SC[k][0] + '</option>'; }).join("");
+    root.innerHTML =
+      '<div class="demo-title">Thử nghiệm: nhận dạng bệnh qua đường loss</div>' +
+      '<div class="demo-sub">Chọn một tình huống, xem hình dạng loss train (liền) và validation (đứt), rồi đọc chẩn đoán.</div>' +
+      '<canvas width="700" height="260"></canvas>' +
+      '<div class="controls"><label>tình huống <select class="sc">' + opts + '</select></label></div><div class="reco"></div>';
+    var cv = q(root, "canvas"), W = 700, H = 260, ctx = setupCanvas(cv, W, H);
+    var ax = new Axes(ctx, W, H, [0, 40], [0, 2]);
+    function draw() {
+      var s = SC[q(root, ".sc").value], r = rng(5);
+      var noise = function () { return (r() - 0.5) * 0.04; };
+      ax.frame("epoch", "loss");
+      [[s[2], SERIES[0], []], [s[3], SERIES[1], [7, 5]]].forEach(function (c) {
+        ctx.strokeStyle = c[1]; ctx.lineWidth = 2.5; ctx.setLineDash(c[2]); ctx.beginPath();
+        for (var e = 0; e <= 40; e++) { var y = Math.min(1.98, Math.max(0.01, c[0](e) + noise())); e ? ctx.lineTo(ax.X(e), ax.Y(y)) : ctx.moveTo(ax.X(e), ax.Y(y)); }
+        ctx.stroke(); ctx.setLineDash([]);
+      });
+      ctx.font = "12px " + css("--font-ui"); ctx.textAlign = "left";
+      ctx.fillStyle = SERIES[0]; ctx.fillText("— train", 90, 22); ctx.fillStyle = SERIES[1]; ctx.fillText("- - validation", 150, 22);
+      q(root, ".reco").innerHTML = "<p><strong>" + s[0] + ":</strong> " + s[1] + "</p>";
+    }
+    q(root, ".sc").onchange = draw;
+    document.addEventListener("themechange", draw);
+    draw();
+  };
+
+  /* ---------- 12. Self-attention trực quan (ch. 25) ---------- */
+  demos.attention = function (root) {
+    var toks = ["Cái", "áo", "này", "đẹp", "nhưng", "nó", "giao", "trễ", "ba", "ngày"];
+    // điểm tương thích q·k minh hoạ (không phải từ mô hình thật)
+    var S = {
+      "nó": [0.2, 3.2, 1.2, 0.4, 0.1, 1.0, 1.5, 0.6, 0.1, 0.2],
+      "đẹp": [0.6, 2.8, 1.4, 1.0, 0.3, 0.4, 0.1, 0.1, 0.0, 0.0],
+      "trễ": [0.0, 0.8, 0.1, 0.2, 0.6, 1.2, 2.6, 1.0, 1.4, 2.2],
+      "giao": [0.1, 1.6, 0.2, 0.0, 0.2, 1.8, 1.0, 2.5, 0.6, 0.9]
+    };
+    var opts = Object.keys(S).map(function (k) { return "<option>" + k + "</option>"; }).join("");
+    root.innerHTML =
+      '<div class="demo-title">Thử nghiệm: một token “chú ý” vào đâu?</div>' +
+      '<div class="demo-sub">Chọn token đang xét (query). Điểm tương thích q·k (minh hoạ) qua softmax thành trọng số chú ý có tổng bằng 1. Kéo nhiệt độ để thấy softmax nhọn hay phẳng.</div>' +
+      '<canvas width="700" height="210"></canvas>' +
+      '<div class="controls"><label>query <select class="tk">' + opts + '</select></label>' +
+      '<label>nhiệt độ <input class="tp" type="range" min="0.3" max="3" step="0.1" value="1"><span class="tv readout"></span></label><span class="readout info"></span></div>';
+    var cv = q(root, "canvas"), W = 700, H = 210, ctx = setupCanvas(cv, W, H);
+    function draw() {
+      var t = q(root, ".tk").value, T = +q(root, ".tp").value, s = S[t];
+      var e = s.map(function (v) { return Math.exp(v / T); }), z = e.reduce(function (a, b) { return a + b; }, 0), w = e.map(function (v) { return v / z; });
+      ctx.clearRect(0, 0, W, H); ctx.font = "13px " + css("--font-ui"); ctx.textAlign = "center";
+      var bw = (W - 40) / toks.length, mx = Math.max.apply(null, w);
+      toks.forEach(function (tok, i) {
+        var x = 20 + i * bw, h = 120 * w[i] / mx;
+        ctx.fillStyle = css("--accent"); ctx.globalAlpha = 0.25 + 0.75 * w[i] / mx; ctx.fillRect(x + 6, 150 - h, bw - 12, h); ctx.globalAlpha = 1;
+        ctx.fillStyle = css("--ink-faint"); ctx.fillText((w[i] * 100).toFixed(0) + "%", x + bw / 2, 145 - h);
+        ctx.fillStyle = tok === t ? SERIES[1] : css("--ink"); ctx.font = (tok === t ? "bold " : "") + "14px " + css("--font-ui");
+        ctx.fillText(tok, x + bw / 2, 176); ctx.font = "13px " + css("--font-ui");
+      });
+      ctx.fillStyle = css("--ink-faint"); ctx.textAlign = "left"; ctx.fillText("trọng số chú ý của “" + t + "”", 20, 200);
+      q(root, ".tv").textContent = T.toFixed(1);
+      var top = w.indexOf(mx);
+      q(root, ".info").textContent = "“" + t + "” chú ý nhiều nhất vào “" + toks[top] + "” (" + (mx * 100).toFixed(0) + "%)";
+    }
+    q(root, ".tk").onchange = draw; q(root, ".tp").oninput = draw;
+    document.addEventListener("themechange", draw);
+    draw();
+  };
+
   function boot() {
     document.querySelectorAll("[data-demo]").forEach(function (root) {
       var f = demos[root.getAttribute("data-demo")];

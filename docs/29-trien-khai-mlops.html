@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>29. Triển khai & vận hành mô hình · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 29 · Phần V</div>
+  <h1>Triển khai &amp; vận hành mô hình</h1>
+  <p class="lede">Một mô hình 97% accuracy nằm trong notebook chưa tạo ra giá trị nào. Chương này đi từ notebook đến sản phẩm: đóng gói mô hình cùng tiền xử lý, viết API, chạy dự đoán hàng loạt, tăng tốc, kiểm thử, rồi giám sát và huấn luyện lại khi thế giới thay đổi (MLOps).</p>
+  <div class="meta"><span>⏱ 40 phút đọc</span><span>📚 Nối tiếp chương 22–27</span></div>
+</header>
+
+<h2>Bức tranh tổng thể</h2>
+<p>Trong một hệ thống ML thật, code mô hình thường chỉ là một phần nhỏ. Phần lớn công sức nằm ở thu thập và kiểm tra dữ liệu, đóng gói, phục vụ, giám sát, và vòng phản hồi:</p>
+<div class="diagram"><svg viewBox="0 0 720 200" role="img" aria-label="Vòng đời mô hình: dữ liệu, huấn luyện, đóng gói, triển khai, giám sát, quay lại" style="width:100%;max-width:720px;display:block;margin:0 auto">
+  <defs><marker id="ar29" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+  <g font-size="12.5" text-anchor="middle" fill="currentColor">
+    <rect x="10" y="40" width="105" height="56" rx="10" fill="#457b9d" fill-opacity=".14" stroke="#457b9d"/><text x="62" y="64">Dữ liệu</text><text x="62" y="82" font-size="11" opacity=".75">thu thập, gán nhãn</text>
+    <rect x="130" y="40" width="105" height="56" rx="10" fill="#2a9d8f" fill-opacity=".14" stroke="#2a9d8f"/><text x="182" y="64">Huấn luyện</text><text x="182" y="82" font-size="11" opacity=".75">thí nghiệm, đánh giá</text>
+    <rect x="250" y="40" width="105" height="56" rx="10" fill="#e9c46a" fill-opacity=".2" stroke="#c9a227"/><text x="302" y="64">Đóng gói</text><text x="302" y="82" font-size="11" opacity=".75">model + tiền xử lý</text>
+    <rect x="370" y="40" width="105" height="56" rx="10" fill="#e76f51" fill-opacity=".14" stroke="#e76f51"/><text x="422" y="64">Triển khai</text><text x="422" y="82" font-size="11" opacity=".75">API, batch, thiết bị</text>
+    <rect x="490" y="40" width="105" height="56" rx="10" fill="#6a4c93" fill-opacity=".14" stroke="#6a4c93"/><text x="542" y="64">Giám sát</text><text x="542" y="82" font-size="11" opacity=".75">drift, hiệu năng</text>
+    <rect x="610" y="40" width="100" height="56" rx="10" fill="none" stroke="currentColor" stroke-opacity=".5"/><text x="660" y="64">Phản hồi</text><text x="660" y="82" font-size="11" opacity=".75">nhãn mới, lỗi</text>
+  </g>
+  <g stroke="currentColor" stroke-opacity=".6" fill="none" marker-end="url(#ar29)">
+    <path d="M115 68H128"/><path d="M235 68H248"/><path d="M355 68H368"/><path d="M475 68H488"/><path d="M595 68H608"/>
+    <path d="M660 98 V150 H62 V100"/>
+  </g>
+  <text x="360" y="170" font-size="12" text-anchor="middle" fill="currentColor" opacity=".8">huấn luyện lại định kỳ hoặc khi phát hiện drift</text>
+</svg></div>
+
+<h2>1. Chọn cách triển khai</h2>
+<table>
+  <tr><th>Kiểu</th><th>Khi nào</th><th>Ví dụ</th></tr>
+  <tr><td><strong>Batch</strong> (chấm điểm hàng loạt theo lịch)</td><td>Không cần kết quả tức thì; dữ liệu đến theo ngày/giờ</td><td>Mỗi đêm chấm điểm rủi ro rời bỏ cho toàn bộ khách; dự báo nhu cầu tuần tới</td></tr>
+  <tr><td><strong>Online API</strong> (thời gian thực)</td><td>Cần trả lời trong vài chục đến vài trăm mili giây</td><td>Duyệt giao dịch thẻ, gợi ý sản phẩm khi mở app, phân loại tin nhắn CSKH</td></tr>
+  <tr><td><strong>Trên thiết bị</strong> (edge/mobile)</td><td>Không có mạng, cần riêng tư, cần độ trễ cực thấp</td><td>App nhận diện bệnh lá ngoài ruộng, camera kiểm lỗi trên dây chuyền</td></tr>
+  <tr><td><strong>Streaming</strong></td><td>Dòng sự kiện liên tục</td><td>Cảm biến IoT, log hệ thống, phát hiện bất thường theo thời gian thực</td></tr>
+</table>
+<div class="box tip"><span class="box-title">✅ Mặc định nên bắt đầu bằng batch</span>
+<p>Batch đơn giản nhất: một script chạy theo lịch, đọc bảng, ghi kết quả vào bảng. Không cần lo độ trễ, khả năng chịu tải, hay máy chủ chạy 24/7. Chỉ chuyển sang API khi nghiệp vụ thật sự cần kết quả tức thì.</p></div>
+
+<h2>2. Đóng gói: mô hình + tiền xử lý + cấu hình</h2>
+<p>Lỗi triển khai phổ biến nhất không nằm ở mô hình mà ở chỗ <strong>tiền xử lý lúc chạy thật khác lúc huấn luyện</strong> (khác mean/std, khác thứ tự lớp, khác kích thước ảnh). Hãy lưu tất cả cùng nhau:</p>
+<pre><code class="language-python">import json, torch
+bundle = {
+    "state_dict": model.state_dict(),
+    "config": {"arch": "resnet18", "num_classes": 30, "img_size": 224},
+    "class_names": dataset.class_names,                     # thứ tự nhãn!
+    "normalize": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+    "metrics": {"val_acc": 0.93, "trained_on": "2026-10-01", "data_version": "plants-v3"},
+}
+torch.save(bundle, "plant_model_v3.pt")</code></pre>
+<p>Rồi viết một lớp <code>Predictor</code> duy nhất mà mọi nơi (API, batch, notebook đánh giá) đều dùng. Không ai phải viết lại tiền xử lý:</p>
+<pre><code class="language-python">import torch, torch.nn as nn, torchvision.models as models, torchvision.transforms as T
+from PIL import Image
+
+class Predictor:
+    def __init__(self, path, device="cpu"):
+        b = torch.load(path, map_location=device, weights_only=False)
+        self.class_names = b["class_names"]
+        cfg = b["config"]
+        self.model = models.resnet18(weights=None)
+        self.model.fc = nn.Linear(self.model.fc.in_features, cfg["num_classes"])
+        self.model.load_state_dict(b["state_dict"])
+        self.model.to(device).eval()
+        self.device = device
+        self.tf = T.Compose([T.Resize((cfg["img_size"], cfg["img_size"])), T.ToTensor(),
+                             T.Normalize(b["normalize"]["mean"], b["normalize"]["std"])])
+
+    @torch.no_grad()
+    def predict(self, images, top_k=3):
+        x = torch.stack([self.tf(img.convert("RGB")) for img in images]).to(self.device)
+        probs = torch.softmax(self.model(x), dim=1)
+        p, idx = probs.topk(top_k, dim=1)
+        return [[{"label": self.class_names[i], "prob": round(float(q), 4)} for q, i in zip(pr, ix)]
+                for pr, ix in zip(p, idx)]
+
+predictor = Predictor("plant_model_v3.pt")
+predictor.predict([Image.open("la_lua.jpg")])
+# [[{'label': 'paddy', 'prob': 0.91}, {'label': 'corn', 'prob': 0.04}, ...]]</code></pre>
+<div class="box warn"><span class="box-title">⚠️ Bảo mật khi tải mô hình</span>
+<p><code>torch.load</code> dùng pickle, nên có thể chạy code tuỳ ý nếu file bị sửa. Chỉ tải file mô hình từ nguồn bạn tin cậy. Với file chỉ chứa tensor, dùng <code>weights_only=True</code> (mặc định từ PyTorch 2.6) hoặc định dạng <code>safetensors</code>.</p></div>
+
+<h2>3. Xuất mô hình và tăng tốc</h2>
+<table>
+  <tr><th>Cách</th><th>Để làm gì</th><th>Code</th></tr>
+  <tr><td>TorchScript</td><td>Chạy không cần code Python định nghĩa lớp; dùng được từ C++</td><td><code>torch.jit.trace(model, example).save("m.pt")</code></td></tr>
+  <tr><td>ONNX</td><td>Chạy trên ONNX Runtime, TensorRT, OpenVINO, trình duyệt, mobile; thường nhanh hơn trên CPU</td><td><code>torch.onnx.export(model, example, "m.onnx", dynamic_axes={"x": {0: "batch"}}, input_names=["x"])</code></td></tr>
+  <tr><td>Lượng tử hoá (quantization)</td><td>Đổi trọng số float32 → int8: mô hình nhỏ khoảng 4 lần, nhanh hơn trên CPU, giảm chút độ chính xác</td><td><code>torch.ao.quantization.quantize_dynamic(model, {nn.Linear}, dtype=torch.qint8)</code></td></tr>
+  <tr><td>Chưng cất (distillation)</td><td>Huấn luyện mô hình nhỏ bắt chước xác suất của mô hình lớn</td><td>loss = CE(nhãn) + KL(softmax nhỏ ‖ softmax lớn)</td></tr>
+</table>
+<p>Sau mỗi bước tối ưu, <strong>đo lại độ chính xác trên tập test</strong> và đo độ trễ thật, ví dụ:</p>
+<pre><code class="language-python">import time
+x = torch.randn(1, 3, 224, 224)
+with torch.no_grad():
+    for _ in range(5): model(x)                      # khởi động
+    t0 = time.perf_counter()
+    for _ in range(50): model(x)
+print(f"{(time.perf_counter() - t0) / 50 * 1000:.1f} ms/ảnh")</code></pre>
+
+<h2>4. Phục vụ qua API với FastAPI</h2>
+<pre><code class="language-python"># app.py   —   chạy: uvicorn app:app --host 0.0.0.0 --port 8000
+import io
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from PIL import Image
+from predictor import Predictor
+
+app = FastAPI(title="Plant classifier")
+predictor = Predictor("plant_model_v3.pt")          # tải MỘT lần khi khởi động, không tải mỗi request
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "model": "plant_model_v3"}
+
+@app.post("/predict")
+async def predict(file: UploadFile = File(...)):
+    try:
+        img = Image.open(io.BytesIO(await file.read()))
+    except Exception:
+        raise HTTPException(status_code=400, detail="File không phải ảnh hợp lệ")
+    top = predictor.predict([img])[0]
+    return {"top": top, "needs_review": top[0]["prob"] &lt; 0.6}   # ngưỡng chuyển cho chuyên gia</code></pre>
+<pre><code class="language-bash">curl -F "file=@la_lua.jpg" http://localhost:8000/predict</code></pre>
+<pre><code class="language-dockerfile"># Dockerfile — đóng gói để chạy giống nhau ở mọi máy chủ
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py predictor.py plant_model_v3.pt ./
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]</code></pre>
+
+<h2>5. Chấm điểm hàng loạt</h2>
+<pre><code class="language-python"># score_churn.py — chạy mỗi đêm bằng cron / Airflow
+import pandas as pd, joblib, datetime as dt
+model = joblib.load("churn_xgb_v5.joblib")              # mô hình bảng (chương 26, 31)
+df = pd.read_parquet("features/subscribers_today.parquet")
+df["churn_score"] = model.predict_proba(df[model.feature_names_in_])[:, 1]
+df["scored_at"] = dt.datetime.now()
+df["model_version"] = "churn_xgb_v5"
+(df.sort_values("churn_score", ascending=False)
+   .head(2000)[["subscriber_id", "churn_score", "scored_at", "model_version"]]
+   .to_csv(f"out/call_list_{dt.date.today()}.csv", index=False))</code></pre>
+<p>Luôn ghi kèm <strong>phiên bản mô hình</strong> và <strong>thời điểm chấm</strong> vào mỗi dòng kết quả, để khi có sự cố biết ngay kết quả nào từ mô hình nào.</p>
+
+<h2>6. Kiểm thử mô hình</h2>
+<p>Ngoài unit test thông thường cho code, mô hình ML cần thêm vài loại kiểm thử:</p>
+<ul>
+  <li><strong>Kiểm thử tiền xử lý</strong>: cùng một đầu vào cho ra đúng tensor như lúc huấn luyện (so với một mẫu đã lưu).</li>
+  <li><strong>Kiểm thử bất biến</strong> (invariance): thay đổi không liên quan thì dự đoán không được đổi. Ví dụ đổi tên khách trong tin nhắn CSKH không được đổi chủ đề; xoay ảnh lá 10° không được đổi bệnh.</li>
+  <li><strong>Kiểm thử định hướng</strong> (directional): tăng quãng đường thì thời gian giao hàng dự đoán phải tăng (chương 20–21).</li>
+  <li><strong>Ngưỡng tối thiểu</strong>: mô hình mới phải không kém mô hình đang chạy trên tập test cố định, và không kém trên từng nhóm quan trọng.</li>
+</ul>
+<pre><code class="language-python">def test_eta_increases_with_distance():
+    near = eta_model.predict(distance=2.0, hour=14, weekend=0)
+    far = eta_model.predict(distance=12.0, hour=14, weekend=0)
+    assert far > near
+
+def test_new_model_not_worse():
+    assert evaluate(new_model, fixed_test_loader) >= evaluate(prod_model, fixed_test_loader) - 0.005</code></pre>
+
+<h2>7. Triển khai an toàn</h2>
+<ul>
+  <li><strong>Shadow mode</strong>: mô hình mới chạy song song, nhận dữ liệu thật nhưng kết quả không được dùng; so với mô hình cũ/quy trình cũ.</li>
+  <li><strong>Canary</strong>: chuyển dần 5% → 25% → 100% lưu lượng sang mô hình mới, theo dõi chỉ số ở mỗi bước.</li>
+  <li><strong>A/B test</strong>: chia ngẫu nhiên người dùng, đo chỉ số kinh doanh (doanh thu, tỉ lệ giữ chân), không chỉ đo accuracy.</li>
+  <li>Luôn giữ khả năng <strong>quay lui</strong> (rollback) về phiên bản trước chỉ bằng một thay đổi cấu hình.</li>
+</ul>
+
+<h2>8. Giám sát: drift và hiệu năng</h2>
+<p>Mô hình không hỏng như phần mềm, nó <em>mục dần</em> khi dữ liệu thay đổi: khách hàng có thói quen mới, nhà máy đổi camera, xuất hiện kiểu gian lận mới, dịch bệnh làm đảo lộn nhu cầu. Theo dõi ba tầng:</p>
+<table>
+  <tr><th>Tầng</th><th>Theo dõi gì</th><th>Khi nào biết</th></tr>
+  <tr><td>Dữ liệu vào (data drift)</td><td>Phân phối từng đặc trưng; tỉ lệ thiếu; giá trị mới lạ; độ sáng/kích thước ảnh</td><td>Ngay lập tức</td></tr>
+  <tr><td>Dự đoán (prediction drift)</td><td>Phân phối xác suất; tỉ lệ mỗi lớp; tỉ lệ ca “không chắc chắn” chuyển người duyệt</td><td>Ngay lập tức</td></tr>
+  <tr><td>Hiệu năng thật</td><td>Accuracy/recall/MAE khi nhãn thật về</td><td>Trễ: vài ngày (giao hàng) đến vài tháng (vỡ nợ)</td></tr>
+</table>
+<p>Một chỉ số drift đơn giản, phổ biến trong ngân hàng là <strong>PSI</strong> (Population Stability Index): chia đặc trưng thành các khoảng theo dữ liệu huấn luyện, so tỉ lệ \(e_i\) (lúc huấn luyện) và \(a_i\) (hiện tại):</p>
+<div class="math-box">$$ \text{PSI} = \sum_i (a_i - e_i)\,\ln\frac{a_i}{e_i} \qquad \text{&lt; 0.1: ổn} \;\cdot\; \text{0.1–0.25: theo dõi} \;\cdot\; \text{&gt; 0.25: drift lớn} $$</div>
+<pre><code class="language-python">import numpy as np
+def psi(expected, actual, bins=10, eps=1e-6):
+    edges = np.quantile(expected, np.linspace(0, 1, bins + 1))
+    edges[0], edges[-1] = -np.inf, np.inf
+    e = np.histogram(expected, edges)[0] / len(expected) + eps
+    a = np.histogram(actual, edges)[0] / len(actual) + eps
+    return float(np.sum((a - e) * np.log(a / e)))
+
+psi(train_df["monthly_charge"], this_week_df["monthly_charge"])   # ví dụ: 0.31 → drift lớn, cần xem lại</code></pre>
+
+<h2>9. Huấn luyện lại và quản lý phiên bản</h2>
+<ul>
+  <li><strong>Khi nào huấn luyện lại</strong>: theo lịch (mỗi tuần/tháng), khi drift vượt ngưỡng, hoặc khi hiệu năng thật giảm. Mô hình mới vẫn phải qua kiểm thử và shadow/canary.</li>
+  <li><strong>Quản lý phiên bản ba thứ</strong>: code (git), dữ liệu (DVC, bảng có ngày chụp, hoặc lưu đường dẫn snapshot), mô hình (model registry: MLflow, hoặc thư mục <code>models/v{n}</code> có file metadata).</li>
+  <li><strong>Ghi lại thí nghiệm</strong>: siêu tham số, phiên bản dữ liệu, kết quả, để biết mô hình trong sản phẩm được tạo ra thế nào.</li>
+</ul>
+<pre><code class="language-python">import mlflow
+with mlflow.start_run(run_name="resnet18-plants-v3"):
+    mlflow.log_params({"lr": 1e-3, "epochs": 20, "img_size": 224, "data_version": "plants-v3"})
+    history = fit(model, train_loader, val_loader, loss_fn, optimizer, device)   # chương 27
+    mlflow.log_metric("best_val_loss", min(history["val_loss"]))
+    mlflow.pytorch.log_model(model, "model")</code></pre>
+<div class="box note"><span class="box-title">💡 Vòng phản hồi là “mỏ vàng”</span>
+<p>Mỗi ca chuyên gia sửa dự đoán (bác sĩ đọc lại phim, nhân viên CSKH đổi chủ đề, kỹ sư nông nghiệp xác nhận bệnh) là một nhãn mới, đúng loại dữ liệu mô hình đang làm kém. Thiết kế giao diện để thu lại những nhãn này ngay từ đầu.</p></div>
+
+<div class="box real"><span class="box-title">🌾 Ví dụ thực tiễn: đưa mô hình bệnh lá lúa đến tay nông dân</span>
+<ol>
+  <li><strong>Đóng gói</strong>: ResNet18 transfer learning (chương 24) + tiền xử lý + tên lớp tiếng Việt trong một bundle; xuất ONNX và lượng tử hoá int8 (khoảng 11 MB) để chạy trên điện thoại tầm trung.</li>
+  <li><strong>Hai đường chạy</strong>: có mạng thì gọi API trên máy chủ (mô hình lớn hơn, chính xác hơn); mất mạng ngoài ruộng thì chạy mô hình nhỏ trong app.</li>
+  <li><strong>Ngưỡng</strong>: xác suất &lt; 0.6 thì hiện “Chưa chắc chắn, vui lòng chụp lại gần hơn” và gửi ảnh cho kỹ sư khuyến nông duyệt.</li>
+  <li><strong>Giám sát</strong>: tỉ lệ ca “chưa chắc chắn” theo tỉnh và theo tuần; độ sáng trung bình ảnh (mùa mưa ảnh tối hơn); phân phối bệnh dự đoán so với báo cáo dịch bệnh của địa phương.</li>
+  <li><strong>Huấn luyện lại mỗi vụ</strong> bằng ảnh đã được kỹ sư xác nhận, đánh giá riêng trên ảnh vụ mới trước khi phát hành.</li>
+</ol></div>
+
+<div class="box tip"><span class="box-title">✅ Checklist trước khi lên sản phẩm</span>
+<ol>
+  <li>Bundle gồm trọng số + tiền xử lý + tên lớp + phiên bản + metric.</li>
+  <li>Một lớp <code>Predictor</code> duy nhất, có test so với kết quả notebook.</li>
+  <li>Đo độ trễ và bộ nhớ trên phần cứng thật.</li>
+  <li>Có kiểm thử bất biến/định hướng và ngưỡng “không kém hơn mô hình cũ”.</li>
+  <li>Có ngưỡng chuyển cho con người và giao diện thu phản hồi.</li>
+  <li>Log đầu vào (đã ẩn danh), dự đoán, phiên bản mô hình.</li>
+  <li>Dashboard drift (PSI, phân phối dự đoán) và cảnh báo.</li>
+  <li>Kế hoạch huấn luyện lại và rollback.</li>
+</ol></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Bắt đầu bằng batch; dùng API khi cần thời gian thực; edge khi cần offline/riêng tư.</li>
+  <li>Đóng gói mô hình cùng tiền xử lý và tên lớp; một <code>Predictor</code> dùng chung mọi nơi.</li>
+  <li>TorchScript/ONNX để chạy ngoài Python; lượng tử hoá để nhỏ và nhanh; luôn đo lại độ chính xác.</li>
+  <li>Triển khai an toàn: shadow → canary → A/B, luôn rollback được.</li>
+  <li>Giám sát data drift, prediction drift, hiệu năng thật; huấn luyện lại có kiểm soát.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>API của bạn tải mô hình bên trong hàm <code>predict</code>. Vấn đề gì?</summary><p>Mỗi request lại đọc file và khởi tạo mô hình: chậm hàng trăm ms đến vài giây và tốn bộ nhớ. Tải một lần khi ứng dụng khởi động.</p></details>
+<details class="quiz"><summary>Mô hình chấm điểm tín dụng có PSI của “thu nhập” bằng 0.4 sau một năm. Nên làm gì?</summary><p>Drift lớn: kiểm tra nguyên nhân (đổi cách thu thập? lạm phát? tệp khách mới?), đánh giá lại hiệu năng trên dữ liệu gần đây có nhãn, và có thể huấn luyện lại (hoặc chuẩn hoá lại đặc trưng theo thời gian).</p></details>
+<details class="quiz"><summary>Vì sao A/B test vẫn cần dù mô hình mới có AUC offline cao hơn?</summary><p>Chỉ số offline không đảm bảo tác động kinh doanh: hành vi người dùng thay đổi khi thấy gợi ý mới, có hiệu ứng phụ, và tập test có thể không đại diện. A/B test đo trực tiếp kết quả thật.</p></details>
+</article>
+</body>
+</html>

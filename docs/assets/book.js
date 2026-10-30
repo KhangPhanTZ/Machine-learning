@@ -43,6 +43,13 @@
       { file: "25-chuoi-transformer.html", n: "25", t: "Văn bản, chuỗi thời gian & Transformer" },
       { file: "26-ap-dung-domain.html", n: "26", t: "Áp dụng ML & DL vào từng lĩnh vực" }
     ]},
+    { title: "Phần V · Deep Learning thực chiến", chapters: [
+      { file: "27-huan-luyen-tot-hon.html", n: "27", t: "Huấn luyện tốt hơn & gỡ lỗi mô hình" },
+      { file: "28-autoencoder-mo-hinh-sinh.html", n: "28", t: "Autoencoder & mô hình sinh" },
+      { file: "29-trien-khai-mlops.html", n: "29", t: "Triển khai & vận hành mô hình" },
+      { file: "30-case-study-anh-van-ban.html", n: "30", t: "Case study: ảnh & văn bản" },
+      { file: "31-case-study-bang-chuoi.html", n: "31", t: "Case study: dữ liệu bảng & chuỗi thời gian" }
+    ]},
     { title: "Phụ lục", chapters: [
       { file: "A-cong-thuc.html", n: "A", t: "Bảng công thức tóm tắt" },
       { file: "B-thuat-ngu.html", n: "B", t: "Thuật ngữ Anh – Việt" },

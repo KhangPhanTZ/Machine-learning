@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>27. Huấn luyện tốt hơn & gỡ lỗi mô hình · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 27 · Mở đầu Phần V</div>
+  <h1>Huấn luyện tốt hơn &amp; gỡ lỗi mô hình</h1>
+  <p class="lede">Viết được vòng lặp huấn luyện mới là bước đầu. Mô hình thật thường không chịu học, học rồi lại quên, hoặc học thuộc lòng. Chương này là “hộp đồ nghề” của người làm Deep Learning: quy trình huấn luyện an toàn, cách đọc đường loss, chọn learning rate, chống overfitting, xử lý dữ liệu lệch lớp, tăng tốc, và một hàm <code>fit()</code> hoàn chỉnh dùng lại cho mọi dự án.</p>
+  <div class="meta"><span>⏱ 45 phút đọc</span><span>📚 Nối tiếp chương 7, 10, 11, 20–24</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Quy trình huấn luyện an toàn: 6 bước</h2>
+<p>Người mới hay viết một mô hình lớn, chạy 50 epoch, rồi thấy kết quả tệ mà không biết lỗi nằm ở đâu: dữ liệu? code? learning rate? kiến trúc? Cách làm của người có kinh nghiệm là <strong>tăng độ phức tạp từng chút một</strong>, và mỗi bước đều có cách kiểm tra.</p>
+<ol class="steps">
+  <li><strong>Nhìn dữ liệu.</strong> Xem tận mắt vài chục mẫu mỗi lớp, kiểm tra phân phối nhãn, giá trị thiếu, đơn vị đo. Với ảnh, vẽ lại ảnh <em>sau</em> transform (chương 23) để chắc không có lỗi chuẩn hoá hay lật nhầm.</li>
+  <li><strong>Dựng pipeline đầu–cuối với mô hình ngớ ngẩn.</strong> Ví dụ mô hình luôn đoán lớp phổ biến nhất, hoặc một lớp <code>nn.Linear</code>. Mục tiêu là cho vòng lặp, đánh giá, lưu checkpoint đều chạy. Ghi lại con số này làm baseline.</li>
+  <li><strong>Overfit một lô (overfit one batch).</strong> Lấy đúng 1 lô (vd. 16 mẫu), huấn luyện vài trăm bước. Loss phải xuống gần 0. Nếu không xuống được thì chắc chắn có lỗi trong code, không cần nghi ngờ gì khác (xem bảng lỗi bên dưới).</li>
+  <li><strong>Tăng dung lượng cho tới khi overfit cả tập train.</strong> Dùng mô hình đủ lớn (hoặc pretrained, chương 24) để loss train thấp. Lúc này bias thấp, có thể variance cao.</li>
+  <li><strong>Regularize.</strong> Thêm dữ liệu, augmentation, weight decay, dropout, dừng sớm, để kéo loss validation xuống gần loss train (chương 7, 11).</li>
+  <li><strong>Tinh chỉnh.</strong> Learning rate, lịch learning rate, batch size, kiến trúc; chỉ đổi một thứ mỗi lần và so trên cùng tập validation.</li>
+</ol>
+<pre><code class="language-python"># Bước 3: overfit một lô — kiểm tra nhanh nhất cho toàn bộ code
+xb, yb = next(iter(train_loader))
+xb, yb = xb[:16].to(device), yb[:16].to(device)
+model.train()
+for step in range(300):
+    optimizer.zero_grad()
+    loss = loss_function(model(xb), yb)
+    loss.backward()
+    optimizer.step()
+    if step % 50 == 0:
+        print(step, round(loss.item(), 4))   # phải giảm dần về ~0</code></pre>
+
+<h2>Đọc đường loss: chẩn đoán bằng mắt</h2>
+<p>Luôn vẽ <strong>loss train và loss validation trên cùng một biểu đồ</strong> theo epoch. Phần lớn vấn đề hiện ra ngay ở hình dạng đường cong.</p>
+<table>
+  <tr><th>Bạn thấy</th><th>Nhiều khả năng là</th><th>Thử</th></tr>
+  <tr><td>Loss không đổi ngay từ đầu</td><td>Learning rate quá nhỏ; quên <code>optimizer.step()</code>; gradient bị chặn (<code>requires_grad=False</code>, <code>torch.no_grad()</code> sai chỗ)</td><td>Overfit một lô; in <code>param.grad</code> xem có <code>None</code> không</td></tr>
+  <tr><td>Loss nhảy lung tung, có lúc tăng vọt hoặc <code>nan</code></td><td>Learning rate quá lớn; dữ liệu chưa chuẩn hoá; có giá trị <code>inf</code>/<code>nan</code> trong dữ liệu; chia cho 0 / <code>log(0)</code></td><td>Giảm LR 10 lần; kiểm tra <code>torch.isnan(x).any()</code>; gradient clipping</td></tr>
+  <tr><td>Train giảm, validation giảm theo rồi <strong>tăng lại</strong></td><td>Overfitting (variance cao)</td><td>Dừng sớm, augmentation, weight decay, dropout, thêm dữ liệu</td></tr>
+  <tr><td>Train và validation đều cao, gần nhau</td><td>Underfitting (bias cao)</td><td>Mô hình lớn hơn / pretrained, huấn luyện lâu hơn, thêm đặc trưng, giảm regularization</td></tr>
+  <tr><td>Validation <em>tốt hơn</em> train</td><td>Dropout/augmentation chỉ bật khi train (bình thường); hoặc validation dễ hơn / bị rò rỉ dữ liệu</td><td>Kiểm tra cách chia dữ liệu (chương 23)</td></tr>
+  <tr><td>Loss giảm nhưng accuracy không tăng</td><td>Dữ liệu lệch lớp: mô hình đoán toàn lớp phổ biến</td><td>Xem confusion matrix, dùng F1/recall, trọng số lớp (mục bên dưới)</td></tr>
+</table>
+<div class="demo" data-demo="curves"></div>
+
+<h2>Learning rate: siêu tham số quan trọng nhất</h2>
+<p>Nếu chỉ được chỉnh một thứ, hãy chỉnh learning rate. Quy tắc thực hành:</p>
+<ul>
+  <li>Thử theo cấp số nhân: <code>1e-1, 3e-2, 1e-2, 3e-3, 1e-3, 3e-4, 1e-4</code>, mỗi giá trị chạy vài epoch, chọn giá trị cho loss validation giảm nhanh và ổn định nhất.</li>
+  <li>Điểm khởi đầu hay dùng: Adam/AdamW <code>1e-3</code> khi huấn luyện từ đầu; <code>1e-4</code> đến <code>3e-5</code> khi fine-tune mô hình pretrained (chương 24, 25).</li>
+  <li><strong>Khi đổi batch size</strong>, learning rate tốt cũng đổi: batch lớn gấp đôi thường chịu được LR lớn hơn.</li>
+</ul>
+<h3>Lịch learning rate (scheduler)</h3>
+<p>Ý tưởng giống xuống dốc: bước dài lúc đầu để đi nhanh, bước ngắn lúc cuối để dừng đúng đáy. PyTorch có sẵn nhiều lịch:</p>
+<pre><code class="language-python">from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR, OneCycleLR, ReduceLROnPlateau
+
+sched = StepLR(optimizer, step_size=10, gamma=0.1)        # mỗi 10 epoch: LR × 0.1
+sched = CosineAnnealingLR(optimizer, T_max=num_epochs)    # giảm mượt theo nửa chu kỳ cos
+sched = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)  # giảm khi val loss chững
+sched = OneCycleLR(optimizer, max_lr=1e-2, total_steps=num_epochs * len(train_loader))
+#        ↑ tăng dần (warmup) rồi giảm — gọi sched.step() SAU MỖI LÔ, không phải mỗi epoch
+
+# với StepLR / Cosine: gọi một lần cuối mỗi epoch
+for epoch in range(num_epochs):
+    train_epoch(...)
+    sched.step()                       # ReduceLROnPlateau thì: sched.step(val_loss)</code></pre>
+<div class="box note"><span class="box-title">💡 Warmup là gì?</span>
+<p>Lúc mới khởi tạo, gradient còn “lộn xộn”; bước lớn ngay từ đầu có thể đẩy mô hình đi lạc (đặc biệt với Transformer). <strong>Warmup</strong> tăng LR từ rất nhỏ lên giá trị mục tiêu trong vài trăm đến vài nghìn bước đầu, rồi mới giảm dần. <code>OneCycleLR</code> đã có sẵn warmup.</p></div>
+
+<h2>Gradient biến mất, bùng nổ, và ba “thuốc chữa”</h2>
+<p>Backprop nhân nhiều đạo hàm liên tiếp (quy tắc chuỗi, chương 10). Nhân nhiều số nhỏ hơn 1 thì gradient ở các lớp đầu <strong>biến mất</strong> (vanishing); nhân nhiều số lớn hơn 1 thì <strong>bùng nổ</strong> (exploding). Mạng càng sâu càng dễ gặp. Ba cách chữa đã thành tiêu chuẩn:</p>
+<table>
+  <tr><th>Kỹ thuật</th><th>Ý tưởng</th><th>PyTorch</th></tr>
+  <tr><td>Khởi tạo đúng cách</td><td>Chọn độ lớn trọng số ban đầu sao cho tín hiệu không to lên hay nhỏ đi qua mỗi lớp. Với ReLU dùng khởi tạo He/Kaiming. Không khởi tạo tất cả bằng 0: mọi nơ-ron sẽ giống hệt nhau mãi mãi (đối xứng).</td><td><code>nn.init.kaiming_normal_(layer.weight)</code> (PyTorch đã khởi tạo hợp lý mặc định)</td></tr>
+  <tr><td>Chuẩn hoá giữa các lớp</td><td>BatchNorm (CNN), LayerNorm (Transformer) giữ đầu ra mỗi lớp quanh trung bình 0, phương sai 1</td><td><code>nn.BatchNorm2d</code>, <code>nn.LayerNorm</code></td></tr>
+  <tr><td>Kết nối tắt (residual)</td><td>Đầu ra = \(x + F(x)\): gradient có “đường cao tốc” đi thẳng về các lớp đầu. Đây là chữ “Res” trong ResNet, và có trong mọi Transformer.</td><td><code>return x + self.block(x)</code></td></tr>
+  <tr><td>Cắt gradient (clipping)</td><td>Nếu chuẩn của gradient vượt ngưỡng thì co lại; chống bùng nổ, hay dùng với RNN/Transformer</td><td><code>torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)</code> giữa <code>backward()</code> và <code>step()</code></td></tr>
+</table>
+<pre><code class="language-python">class ResidualBlock(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.block = nn.Sequential(nn.LayerNorm(dim), nn.Linear(dim, dim), nn.ReLU(), nn.Linear(dim, dim))
+    def forward(self, x):
+        return x + self.block(x)       # chồng 20 khối vẫn học được</code></pre>
+
+<h2>Chống overfitting: hộp công cụ đầy đủ</h2>
+<p>Xếp theo thứ tự “đáng thử trước”:</p>
+<ol>
+  <li><strong>Thêm dữ liệu thật</strong> (gán nhãn thêm). Luôn hiệu quả nhất nếu làm được.</li>
+  <li><strong>Data augmentation</strong> hợp lý với lĩnh vực (chương 23). Với văn bản: thay từ đồng nghĩa, dịch ngược; với chuỗi thời gian: thêm nhiễu nhỏ, co giãn.</li>
+  <li><strong>Transfer learning</strong>: bắt đầu từ mô hình pretrained thay vì từ đầu (chương 24).</li>
+  <li><strong>Weight decay</strong>: chính là L2 regularization của chương 7 (\(\frac{\lambda}{2m}\sum w^2\)). Dùng <code>AdamW</code> thay vì <code>Adam</code> + L2, vì AdamW tách riêng weight decay khỏi bước thích nghi nên hoạt động đúng như kỳ vọng.</li>
+  <li><strong>Dropout</strong> 0.1–0.5 trước các lớp Linear lớn.</li>
+  <li><strong>Dừng sớm</strong> (early stopping) theo loss/metric validation, giữ checkpoint tốt nhất (chương 24).</li>
+  <li><strong>Mô hình nhỏ hơn</strong>: chỉ khi các cách trên chưa đủ. Andrew Ng nhấn mạnh: mạng lớn + regularization tốt thường không kém mạng nhỏ (chương 11).</li>
+</ol>
+<pre><code class="language-python">optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)</code></pre>
+
+<h2>Dữ liệu lệch lớp (class imbalance)</h2>
+<p>Gian lận chỉ chiếm 0.2% giao dịch, máy hỏng 1% số ngày, ảnh lỗi 2% sản phẩm. Mô hình “luôn đoán bình thường” đạt 98–99.8% accuracy nhưng vô dụng. Cách xử lý, từ đơn giản đến phức tạp:</p>
+<ol>
+  <li><strong>Đổi thước đo</strong>: precision, recall, F1, PR-AUC; xem confusion matrix (chương 11). Không dùng accuracy.</li>
+  <li><strong>Trọng số lớp trong loss</strong>: phạt lỗi trên lớp hiếm nặng hơn.
+<pre><code class="language-python">counts = torch.bincount(train_labels, minlength=num_classes).float()
+weights = counts.sum() / (num_classes * counts)          # lớp hiếm → trọng số lớn
+loss_function = nn.CrossEntropyLoss(weight=weights.to(device))
+
+# nhị phân: pos_weight = số mẫu âm / số mẫu dương
+loss_function = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([n_neg / n_pos]))</code></pre></li>
+  <li><strong>Lấy mẫu cân bằng</strong>: mỗi lô có tỉ lệ lớp cân bằng hơn.
+<pre><code class="language-python">from torch.utils.data import WeightedRandomSampler
+sample_w = weights[train_labels]                          # trọng số của từng mẫu
+sampler = WeightedRandomSampler(sample_w, num_samples=len(sample_w), replacement=True)
+train_loader = DataLoader(train_ds, batch_size=64, sampler=sampler)   # không dùng shuffle khi có sampler</code></pre></li>
+  <li><strong>Chọn ngưỡng</strong> trên tập validation thay vì mặc định 0.5, theo chi phí của false positive và false negative (giống chọn \(\varepsilon\) ở chương 14).</li>
+</ol>
+<div class="box warn"><span class="box-title">⚠️ Cân bằng chỉ tập train</span>
+<p>Không oversample hay cân bằng lại tập validation/test. Chúng phải giữ đúng tỉ lệ ngoài đời để con số đánh giá có ý nghĩa.</p></div>
+
+<h2>Tìm siêu tham số một cách có hệ thống</h2>
+<ul>
+  <li><strong>Thứ tự ưu tiên</strong> (kinh nghiệm phổ biến): learning rate → lịch LR/số epoch → batch size → weight decay/dropout → kích thước mô hình.</li>
+  <li><strong>Random search thắng grid search</strong>: với cùng số lần chạy, thử ngẫu nhiên khám phá nhiều giá trị khác nhau của tham số quan trọng hơn. Lấy mẫu LR theo thang log: <code>lr = 10 ** random.uniform(-4, -2)</code>.</li>
+  <li>Bắt đầu với ít dữ liệu và ít epoch để loại nhanh cấu hình tệ, rồi chạy dài cho vài cấu hình tốt nhất.</li>
+  <li>Ghi lại mọi lần chạy (cấu hình, seed, kết quả). Công cụ: một file CSV là đủ khi mới học; MLflow, Weights &amp; Biases, Optuna khi làm dự án (chương 29).</li>
+</ul>
+
+<h2>Tái lập kết quả &amp; tăng tốc</h2>
+<pre><code class="language-python">import random, numpy as np
+def set_seed(seed=42):
+    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+# Mixed precision trên GPU NVIDIA: nhanh hơn, tốn ít bộ nhớ hơn
+scaler = torch.amp.GradScaler("cuda")
+for xb, yb in train_loader:
+    xb, yb = xb.to(device), yb.to(device)
+    optimizer.zero_grad()
+    with torch.autocast(device_type="cuda", dtype=torch.float16):
+        loss = loss_function(model(xb), yb)
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()</code></pre>
+<p>Các cách tăng tốc khác: <code>DataLoader(num_workers=4, pin_memory=True)</code>; batch size lớn nhất vừa bộ nhớ GPU; dùng ảnh nhỏ hơn khi thử nghiệm; <code>torch.compile(model)</code> (PyTorch 2.x) để biên dịch mô hình.</p>
+<div class="box warn"><span class="box-title">⚠️ Hết bộ nhớ GPU (CUDA out of memory)</span>
+<p>Giảm batch size; dùng mixed precision; giảm kích thước ảnh; đặt việc đánh giá trong <code>torch.no_grad()</code>; khi cộng dồn loss để in, dùng <code>loss.item()</code> chứ không cộng thẳng tensor <code>loss</code> (cộng tensor giữ lại cả đồ thị tính toán của mọi lô).</p></div>
+
+<h2>Hàm fit() hoàn chỉnh để dùng lại</h2>
+<p>Gộp mọi thứ ở trên vào một hàm: huấn luyện, đánh giá trên validation, lịch LR, gradient clipping, lưu checkpoint tốt nhất, dừng sớm, ghi lịch sử để vẽ. Hàm này dùng cho cả ảnh, văn bản, dữ liệu bảng, miễn là DataLoader trả về <code>(x, y)</code>.</p>
+<pre><code class="language-python">import copy, torch
+
+def run_epoch(model, loader, loss_fn, device, optimizer=None, clip=None):
+    """Một lượt qua loader. Có optimizer → huấn luyện; không có → đánh giá."""
+    train = optimizer is not None
+    model.train(train)
+    total_loss, correct, n = 0.0, 0, 0
+    with torch.set_grad_enabled(train):
+        for xb, yb in loader:
+            xb, yb = xb.to(device), yb.to(device)
+            out = model(xb)
+            loss = loss_fn(out, yb)
+            if train:
+                optimizer.zero_grad()
+                loss.backward()
+                if clip:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+                optimizer.step()
+            total_loss += loss.item() * len(yb)
+            if out.ndim == 2 and out.shape[1] > 1:            # phân loại đa lớp
+                correct += (out.argmax(1) == yb).sum().item()
+            n += len(yb)
+    return total_loss / n, correct / n
+
+def fit(model, train_loader, val_loader, loss_fn, optimizer, device,
+        epochs=30, scheduler=None, patience=5, clip=None):
+    model.to(device)
+    history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": [], "lr": []}
+    best_loss, best_state, bad = float("inf"), None, 0
+    for epoch in range(epochs):
+        tl, ta = run_epoch(model, train_loader, loss_fn, device, optimizer, clip)
+        vl, va = run_epoch(model, val_loader, loss_fn, device)
+        for k, v in zip(history, (tl, vl, ta, va, optimizer.param_groups[0]["lr"])):
+            history[k].append(v)
+        print(f"epoch {epoch+1:3d}  train {tl:.4f}/{ta:.3f}  val {vl:.4f}/{va:.3f}")
+        if scheduler is not None:
+            scheduler.step(vl) if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau) else scheduler.step()
+        if vl &lt; best_loss:
+            best_loss, best_state, bad = vl, copy.deepcopy(model.state_dict()), 0
+        else:
+            bad += 1
+            if bad >= patience:
+                print("Dừng sớm ở epoch", epoch + 1)
+                break
+    model.load_state_dict(best_state)       # trả về phiên bản tốt nhất trên validation
+    return history</code></pre>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+def plot_history(h):
+    fig, ax = plt.subplots(1, 2, figsize=(11, 4))
+    ax[0].plot(h["train_loss"], label="train"); ax[0].plot(h["val_loss"], label="validation"); ax[0].set_title("loss")
+    ax[1].plot(h["train_acc"], label="train");  ax[1].plot(h["val_acc"], label="validation");  ax[1].set_title("accuracy")
+    for a in ax: a.legend(); a.set_xlabel("epoch")
+    plt.show()</code></pre>
+
+<h2>Bảng lỗi thường gặp</h2>
+<table>
+  <tr><th>Thông báo lỗi / triệu chứng</th><th>Nguyên nhân</th><th>Sửa</th></tr>
+  <tr><td><code>mat1 and mat2 shapes cannot be multiplied (64x3136 and 784x128)</code></td><td>Số đầu vào của <code>nn.Linear</code> không khớp số đặc trưng sau Flatten</td><td>In <code>x.shape</code> trước lớp đó; sửa <code>in_features</code>, hoặc dùng <code>nn.LazyLinear(128)</code></td></tr>
+  <tr><td><code>Expected all tensors to be on the same device</code></td><td>Mô hình và dữ liệu khác thiết bị</td><td><code>model.to(device)</code>, <code>xb.to(device)</code></td></tr>
+  <tr><td><code>expected scalar type Long but found Float</code> (CrossEntropyLoss)</td><td>Nhãn phải là số nguyên</td><td><code>y.long()</code></td></tr>
+  <tr><td><code>Found dtype Double but expected Float</code></td><td>Dữ liệu từ NumPy là float64</td><td><code>torch.tensor(x, dtype=torch.float32)</code> hoặc <code>.float()</code></td></tr>
+  <tr><td><code>Target size must be the same as input size</code> (BCEWithLogitsLoss)</td><td>Đầu ra <code>[N,1]</code> nhưng nhãn <code>[N]</code></td><td><code>y.float().unsqueeze(1)</code></td></tr>
+  <tr><td>Dự đoán thay đổi mỗi lần chạy trên cùng ảnh</td><td>Quên <code>model.eval()</code> (Dropout/BatchNorm vẫn ở chế độ train)</td><td><code>model.eval()</code> + <code>torch.no_grad()</code></td></tr>
+  <tr><td>Accuracy trên test cao bất thường (99,9%)</td><td>Rò rỉ dữ liệu: ảnh trùng giữa train/test, đặc trưng chứa đáp án, chia ngẫu nhiên chuỗi thời gian</td><td>Kiểm tra cách chia; tìm ảnh trùng; xoá đặc trưng “nhìn trộm tương lai”</td></tr>
+  <tr><td>Mô hình luôn đoán một lớp</td><td>Lệch lớp; LR quá lớn làm mô hình “sập”; nhãn bị xáo trộn sai</td><td>Trọng số lớp; giảm LR; kiểm tra lại vài cặp (ảnh, nhãn)</td></tr>
+</table>
+
+<div class="box real"><span class="box-title">🏭 Ví dụ thực tiễn: mô hình phát hiện lỗi “không chịu học”</span>
+<p>Một nhóm huấn luyện CNN phân loại 3 lớp (tốt / xước / nứt) cho linh kiện kim loại. Accuracy kẹt ở 91%, đúng bằng tỉ lệ ảnh “tốt”. Đi theo chương này:</p>
+<ol>
+  <li><strong>Overfit một lô</strong>: loss xuống tốt, vậy code huấn luyện không sai.</li>
+  <li><strong>Confusion matrix</strong>: mô hình đoán “tốt” cho gần hết ảnh. Đây là lệch lớp, không phải mô hình yếu.</li>
+  <li><strong>Vẽ lại ảnh sau transform</strong>: phát hiện <code>Resize((64, 64))</code> làm vết xước mảnh gần như biến mất. Đổi sang 256×256, cắt vùng linh kiện trước khi resize.</li>
+  <li>Thêm <code>CrossEntropyLoss(weight=…)</code> và augmentation xoay/đổi sáng; chọn checkpoint theo <strong>recall của lớp nứt</strong> trên validation.</li>
+</ol>
+<p>Bài học: phần lớn cải thiện đến từ dữ liệu và cách đánh giá, không phải từ kiến trúc mạng.</p></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Tăng độ phức tạp dần dần; luôn <strong>overfit một lô</strong> trước khi huấn luyện thật.</li>
+  <li>Vẽ loss train + validation cùng nhau; hình dạng đường cong cho biết nên làm gì tiếp.</li>
+  <li>Learning rate là siêu tham số quan trọng nhất; dùng scheduler (cosine, OneCycle, ReduceLROnPlateau).</li>
+  <li>Khởi tạo đúng, BatchNorm/LayerNorm, residual, gradient clipping chống gradient biến mất/bùng nổ.</li>
+  <li>Chống overfitting: dữ liệu → augmentation → pretrained → AdamW weight decay → dropout → dừng sớm.</li>
+  <li>Lệch lớp: đổi thước đo, trọng số lớp, sampler cân bằng, chọn ngưỡng trên validation.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Bạn huấn luyện 1 lô 16 ảnh trong 500 bước mà loss vẫn không giảm. Kết luận gì?</summary><p>Có lỗi trong code hoặc dữ liệu (quên <code>optimizer.step()</code>, quên <code>zero_grad</code>, nhãn sai kiểu, tham số bị đóng băng hết, LR quá nhỏ/quá lớn). Một mô hình đủ lớn luôn học thuộc được 16 mẫu.</p></details>
+<details class="quiz"><summary>Loss train 0.05, loss validation 0.9 và đang tăng. Bạn làm gì?</summary><p>Overfitting: dừng sớm tại epoch có validation tốt nhất, thêm augmentation/weight decay/dropout, thêm dữ liệu, hoặc dùng mô hình pretrained.</p></details>
+<details class="quiz"><summary>Vì sao không khởi tạo mọi trọng số bằng 0?</summary><p>Mọi nơ-ron trong một lớp sẽ tính ra cùng giá trị và nhận cùng gradient, nên mãi mãi giống hệt nhau: mạng 100 nơ-ron chẳng hơn mạng 1 nơ-ron. Khởi tạo ngẫu nhiên phá vỡ sự đối xứng này.</p></details>
+<details class="quiz"><summary>Dữ liệu có 990 mẫu âm, 10 mẫu dương. <code>pos_weight</code> nên đặt bao nhiêu?</summary><p>990 / 10 = 99: mỗi lỗi trên mẫu dương bị phạt nặng gấp 99 lần, cân bằng tổng đóng góp của hai lớp.</p></details>
+</article>
+</body>
+</html>

@@ -112,6 +112,18 @@
   <tr><th>Loss theo bài toán</th><td>hồi quy: <code>MSELoss</code> · nhị phân: <code>BCEWithLogitsLoss</code> (1 logit) · đa lớp: <code>CrossEntropyLoss</code> (logits + nhãn int)</td></tr>
   <tr><th>Attention</th><td>\(\text{softmax}(QK^\top/\sqrt d)\,V\)</td></tr>
 </table>
+
+<h2>Thực chiến <small>(ch. 27–31)</small></h2>
+<table>
+  <tr><th>Trọng số lớp</th><td>\(w_c = \dfrac{N}{C \cdot N_c}\)  ·  nhị phân: <code>pos_weight</code> \(= N_{\text{âm}}/N_{\text{dương}}\)</td></tr>
+  <tr><th>Residual</th><td>\(\mathbf{y} = \mathbf{x} + F(\mathbf{x})\)</td></tr>
+  <tr><th>Autoencoder</th><td>\(L = \|\mathbf{x} - g(f(\mathbf{x}))\|^2\); bất thường nếu sai số tái tạo &gt; ngưỡng</td></tr>
+  <tr><th>VAE</th><td>\(L = \|\mathbf{x}-\hat{\mathbf{x}}\|^2 + \beta\cdot\frac12\sum_j(\mu_j^2+\sigma_j^2-\log\sigma_j^2-1)\)</td></tr>
+  <tr><th>PSI (drift)</th><td>\(\sum_i (a_i - e_i)\ln(a_i/e_i)\): &lt; 0.1 ổn, &gt; 0.25 drift lớn</td></tr>
+  <tr><th>WAPE</th><td>\(\sum_t|y_t-\hat y_t| \,/\, \sum_t|y_t|\)</td></tr>
+  <tr><th>Độ nhạy / đặc hiệu</th><td>\(\dfrac{TP}{TP+FN}\) / \(\dfrac{TN}{TN+FP}\)</td></tr>
+  <tr><th>Ngưỡng theo chi phí</th><td>chọn \(t\) tối thiểu \(C_{FN}\cdot FN(t) + C_{FP}\cdot FP(t)\) trên validation</td></tr>
+</table>
 </article>
 </body>
 </html>

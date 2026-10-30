@@ -19,8 +19,9 @@ Khóa học này cung cấp nền tảng rộng lớn về Machine Learning, Dat
 
 Thư mục [`docs/`](docs/) chứa một cuốn sách web tiếng Việt được viết lại từ các bài lab trong repo này
 và repo [pytorch-for-deep-learning](https://github.com/KhangPhanTZ/pytorch-for-deep-learning):
-27 chương + 3 phụ lục, có công thức (KaTeX), code từ các bài graded, phần **“Đi từng bước qua lab”**
-và **“Ví dụ thực tiễn”** ở mỗi chương, 10 demo tương tác,
+32 chương + 3 phụ lục, có công thức (KaTeX), code từ các bài graded, phần **“Đi từng bước qua lab”**
+và **“Ví dụ thực tiễn”** ở mỗi chương, 12 demo tương tác, 6 case study theo lĩnh vực có code chạy được
+trong [`case_studies/`](case_studies/),
 chế độ sáng/tối, tìm chương, đánh dấu tiến độ đọc và giao diện cho điện thoại.
 Các chương còn có mục **“Từ ghi chú Notion”** tổng hợp phần chữ và code từ [ghi chú Notion của khoá học](https://app.notion.com/p/Machine-Learning-12f1ff87df828012b38fc41200db58a0).
 
@@ -31,6 +32,7 @@ Các chương còn có mục **“Từ ghi chú Notion”** tổng hợp phần 
 | II · Thuật toán nâng cao (C2) | 8. Mạng nơ-ron · 9. Activation & Softmax · 10. Backprop & Adam · 11. Đánh giá mô hình · 12. Cây quyết định & ensemble |
 | III · Không giám sát, gợi ý, RL (C3) | 13. K-means · 14. Phát hiện bất thường · 15. PCA · 16. Hệ gợi ý · 17. Deep Q-Learning |
 | IV · Deep Learning với PyTorch | 18. Deep Learning là gì & khi nào nên dùng · 19. Tensor · 20. Mạng nơ-ron đầu tiên với PyTorch · 21. Mạng nhiều lớp & feature engineering · 22. Phân loại ảnh MNIST · 23. Data pipeline · 24. CNN & transfer learning · 25. Văn bản, chuỗi thời gian & Transformer · 26. Áp dụng ML & DL vào từng lĩnh vực |
+| V · Deep Learning thực chiến | 27. Huấn luyện tốt hơn & gỡ lỗi · 28. Autoencoder & mô hình sinh · 29. Triển khai & vận hành (MLOps) · 30. Case study ảnh & văn bản (nông nghiệp, y tế, CSKH) · 31. Case study bảng & chuỗi thời gian (tài chính, bán lẻ, sản xuất) |
 | Phụ lục | A. Bảng công thức · B. Thuật ngữ Anh–Việt · C. Lộ trình học tiếp |
 
 **Đọc trên máy:** mở `docs/index.html` bằng trình duyệt, hoặc chạy

@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>30. Case study: ảnh & văn bản · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 30 · Phần V</div>
+  <h1>Case study: ảnh &amp; văn bản</h1>
+  <p class="lede">Ba dự án làm trọn vẹn, từ câu hỏi nghiệp vụ đến bài học rút ra: nhận diện cây trồng cho nông nghiệp (chạy thật trên 3 000 ảnh của repo), sàng lọc ảnh y tế (chọn ngưỡng, đánh giá theo bệnh viện, Grad-CAM), và phân loại tin nhắn chăm sóc khách hàng tiếng Việt. Mọi con số trong chương đều lấy từ việc chạy chính đoạn code in trong sách.</p>
+  <div class="meta"><span>⏱ 50 phút đọc</span><span>💻 Code đầy đủ: thư mục <code>case_studies/</code> của repo</span></div>
+</header>
+
+<h2>Cách đọc một case study</h2>
+<p>Mỗi case đi qua đúng 7 bước của chương 26, nên bạn có thể dùng chúng làm khuôn mẫu cho dự án của mình:</p>
+<table>
+  <tr><th>Bước</th><th>Câu hỏi</th></tr>
+  <tr><td>1. Bối cảnh &amp; quyết định</td><td>Ai dùng kết quả? Họ sẽ làm gì khác đi?</td></tr>
+  <tr><td>2. Dữ liệu</td><td>Có gì, bao nhiêu, nhãn đáng tin đến đâu, chia thế nào cho đúng?</td></tr>
+  <tr><td>3. Thước đo</td><td>Sai kiểu nào đắt hơn?</td></tr>
+  <tr><td>4. Baseline</td><td>Cách đơn giản nhất đạt bao nhiêu?</td></tr>
+  <tr><td>5. Mô hình</td><td>Kiến trúc, loss, optimizer, các mẹo từ chương 27.</td></tr>
+  <tr><td>6. Phân tích lỗi</td><td>Sai ở đâu, vì sao, sửa dữ liệu hay sửa mô hình?</td></tr>
+  <tr><td>7. Triển khai</td><td>Ngưỡng, con người trong vòng lặp, giám sát (chương 29).</td></tr>
+</table>
+<div class="box lab"><span class="box-title">💻 Code chạy được</span>
+<p>Mỗi case có một file Python độc lập trong thư mục <a href="https://github.com/KhangPhanTZ/Machine-learning/tree/main/case_studies" target="_blank" rel="noopener"><code>case_studies/</code></a>: <code>30a_plants_cnn.py</code>, <code>30b_medical_threshold_gradcam.py</code>, <code>30c_text_intent.py</code>. Case nông nghiệp dùng bộ ảnh thật trong repo <code>pytorch-for-deep-learning</code>; hai case còn lại tự sinh dữ liệu mô phỏng để chạy ngay không cần tải gì.</p></div>
+
+<h2>Case A · Nông nghiệp: nhận diện 30 loại cây trồng</h2>
+<h3>Bối cảnh</h3>
+<p>Một ứng dụng hỗ trợ nông dân muốn nhận diện loại cây từ ảnh chụp, làm bước đầu cho tư vấn chăm sóc và bệnh hại. Dữ liệu là bộ <em>Plants Classification</em> đã dùng ở chương 23: 3 000 ảnh, 30 lớp, mỗi lớp 100 ảnh, ảnh từ internet đủ mọi kích thước và chất lượng.</p>
+<h3>Dữ liệu &amp; pipeline</h3>
+<p>Dùng lại pipeline của chương 23, thêm hai điều chỉnh để chạy nhanh trên CPU: resize sẵn mọi ảnh về 96×96 một lần và giữ trong RAM, và augmentation mạnh hơn (lật ngang/dọc, xoay, đổi màu, crop ngẫu nhiên) vì mỗi lớp chỉ có khoảng 70 ảnh train.</p>
+<pre><code class="language-python">class Cached(Dataset):                                           # đọc ảnh 1 lần, giữ trong RAM (3000 ảnh nhỏ)
+    def __init__(self, ds, size):
+        self.items = [(img.resize((size, size)), y) for img, y in ds]
+    def __len__(self):
+        return len(self.items)
+    def __getitem__(self, i):
+        return self.items[i]
+
+SIZE = 96
+full = PlantsDataset(ROOT)
+cached = Cached(full, SIZE)
+mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+main_tf = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)])
+aug_tf = transforms.Compose([transforms.RandomHorizontalFlip(), transforms.RandomVerticalFlip(),
+                             transforms.RandomRotation(15), transforms.ColorJitter(0.2, 0.2, 0.2),
+                             transforms.RandomResizedCrop(SIZE, scale=(0.7, 1.0)), main_tf])
+n = len(cached); n_val = n_test = int(0.15 * n)
+tr, va, te = random_split(cached, [n - n_val - n_test, n_val, n_test], generator=torch.Generator().manual_seed(42))
+train_loader = DataLoader(SubsetWithTransform(tr, aug_tf), batch_size=64, shuffle=True)
+val_loader = DataLoader(SubsetWithTransform(va, main_tf), batch_size=128)
+test_loader = DataLoader(SubsetWithTransform(te, main_tf), batch_size=128)</code></pre>
+<h3>Mô hình: CNN 4 khối, huấn luyện từ đầu</h3>
+<pre><code class="language-python">def block(cin, cout):
+    return nn.Sequential(nn.Conv2d(cin, cout, 3, padding=1), nn.BatchNorm2d(cout), nn.ReLU(), nn.MaxPool2d(2))
+model = nn.Sequential(block(3, 32), block(32, 64), block(64, 128), block(128, 256),
+                      nn.AdaptiveAvgPool2d(1), nn.Flatten(), nn.Dropout(0.3), nn.Linear(256, 30))
+
+EPOCHS = int(sys.argv[2]) if len(sys.argv) &gt; 2 else 25
+loss_fn = nn.CrossEntropyLoss(label_smoothing=0.1)
+optimizer = torch.optim.AdamW(model.parameters(), lr=3e-3, weight_decay=1e-2)
+sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=3e-3, total_steps=EPOCHS * len(train_loader))
+best, best_state = 0, None
+t0 = time.time()
+for ep in range(EPOCHS):
+    model.train()
+    tl, ta, cnt = 0, 0, 0
+    for xb, yb in train_loader:
+        out = model(xb); loss = loss_fn(out, yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step(); sched.step()
+        tl += loss.item() * len(yb); ta += (out.argmax(1) == yb).sum().item(); cnt += len(yb)
+    vl, va_acc = run_epoch(model, val_loader, loss_fn)
+    if va_acc &gt; best: best, best_state = va_acc, copy.deepcopy(model.state_dict())
+    print(f"epoch {ep+1:2d} train {tl/cnt:.3f}/{ta/cnt:.3f} val {vl:.3f}/{va_acc:.3f}  {time.time()-t0:.0f}s", flush=True)
+model.load_state_dict(best_state)
+_, test_acc = run_epoch(model, test_loader, loss_fn)
+print("best val acc", round(best, 3), "test acc", round(test_acc, 3))</code></pre>
+<p>Các mẹo từ chương 27: <code>AdamW</code> có weight decay, lịch <code>OneCycleLR</code> (warmup rồi giảm), <code>label_smoothing=0.1</code> (không bắt mô hình chắc chắn 100%, hữu ích khi nhãn nhiễu), giữ checkpoint tốt nhất theo validation.</p>
+<h3>Kết quả thật (CPU 4 nhân, khoảng 15 phút)</h3>
+<table>
+  <tr><th>Epoch</th><th>1</th><th>5</th><th>10</th><th>15</th><th>20</th><th>25</th></tr>
+  <tr><td>Accuracy train</td><td>10.5%</td><td>32.6%</td><td>40.6%</td><td>50.0%</td><td>56.7%</td><td>62.6%</td></tr>
+  <tr><td>Accuracy validation</td><td>22.0%</td><td>26.7%</td><td>39.8%</td><td>42.2%</td><td>47.8%</td><td>51.8%</td></tr>
+</table>
+<p>Checkpoint tốt nhất: <strong>validation 52.9%, test 50.0%</strong>. Đoán bừa với 30 lớp chỉ được 3.3%, nên mô hình đã học được nhiều. Nhưng 50% chưa đủ để đưa cho nông dân dùng.</p>
+<h3>Phân tích lỗi: đây là phần đáng giá nhất</h3>
+<pre><code class="language-python"># phân tích lỗi: accuracy từng lớp + cặp nhầm nhiều nhất
+model.eval(); preds, labels = [], []
+with torch.no_grad():
+    for xb, yb in test_loader:
+        preds.append(model(xb).argmax(1)); labels.append(yb)
+preds, labels = torch.cat(preds), torch.cat(labels)
+cm = torch.zeros(30, 30, dtype=torch.long)
+for t, p in zip(labels, preds): cm[t, p] += 1
+per_class = cm.diag() / cm.sum(1).clamp(min=1)
+order = per_class.argsort()
+names = full.class_names
+print("kém nhất:", [(names[i], round(per_class[i].item(), 2)) for i in order[:5].tolist()])
+print("tốt nhất:", [(names[i], round(per_class[i].item(), 2)) for i in order[-5:].tolist()])
+off = cm.clone(); off.fill_diagonal_(0)
+top = off.flatten().topk(5)
+print("nhầm nhiều nhất:", [(names[i // 30], names[i % 30], v.item()) for v, i in zip(top.values, top.indices)])</code></pre>
+<table>
+  <tr><th>Lớp tốt nhất (test)</th><th>Lớp kém nhất (test)</th><th>Cặp nhầm nhiều nhất</th></tr>
+  <tr><td>papaya 100%, longbeans 82%, tobacco 80%, cantaloupe 80%, peperchili 79%</td><td>melon 0%, cucumber 20%, curcuma 22%, kale 24%, pomelo 29%</td><td>melon → cantaloupe (14 ảnh), kale → longbeans (8), spinach → longbeans (6), cassava → tobacco (5), corn → pineapple (5)</td></tr>
+</table>
+<p>Đọc kỹ bảng này mới thấy vấn đề <strong>không chỉ nằm ở mô hình</strong>:</p>
+<ul>
+  <li><strong>melon và cantaloupe</strong> (dưa lưới và dưa vàng) gần như là cùng một loại quả. Toàn bộ ảnh melon trong test bị đoán là cantaloupe. Ngay cả người cũng khó phân biệt qua ảnh. Quyết định nghiệp vụ hợp lý: <em>gộp hai lớp</em>, hoặc thu ảnh có đặc điểm phân biệt rõ (vỏ, ruột).</li>
+  <li><strong>kale, spinach, longbeans</strong> đều là “rau lá xanh” khi chụp xa. Cần ảnh cận cảnh, hoặc đây là lớp mà mô hình phải trả lời “không chắc”.</li>
+  <li>Ảnh nhiễu như “rice paddy” chỉ toàn chữ (chương 23) làm hỏng cả train lẫn test. Dọn dữ liệu là việc nên làm trước.</li>
+</ul>
+<h3>Bước tiếp theo, theo thứ tự đáng làm</h3>
+<ol>
+  <li><strong>Transfer learning</strong> (chương 24): thay CNN tự xây bằng ResNet18/EfficientNet pretrained. Với 100 ảnh mỗi lớp đây là cải thiện lớn nhất; trên các bộ ảnh cây trồng tương tự, transfer learning thường cho độ chính xác cao hơn rõ rệt so với huấn luyện từ đầu. Code nằm ngay ở chương 24, chỉ cần đổi <code>model</code>.</li>
+  <li><strong>Dọn dữ liệu</strong>: xoá ảnh không phải cây, gộp melon/cantaloupe, kiểm tra ảnh trùng giữa train và test.</li>
+  <li><strong>Ảnh lớn hơn</strong> (224×224) khi có GPU.</li>
+  <li><strong>Top-3</strong> thay vì top-1 trong giao diện, kèm ngưỡng “không chắc chắn” (chương 29).</li>
+</ol>
+
+<h2>Case B · Y tế: sàng lọc ảnh X-quang</h2>
+<h3>Bối cảnh</h3>
+<p>Một bệnh viện muốn dùng AI để <em>sàng lọc</em> phim X-quang ngực: ca AI nghi ngờ được ưu tiên đọc trước, nhưng bác sĩ vẫn đọc mọi ca. Quyết định đi kèm: thứ tự đọc phim. Thước đo chính là <strong>độ nhạy</strong> (sensitivity = recall): bỏ sót ca bệnh rất đắt. <strong>Độ đặc hiệu</strong> (specificity, tỉ lệ ca khỏe được nhận đúng) càng cao càng giảm tải.</p>
+<div class="box note"><span class="box-title">💡 Vì sao không có code huấn luyện ở case này?</span>
+<p>Phần huấn luyện giống hệt case A + transfer learning chương 24, chỉ đổi thành 2 lớp. Cái khác biệt ở y tế nằm ở <strong>cách đánh giá và chọn ngưỡng</strong>. Phần này áp dụng được cho mọi mô hình cho ra điểm số, nên mình minh hoạ bằng điểm số mô phỏng để chạy được ngay.</p></div>
+<h3>Chọn ngưỡng theo độ nhạy mục tiêu</h3>
+<p>Bệnh viện yêu cầu độ nhạy ≥ 95%. Thay vì dùng ngưỡng 0.5, ta chọn ngưỡng <em>trên tập validation</em> sao cho đạt mục tiêu, rồi báo cáo độ đặc hiệu đi kèm:</p>
+<pre><code class="language-python">def threshold_for_recall(y_true, scores, target_recall=0.95):
+    """Ngưỡng cao nhất vẫn đạt recall mục tiêu trên VALIDATION."""
+    pos = np.sort(scores[y_true == 1])
+    k = int(np.floor((1 - target_recall) * len(pos)))      # được phép bỏ sót tối đa k ca dương
+    return pos[k]
+
+def sens_spec(y_true, scores, t):
+    pred = scores &gt;= t
+    sens = (pred &amp; (y_true == 1)).sum() / (y_true == 1).sum()      # độ nhạy = recall
+    spec = (~pred &amp; (y_true == 0)).sum() / (y_true == 0).sum()     # độ đặc hiệu
+    return sens, spec</code></pre>
+<h3>Báo cáo kèm khoảng tin cậy, và tách theo bệnh viện</h3>
+<pre><code class="language-python">def bootstrap_ci(y_true, scores, t, n=1000, seed=0):
+    """Khoảng tin cậy 95% của độ nhạy — tập test nhỏ thì con số dao động nhiều."""
+    rng = np.random.default_rng(seed); vals = []
+    for _ in range(n):
+        i = rng.integers(0, len(y_true), len(y_true))
+        if (y_true[i] == 1).sum() &gt; 0:
+            vals.append(sens_spec(y_true[i], scores[i], t)[0])
+    return np.percentile(vals, [2.5, 97.5])
+
+# Dữ liệu điểm số mô phỏng: 2 bệnh viện, bệnh viện B dùng máy chụp khác → điểm số lệch
+rng = np.random.default_rng(42)
+def site(n, prev, shift):
+    y = (rng.random(n) &lt; prev).astype(int)
+    s = 1 / (1 + np.exp(-(rng.normal(0, 1, n) + 2.2 * y - 1.5 + shift)))
+    return y, s
+y_val, s_val = site(800, 0.2, 0.0)
+yA, sA = site(600, 0.2, 0.0)          # bệnh viện A: cùng nguồn với dữ liệu huấn luyện
+yB, sB = site(600, 0.2, -0.6)         # bệnh viện B: máy chụp khác
+t = threshold_for_recall(y_val, s_val, 0.95)
+print(f"ngưỡng = {t:.3f}")
+for name, y, s in [("Bệnh viện A", yA, sA), ("Bệnh viện B", yB, sB)]:
+    se, sp = sens_spec(y, s, t); lo, hi = bootstrap_ci(y, s, t)
+    print(f"{name}: độ nhạy {se:.1%} (95% CI {lo:.1%}–{hi:.1%}), độ đặc hiệu {sp:.1%}")</code></pre>
+<pre><code>ngưỡng = 0.235
+Bệnh viện A: độ nhạy 98.2% (95% CI 95.3%–100.0%), độ đặc hiệu 60.0%
+Bệnh viện B: độ nhạy 86.4% (95% CI 80.4%–92.1%), độ đặc hiệu 82.0%</code></pre>
+<p>Hai bài học quan trọng:</p>
+<ul>
+  <li><strong>Khoảng tin cậy</strong>: với khoảng 120 ca bệnh trong test, độ nhạy “98.2%” thực ra có thể nằm đâu đó trong 95–100%. Luôn báo cáo khoảng, nhất là khi tập test nhỏ.</li>
+  <li><strong>Dịch chuyển miền</strong> (domain shift): bệnh viện B dùng máy chụp khác, điểm số lệch xuống, nên cùng ngưỡng nhưng độ nhạy rơi xuống 86%, dưới yêu cầu. Trong mô phỏng này mình cố ý tạo độ lệch, nhưng ngoài đời hiện tượng này rất phổ biến. Bắt buộc phải đánh giá riêng trên dữ liệu của từng nơi sẽ triển khai, và có thể phải chọn lại ngưỡng hoặc tinh chỉnh cho từng nơi.</li>
+</ul>
+<h3>Giải thích: Grad-CAM cho thấy mô hình nhìn vào đâu</h3>
+<p>Bác sĩ cần biết vì sao AI nghi ngờ. <strong>Grad-CAM</strong> lấy feature map của lớp tích chập cuối, đánh trọng số mỗi kênh bằng gradient của lớp dự đoán, rồi phóng lên kích thước ảnh thành bản đồ nhiệt:</p>
+<pre><code class="language-python"># Grad-CAM: mô hình "nhìn" vào đâu?
+def grad_cam(model, x, target_layer, class_idx=None):
+    acts, grads = {}, {}
+    def save_act(module, inp, out):
+        acts["a"] = out                      # hook không được trả về giá trị
+    def save_grad(module, grad_in, grad_out):
+        grads["g"] = grad_out[0]
+    h1 = target_layer.register_forward_hook(save_act)
+    h2 = target_layer.register_full_backward_hook(save_grad)
+    model.eval()
+    out = model(x)
+    idx = out.argmax(1).item() if class_idx is None else class_idx
+    model.zero_grad(); out[0, idx].backward()
+    h1.remove(); h2.remove()
+    w = grads["g"].mean(dim=(2, 3), keepdim=True)                 # trọng số mỗi kênh = gradient trung bình
+    cam = torch.relu((w * acts["a"]).sum(1)).squeeze(0).detach()   # [7, 7]
+    cam = torch.nn.functional.interpolate(cam[None, None], size=x.shape[-2:], mode="bilinear")[0, 0]
+    return (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)      # bản đồ nhiệt [224, 224] trong [0, 1]
+
+model = models.resnet18(weights=None); model.fc = nn.Linear(512, 2)
+heat = grad_cam(model, torch.randn(1, 3, 224, 224), model.layer4)
+print("grad-cam", tuple(heat.shape), float(heat.min()), float(heat.max()))</code></pre>
+<div class="box warn"><span class="box-title">⚠️ Grad-CAM giúp phát hiện “học vẹt”</span>
+<p>Có những mô hình X-quang từng được báo cáo là “nhìn” vào chữ đánh dấu của máy chụp hoặc ống dẫn trên phim (vốn hay xuất hiện ở bệnh nhân nặng) thay vì nhìn phổi. Nếu bản đồ nhiệt sáng ở góc ảnh hay vùng chữ, đó là dấu hiệu mô hình học “đường tắt”. Cần sửa dữ liệu (cắt bỏ vùng chữ, cân bằng nguồn ảnh) chứ không chỉ đổi mô hình.</p></div>
+<h3>Triển khai</h3>
+<ul>
+  <li>AI chỉ sắp xếp thứ tự đọc, không tự kết luận. Bác sĩ đọc mọi ca.</li>
+  <li>Giám sát độ nhạy theo tháng, theo máy chụp, theo nhóm tuổi; nhãn thật lấy từ kết luận của bác sĩ.</li>
+  <li>Dữ liệu bệnh nhân phải được ẩn danh, lưu trữ và xử lý theo quy định bảo vệ dữ liệu cá nhân và quy định chuyên ngành y tế.</li>
+</ul>
+
+<h2>Case C · Chăm sóc khách hàng: phân loại tin nhắn tiếng Việt</h2>
+<h3>Bối cảnh</h3>
+<p>Một shop online nhận hàng nghìn tin nhắn mỗi ngày, cần chia về 5 nhóm (thanh toán, giao hàng, đổi trả, tài khoản, khác) để chuyển đúng bộ phận. Quyết định đi kèm: tin chắc chắn thì chuyển tự động, tin không chắc thì nhân viên đọc.</p>
+<h3>Dữ liệu và một cái bẫy</h3>
+<p>Dữ liệu mô phỏng sinh từ các mẫu câu, có viết tắt kiểu “ko”, “đc”, và 5% nhãn bị gán nhầm (như ngoài đời). Điểm mấu chốt: <strong>mỗi lớp giữ riêng một mẫu câu</strong> không xuất hiện khi huấn luyện, mô phỏng khách hàng nói theo cách mới.</p>
+<pre><code class="language-python"># 1) Dữ liệu mẫu: tin nhắn khách hàng tự sinh từ mẫu câu (thay bằng dữ liệu thật của bạn)
+TEMPLATES = {
+    "thanh_toan": ["em bị trừ tiền {x} lần cho một đơn", "thanh toán qua {pay} không được", "đã chuyển khoản mà đơn vẫn báo chưa thanh toán",
+                   "sao em bị trừ tiền mà không có đơn", "mã giảm giá không áp dụng khi thanh toán {pay}", "hoàn tiền về {pay} mất bao lâu"],
+    "giao_hang":  ["đơn của em {t} rồi chưa thấy giao", "shipper không gọi mà báo giao thất bại", "khi nào đơn {code} được giao vậy shop",
+                   "giao hàng chậm quá, đặt {t} rồi", "em muốn đổi địa chỉ nhận hàng", "đơn hiển thị đã giao nhưng em chưa nhận được"],
+    "doi_tra":    ["áo bị {loi} em muốn đổi size", "sản phẩm bị {loi} em muốn trả hàng", "làm sao để trả hàng và hoàn tiền",
+                   "nhận hàng sai màu em muốn đổi", "hàng bị {loi} khi nhận, em gửi ảnh rồi", "em muốn đổi sang mẫu khác được không"],
+    "tai_khoan":  ["em không đăng nhập được tài khoản", "quên mật khẩu mà không nhận được mã otp", "tài khoản em bị khoá",
+                   "em muốn đổi số điện thoại trong tài khoản", "không nhận được email xác nhận", "làm sao để xoá tài khoản"],
+    "khac":       ["shop có tuyển cộng tác viên không", "cửa hàng mở cửa mấy giờ", "shop có bán sỉ không ạ",
+                   "cho em hỏi chương trình khuyến mãi tháng này", "shop ơi tư vấn giúp em size", "có mẫu này màu khác không"],
+}
+FILL = {"x": ["2", "hai", "3"], "pay": ["momo", "thẻ", "zalopay", "ngân hàng", "ví"], "t": ["3 ngày", "một tuần", "5 hôm", "hôm qua"],
+        "code": ["SP123", "DH889", "A1002"], "loi": ["rách", "lỗi", "hỏng", "bẩn", "sai size"]}
+NOISE = ["", "", " ạ", " shop ơi", " gấp giúp em", " với ạ", "!!", " ạ?"]
+def make(tpl):
+    s = re.sub(r"\{(\w+)\}", lambda m: random.choice(FILL[m.group(1)]), tpl) + random.choice(NOISE)
+    return s if random.random() &gt; 0.3 else s.replace("không", "ko").replace("được", "đc")
+labels = list(TEMPLATES)
+# Mẫu câu cuối của mỗi lớp được GIỮ RIÊNG: mô phỏng khách hàng nói theo cách mô hình chưa từng thấy
+seen = [(make(random.choice(TEMPLATES[c][:-1])), i) for i, c in enumerate(labels) for _ in range(300)]
+unseen = [(make(TEMPLATES[c][-1]), i) for i, c in enumerate(labels) for _ in range(40)]
+random.shuffle(seen)
+seen = [(t, l if random.random() &gt; 0.05 else random.randrange(len(labels))) for t, l in seen]   # 5% nhãn gán nhầm
+texts, y = [t for t, _ in seen], [l for _, l in seen]
+n = len(texts); cut1, cut2 = int(0.7 * n), int(0.85 * n)
+Xtr, Xva, Xte = texts[:cut1], texts[cut1:cut2], texts[cut2:]
+ytr, yva, yte = y[:cut1], y[cut1:cut2], y[cut2:]
+Xnew, ynew = [t for t, _ in unseen], [l for _, l in unseen]</code></pre>
+<h3>Baseline TF-IDF và mô hình PyTorch</h3>
+<pre><code class="language-python"># 2) Baseline: TF-IDF + logistic regression (chương 6)
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, f1_score
+import warnings; warnings.filterwarnings("ignore")
+vec = TfidfVectorizer(ngram_range=(1, 2), min_df=2, sublinear_tf=True)
+clf = LogisticRegression(max_iter=2000, C=5).fit(vec.fit_transform(Xtr), ytr)
+pred_lr = clf.predict(vec.transform(Xte))
+print("TF-IDF + LogReg macro-F1  test:", round(f1_score(yte, pred_lr, average="macro"), 3),
+      " cách nói mới:", round(f1_score(ynew, clf.predict(vec.transform(Xnew)), average="macro"), 3))</code></pre>
+<pre><code class="language-python"># 3) PyTorch: embedding túi từ (fastText-style) — EmbeddingBag + Linear
+def tokenize(s):
+    w = re.findall(r"\w+", s.lower())
+    return w + [a + "_" + b for a, b in zip(w, w[1:])]           # thêm bigram
+vocab = {"&lt;unk&gt;": 0}
+for s in Xtr:
+    for tok in tokenize(s):
+        vocab.setdefault(tok, len(vocab))
+def encode(batch):
+    ids, offsets = [], [0]
+    for s in batch:
+        t = [vocab[tok] for tok in tokenize(s) if tok in vocab] or [0]   # bỏ từ lạ; câu toàn từ lạ → &lt;unk&gt;
+        ids += t; offsets.append(offsets[-1] + len(t))
+    return torch.tensor(ids), torch.tensor(offsets[:-1])
+
+class BagOfEmbeddings(nn.Module):
+    def __init__(self, vocab_size, dim, num_classes):
+        super().__init__()
+        self.emb = nn.EmbeddingBag(vocab_size, dim, mode="mean")    # trung bình vector các token
+        self.fc = nn.Sequential(nn.Dropout(0.3), nn.Linear(dim, num_classes))
+    def forward(self, ids, offsets):
+        return self.fc(self.emb(ids, offsets))
+
+model = BagOfEmbeddings(len(vocab), 64, len(labels))
+opt = torch.optim.AdamW(model.parameters(), lr=5e-3, weight_decay=1e-4)
+loss_fn = nn.CrossEntropyLoss()
+for epoch in range(15):
+    model.train()
+    perm = torch.randperm(len(Xtr))
+    for i in range(0, len(Xtr), 64):
+        idx = perm[i:i + 64]
+        ids, off = encode([Xtr[j] for j in idx])
+        loss = loss_fn(model(ids, off), torch.tensor([ytr[j] for j in idx]))
+        opt.zero_grad(); loss.backward(); opt.step()
+model.eval()
+with torch.no_grad():
+    probs = torch.softmax(model(*encode(Xte)), dim=1)
+pred_nn = probs.argmax(1).tolist()
+with torch.no_grad():
+    probs_new = torch.softmax(model(*encode(Xnew)), dim=1)
+print("EmbeddingBag macro-F1     test:", round(f1_score(yte, pred_nn, average="macro"), 3),
+      " cách nói mới:", round(f1_score(ynew, probs_new.argmax(1).tolist(), average="macro"), 3))
+print(classification_report(ynew, probs_new.argmax(1).tolist(), target_names=labels, digits=2))</code></pre>
+<h3>Kết quả thật</h3>
+<table>
+  <tr><th>Mô hình</th><th>Macro-F1 tập test (cùng kiểu câu)</th><th>Macro-F1 cách nói mới</th></tr>
+  <tr><td>TF-IDF + logistic regression</td><td>0.959</td><td><strong>0.726</strong></td></tr>
+  <tr><td>EmbeddingBag PyTorch (học từ đầu)</td><td>0.959</td><td>0.636</td></tr>
+</table>
+<ul>
+  <li><strong>Tập test “dễ” đánh lừa</strong>: 0.96 nghe tuyệt vời, nhưng chỉ vì test và train dùng chung kiểu câu. Ở phiên bản đầu tiên, khi chưa giữ riêng mẫu câu, cả hai mô hình đạt F1 = 1.0, tức hoàn hảo một cách đáng ngờ. Đó là rò rỉ dữ liệu (chương 27). Với cách nói mới, F1 rơi xuống 0.64–0.73: đây mới là con số gần với thực tế.</li>
+  <li><strong>Mô hình đơn giản thắng</strong>: với vài nghìn câu, TF-IDF + logistic regression tốt hơn mạng nơ-ron học từ đầu. Đúng lời khuyên ở chương 18.</li>
+  <li><strong>Lỗi có ý nghĩa nghiệp vụ</strong>: câu mới “hoàn tiền về ví mất bao lâu” (thực ra thuộc thanh toán) bị đoán là đổi trả, vì chữ “hoàn tiền” chỉ xuất hiện trong mẫu đổi trả khi huấn luyện. Lớp thanh toán vì vậy có F1 = 0 trên câu mới. Ranh giới giữa hai nhóm này mờ ngay cả với con người, nên cần thống nhất định nghĩa nhãn với bộ phận CSKH.</li>
+</ul>
+<h3>Định tuyến theo độ tự tin</h3>
+<pre><code class="language-python"># 4) Định tuyến: tự động khi chắc chắn, còn lại chuyển nhân viên
+conf = probs_new.max(1).values
+auto = conf &gt;= 0.8
+acc_auto = (probs_new.argmax(1)[auto] == torch.tensor(ynew)[auto]).float().mean().item()
+print(f"tự động xử lý {auto.float().mean().item():.0%} tin nhắn, đúng {acc_auto:.1%}; còn lại chuyển nhân viên")
+with torch.no_grad():
+    for s in ["shop ơi đơn em 1 tuần rồi chưa tới", "bị trừ tiền 2 lần ạ", "cho hỏi giờ mở cửa"]:
+        p = torch.softmax(model(*encode([s])), 1)[0]
+        print(s, "→", labels[p.argmax()], round(p.max().item(), 2))</code></pre>
+<p>Với ngưỡng 0.8, trên các câu kiểu mới mô hình PyTorch chỉ tự xử lý được 14% tin nhắn, nhưng đúng 82% trong số đó; phần còn lại chuyển nhân viên. Đó là hành vi an toàn: mô hình biết khi nào mình không chắc. Ba câu thử nghiệm viết tay đều được phân loại đúng với độ tự tin cao (giao hàng 0.98, thanh toán 1.0, khác 0.98).</p>
+<h3>Bước tiếp theo</h3>
+<ol>
+  <li><strong>Embedding pretrained đa ngôn ngữ</strong> (chương 25) + logistic regression: hiểu được từ đồng nghĩa (“tới” ≈ “giao”, “hoàn tiền” ≈ “trả lại tiền”), cải thiện mạnh với cách nói mới.</li>
+  <li><strong>Fine-tune PhoBERT</strong> khi có vài nghìn tin nhắn thật đã gán nhãn:
+<pre><code class="language-python">from transformers import AutoTokenizer, AutoModelForSequenceClassification
+tok = AutoTokenizer.from_pretrained("vinai/phobert-base")
+model = AutoModelForSequenceClassification.from_pretrained("vinai/phobert-base", num_labels=5)
+batch = tok(texts, padding=True, truncation=True, max_length=64, return_tensors="pt")
+out = model(**batch, labels=torch.tensor(labels))     # out.loss, out.logits — dùng vòng lặp 5 bước (ch. 20)
+# PhoBERT khuyến nghị tách từ tiếng Việt trước (VnCoreNLP / underthesea): "giao_hàng chậm"</code></pre></li>
+  <li><strong>LLM với prompt + vài ví dụ</strong> làm baseline nhanh khi chưa có dữ liệu gán nhãn, và để gán nhãn nháp cho nhân viên duyệt.</li>
+  <li>Thu lại mọi tin nhân viên sửa nhãn làm dữ liệu huấn luyện vòng sau (chương 29).</li>
+</ol>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Phân tích lỗi theo lớp và cặp nhầm cho biết nên sửa dữ liệu, sửa nhãn hay sửa mô hình.</li>
+  <li>Ảnh ít dữ liệu: transfer learning trước tiên; CNN từ đầu chỉ đạt 50% trên 3 000 ảnh/30 lớp.</li>
+  <li>Y tế: chọn ngưỡng theo độ nhạy mục tiêu trên validation, báo cáo khoảng tin cậy, đánh giá riêng từng nơi triển khai, dùng Grad-CAM để kiểm tra “đường tắt”.</li>
+  <li>Văn bản: tập test phải chứa cách nói mới; baseline TF-IDF rất mạnh; định tuyến theo độ tự tin.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Trong case A, nên làm gì với cặp melon/cantaloupe trước khi đổi sang mô hình lớn hơn?</summary><p>Hỏi chuyên gia nghiệp vụ: nếu không cần phân biệt thì gộp lớp; nếu cần, thu ảnh có đặc điểm phân biệt và kiểm tra lại nhãn. Mô hình lớn hơn không sửa được nhãn mơ hồ.</p></details>
+<details class="quiz"><summary>Vì sao chọn ngưỡng trên validation rồi mới đo trên test, thay vì chọn luôn trên test?</summary><p>Chọn ngưỡng cũng là “học” từ dữ liệu. Chọn trên test làm con số test lạc quan hơn thực tế, vì ngưỡng đã được may đo cho đúng tập đó.</p></details>
+<details class="quiz"><summary>Mô hình tin nhắn đạt F1 = 1.0 ngay lần chạy đầu. Phản ứng đúng là gì?</summary><p>Nghi ngờ rò rỉ dữ liệu: tin trùng lặp hoặc cùng mẫu câu giữa train và test, đặc trưng chứa đáp án. Tạo tập test từ nguồn/thời gian/cách nói khác rồi đo lại.</p></details>
+</article>
+</body>
+</html>

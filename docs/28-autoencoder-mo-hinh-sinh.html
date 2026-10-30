@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>28. Autoencoder & mô hình sinh · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 28 · Phần V</div>
+  <h1>Autoencoder &amp; mô hình sinh</h1>
+  <p class="lede">Đến giờ mọi mô hình đều <em>dự đoán nhãn</em>. Chương này giới thiệu những mô hình <em>học cấu trúc của chính dữ liệu</em>: autoencoder nén rồi tái tạo dữ liệu (dùng để phát hiện bất thường, khử nhiễu), và các mô hình sinh (VAE, GAN, diffusion, LLM) tạo ra ảnh, chữ, dữ liệu mới.</p>
+  <div class="meta"><span>⏱ 40 phút đọc</span><span>📚 Nối tiếp chương 13–15, 22, 25</span></div>
+</header>
+
+<h2>Mô hình phân biệt và mô hình sinh</h2>
+<table>
+  <tr><th></th><th>Mô hình phân biệt (discriminative)</th><th>Mô hình sinh (generative)</th></tr>
+  <tr><td>Học gì</td><td>\(P(y \mid \mathbf{x})\): cho ảnh, đây là chữ số mấy?</td><td>\(P(\mathbf{x})\): ảnh chữ số “trông như thế nào”?</td></tr>
+  <tr><td>Làm được</td><td>Phân loại, hồi quy</td><td>Tạo mẫu mới, phát hiện mẫu “lạ”, nén, khử nhiễu, điền chỗ thiếu</td></tr>
+  <tr><td>Ví dụ trong sách</td><td>Logistic regression, CNN, MNIST (ch. 6, 22, 24)</td><td>Mô hình Gauss cho bất thường (ch. 14), autoencoder, GAN, diffusion, GPT (ch. 25)</td></tr>
+</table>
+<p>Mô hình Gauss ở chương 14 thực ra là một mô hình sinh rất đơn giản: nó học \(p(\mathbf{x})\) rồi gắn cờ những điểm có \(p(\mathbf{x})\) nhỏ. Autoencoder làm điều tương tự cho dữ liệu phức tạp như ảnh, nơi mô hình Gauss không đủ sức.</p>
+
+<h2>Autoencoder: nén rồi tái tạo</h2>
+<p>Hãy tưởng tượng bạn phải tả một khuôn mặt qua điện thoại chỉ bằng 32 con số, và người bên kia phải vẽ lại. Để làm tốt, bạn buộc phải chọn những thông tin <em>quan trọng nhất</em>: hình dáng mặt, kiểu tóc, kính… Autoencoder học đúng việc đó:</p>
+<div class="diagram"><svg viewBox="0 0 700 170" role="img" aria-label="Encoder nén ảnh thành vector nhỏ, decoder tái tạo lại ảnh" style="width:100%;max-width:700px;display:block;margin:0 auto">
+  <g font-size="13" fill="currentColor" text-anchor="middle">
+    <rect x="10" y="35" width="90" height="90" rx="8" fill="#457b9d" fill-opacity=".14" stroke="#457b9d"/><text x="55" y="78">ảnh x</text><text x="55" y="96" font-size="11" opacity=".75">784 số</text>
+    <path d="M120 30 L270 65 L270 95 L120 130 Z" fill="#2a9d8f" fill-opacity=".14" stroke="#2a9d8f"/><text x="190" y="84">encoder</text>
+    <rect x="285" y="55" width="70" height="50" rx="8" fill="#e76f51" fill-opacity=".16" stroke="#e76f51"/><text x="320" y="78">z</text><text x="320" y="95" font-size="11" opacity=".75">32 số</text>
+    <path d="M370 65 L520 30 L520 130 L370 95 Z" fill="#6a4c93" fill-opacity=".14" stroke="#6a4c93"/><text x="450" y="84">decoder</text>
+    <rect x="540" y="35" width="90" height="90" rx="8" fill="#457b9d" fill-opacity=".14" stroke="#457b9d"/><text x="585" y="78">ảnh x̂</text><text x="585" y="96" font-size="11" opacity=".75">784 số</text>
+    <text x="350" y="160" font-size="12" opacity=".8">loss = ‖x − x̂‖² (tái tạo càng giống càng tốt) — không cần nhãn</text>
+  </g>
+</svg></div>
+<ul>
+  <li><strong>Encoder</strong> nén \(\mathbf{x}\) thành vector nhỏ \(\mathbf{z}\) (gọi là <em>mã</em>, <em>latent</em>, hay <em>embedding</em>).</li>
+  <li><strong>Decoder</strong> dựng lại \(\hat{\mathbf{x}}\) từ \(\mathbf{z}\).</li>
+  <li><strong>Loss</strong> là sai số tái tạo, ví dụ MSE. Nhãn chính là đầu vào, nên đây là học <em>tự giám sát</em> (self-supervised): không cần ai gán nhãn.</li>
+</ul>
+<p>Nút thắt cổ chai (32 số cho 784 pixel) ép mạng học những gì cốt lõi. Nếu cả encoder và decoder đều tuyến tính thì autoencoder học ra cùng không gian con với PCA (chương 15). Có ReLU thì nó học được cấu trúc phi tuyến.</p>
+<pre><code class="language-python">class AutoEncoder(nn.Module):
+    def __init__(self, latent_dim=32):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Flatten(),                       # [N, 1, 28, 28] → [N, 784]
+            nn.Linear(784, 256), nn.ReLU(),
+            nn.Linear(256, latent_dim)          # z
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 256), nn.ReLU(),
+            nn.Linear(256, 784), nn.Sigmoid(),  # pixel trong [0, 1]
+            nn.Unflatten(1, (1, 28, 28))
+        )
+    def forward(self, x):
+        return self.decoder(self.encoder(x))
+
+model = AutoEncoder()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+loss_fn = nn.MSELoss()
+for epoch in range(10):
+    for xb, _ in train_loader:            # bỏ qua nhãn!  (ảnh chỉ ToTensor, không Normalize, để khớp Sigmoid)
+        optimizer.zero_grad()
+        loss = loss_fn(model(xb), xb)     # so ảnh tái tạo với chính ảnh gốc
+        loss.backward()
+        optimizer.step()</code></pre>
+
+<h3>Ứng dụng 1: phát hiện bất thường bằng sai số tái tạo</h3>
+<p>Huấn luyện autoencoder <strong>chỉ trên dữ liệu bình thường</strong> (ảnh sản phẩm tốt, nhịp tim khoẻ mạnh, giao dịch hợp lệ). Mô hình tái tạo tốt những gì nó đã quen và tái tạo kém những gì lạ. Sai số tái tạo lớn thì gắn cờ bất thường. Đây là phiên bản Deep Learning của chương 14, nơi \(p(\mathbf{x}) &lt; \varepsilon\) được thay bằng “sai số &gt; ngưỡng”.</p>
+<pre><code class="language-python">@torch.no_grad()
+def recon_error(model, x):
+    model.eval()
+    return ((model(x) - x) ** 2).flatten(1).mean(dim=1)     # một số cho mỗi mẫu
+
+err_val = recon_error(model, X_val_normal)                   # validation: chỉ mẫu bình thường
+threshold = torch.quantile(err_val, 0.99)                    # chấp nhận báo nhầm ~1%
+is_anomaly = recon_error(model, X_new) > threshold</code></pre>
+<p>Nếu có vài mẫu bất thường đã gán nhãn, hãy chọn ngưỡng bằng F1 trên validation như chương 14 thay vì cố định 99%.</p>
+
+<h3>Ứng dụng 2: khử nhiễu (denoising autoencoder)</h3>
+<p>Thêm nhiễu vào đầu vào nhưng bắt mô hình tái tạo ảnh <em>sạch</em>: <code>loss_fn(model(xb + 0.3 * torch.randn_like(xb)), xb)</code>. Dùng cho ảnh scan tài liệu mờ, ảnh y tế liều thấp, tín hiệu cảm biến nhiễu.</p>
+<h3>Ứng dụng 3: embedding không cần nhãn</h3>
+<p><code>model.encoder(x)</code> cho mỗi mẫu một vector 32 chiều. Dùng vector này cho K-means (chương 13) để phân nhóm sản phẩm theo ảnh, hoặc tìm mẫu tương tự (chương 16).</p>
+
+<h2>VAE: autoencoder biết “sáng tác”</h2>
+<p>Autoencoder thường có không gian \(\mathbf{z}\) lổn nhổn: chọn bừa một \(\mathbf{z}\) rồi giải mã thường ra ảnh vô nghĩa. <strong>Variational Autoencoder</strong> (VAE) ép không gian này gọn gàng, gần với phân phối chuẩn \(\mathcal N(0, I)\). Nhờ vậy, lấy ngẫu nhiên \(\mathbf{z} \sim \mathcal N(0, I)\) rồi giải mã sẽ ra một mẫu mới hợp lý.</p>
+<ul>
+  <li>Encoder không trả về một điểm mà trả về <strong>trung bình \(\boldsymbol\mu\) và độ lệch \(\boldsymbol\sigma\)</strong> của một phân phối Gauss (chương 14).</li>
+  <li>Lấy mẫu \(\mathbf{z} = \boldsymbol\mu + \boldsymbol\sigma \odot \boldsymbol\epsilon\), với \(\boldsymbol\epsilon \sim \mathcal N(0, I)\) (mẹo <em>reparameterization</em> để gradient vẫn chảy qua).</li>
+  <li>Loss = sai số tái tạo + <strong>KL divergence</strong>, phạt khi phân phối của \(\mathbf{z}\) lệch xa \(\mathcal N(0, I)\):</li>
+</ul>
+<div class="math-box">$$ L = \|\mathbf{x} - \hat{\mathbf{x}}\|^2 \;+\; \beta \cdot \frac12 \sum_j \left(\mu_j^2 + \sigma_j^2 - \log\sigma_j^2 - 1\right) $$</div>
+<pre><code class="language-python">class VAE(nn.Module):
+    def __init__(self, latent_dim=16):
+        super().__init__()
+        self.enc = nn.Sequential(nn.Flatten(), nn.Linear(784, 256), nn.ReLU())
+        self.mu, self.logvar = nn.Linear(256, latent_dim), nn.Linear(256, latent_dim)
+        self.dec = nn.Sequential(nn.Linear(latent_dim, 256), nn.ReLU(),
+                                 nn.Linear(256, 784), nn.Sigmoid(), nn.Unflatten(1, (1, 28, 28)))
+    def forward(self, x):
+        h = self.enc(x)
+        mu, logvar = self.mu(h), self.logvar(h)
+        z = mu + torch.exp(0.5 * logvar) * torch.randn_like(mu)     # reparameterization
+        return self.dec(z), mu, logvar
+
+def vae_loss(x_hat, x, mu, logvar, beta=1.0):
+    recon = nn.functional.binary_cross_entropy(x_hat, x, reduction="sum") / len(x)
+    kl = -0.5 * torch.sum(1 + logvar - mu ** 2 - logvar.exp()) / len(x)
+    return recon + beta * kl
+
+# sinh ảnh mới sau khi huấn luyện:
+with torch.no_grad():
+    new_digits = vae.dec(torch.randn(16, 16))          # 16 chữ số "tưởng tượng", [16, 1, 28, 28]</code></pre>
+
+<h2>GAN: hai mạng đấu trí</h2>
+<p><strong>Generative Adversarial Network</strong> gồm hai mạng thi đấu với nhau, như kẻ làm tiền giả và cảnh sát:</p>
+<ul>
+  <li><strong>Generator G</strong> nhận nhiễu ngẫu nhiên \(\mathbf{z}\), tạo ra ảnh giả \(G(\mathbf{z})\).</li>
+  <li><strong>Discriminator D</strong> là một bộ phân loại nhị phân (chương 6): ảnh này thật (1) hay giả (0)?</li>
+  <li>D học để phân biệt giỏi hơn; G học để đánh lừa D. Khi cân bằng, ảnh giả trông như thật.</li>
+</ul>
+<pre><code class="language-python">G = nn.Sequential(nn.Linear(64, 256), nn.ReLU(), nn.Linear(256, 784), nn.Tanh())        # ảnh trong [-1, 1]
+D = nn.Sequential(nn.Linear(784, 256), nn.LeakyReLU(0.2), nn.Linear(256, 1))             # 1 logit
+opt_G = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+opt_D = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+bce = nn.BCEWithLogitsLoss()
+
+for real, _ in train_loader:                      # ảnh chuẩn hoá về [-1, 1]
+    real = real.flatten(1); n = len(real)
+    fake = G(torch.randn(n, 64))
+    # 1) Huấn luyện D: thật → 1, giả → 0   (detach: không cập nhật G ở bước này)
+    opt_D.zero_grad()
+    loss_D = bce(D(real), torch.ones(n, 1)) + bce(D(fake.detach()), torch.zeros(n, 1))
+    loss_D.backward(); opt_D.step()
+    # 2) Huấn luyện G: muốn D nói ảnh giả là THẬT
+    opt_G.zero_grad()
+    loss_G = bce(D(fake), torch.ones(n, 1))
+    loss_G.backward(); opt_G.step()</code></pre>
+<div class="box warn"><span class="box-title">⚠️ GAN khó huấn luyện</span>
+<p>Hai mạng phải tiến bộ cân bằng. D quá giỏi thì G không nhận được gradient hữu ích; G có thể “lười” chỉ tạo vài mẫu giống nhau (<em>mode collapse</em>). Loss của GAN cũng không cho biết chất lượng ảnh, nên phải nhìn ảnh mẫu sau mỗi epoch. Ngày nay, với sinh ảnh, diffusion đã phần lớn thay thế GAN; GAN vẫn được dùng khi cần sinh nhanh (một bước).</p></div>
+
+<h2>Diffusion: học cách khử nhiễu từng bước</h2>
+<p>Đây là công nghệ phía sau Stable Diffusion, Midjourney, DALL·E 3. Ý tưởng rất trực quan:</p>
+<ol>
+  <li><strong>Quá trình xuôi</strong> (cố định, không học): thêm nhiễu Gauss vào ảnh từng chút qua \(T\) bước (ví dụ 1000) cho tới khi chỉ còn nhiễu.</li>
+  <li><strong>Huấn luyện</strong> một mạng (thường là U-Net hoặc Transformer) nhận ảnh nhiễu ở bước \(t\), <em>dự đoán phần nhiễu đã được thêm vào</em>. Loss đơn giản là MSE giữa nhiễu thật và nhiễu dự đoán: một bài toán hồi quy (chương 2) khổng lồ.</li>
+  <li><strong>Sinh ảnh</strong>: bắt đầu từ nhiễu thuần, lặp lại “trừ bớt nhiễu dự đoán” từng bước, ảnh hiện dần ra.</li>
+  <li><strong>Điều kiện bằng chữ</strong>: đưa thêm embedding của câu mô tả (chương 25) vào mạng khử nhiễu, để ảnh sinh ra khớp với câu “một cánh đồng lúa lúc hoàng hôn”.</li>
+</ol>
+<pre><code class="language-python"># Một bước huấn luyện diffusion (DDPM) — rút gọn
+t = torch.randint(0, T, (n,))                                   # bước nhiễu ngẫu nhiên cho mỗi ảnh
+noise = torch.randn_like(x0)
+a = alpha_bar[t].view(-1, 1, 1, 1)                              # lượng "tín hiệu còn lại" ở bước t
+x_t = a.sqrt() * x0 + (1 - a).sqrt() * noise                    # ảnh đã bị làm nhiễu
+loss = nn.functional.mse_loss(denoiser(x_t, t), noise)          # dự đoán nhiễu</code></pre>
+
+<h2>LLM cũng là mô hình sinh</h2>
+<p>GPT, Claude, Llama (chương 25) là mô hình sinh cho văn bản: học \(P(\text{token tiếp theo} \mid \text{các token trước})\) trên lượng chữ khổng lồ, rồi sinh chữ bằng cách lấy mẫu từng token. Tham số <code>temperature</code> chính là softmax có nhiệt độ ở chương 9: thấp thì câu trả lời ổn định, cao thì đa dạng, sáng tạo hơn.</p>
+
+<h2>So sánh nhanh</h2>
+<table>
+  <tr><th>Mô hình</th><th>Ưu điểm</th><th>Nhược điểm</th><th>Dùng khi</th></tr>
+  <tr><td>Autoencoder</td><td>Đơn giản, dễ huấn luyện</td><td>Không sinh mẫu mới tốt</td><td>Phát hiện bất thường, khử nhiễu, nén, embedding</td></tr>
+  <tr><td>VAE</td><td>Không gian ẩn gọn, sinh được, ổn định</td><td>Ảnh hơi mờ</td><td>Sinh dữ liệu đơn giản, khám phá không gian ẩn</td></tr>
+  <tr><td>GAN</td><td>Ảnh sắc nét, sinh nhanh</td><td>Khó huấn luyện, mode collapse</td><td>Siêu phân giải, chuyển phong cách, sinh nhanh</td></tr>
+  <tr><td>Diffusion</td><td>Chất lượng và đa dạng cao nhất, điều kiện bằng chữ</td><td>Sinh chậm (nhiều bước), tốn tài nguyên</td><td>Sinh/chỉnh sửa ảnh, âm thanh, video</td></tr>
+  <tr><td>LLM (Transformer)</td><td>Hiểu và sinh ngôn ngữ đa nhiệm</td><td>Có thể “bịa” (hallucination), tốn chi phí</td><td>Văn bản, code, trợ lý (chương 25)</td></tr>
+</table>
+
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn theo lĩnh vực</span>
+<table>
+  <tr><th>Lĩnh vực</th><th>Ứng dụng</th><th>Mô hình</th></tr>
+  <tr><td>Sản xuất</td><td>Phát hiện lỗi khi có rất ít ảnh lỗi: huấn luyện trên ảnh sản phẩm tốt, gắn cờ sai số tái tạo lớn</td><td>Autoencoder tích chập</td></tr>
+  <tr><td>IoT / năng lượng</td><td>Phát hiện bất thường trong tín hiệu rung, dòng điện theo cửa sổ thời gian</td><td>Autoencoder trên cửa sổ trượt (ch. 25)</td></tr>
+  <tr><td>Tài chính</td><td>Giao dịch bất thường khi không có nhãn gian lận</td><td>Autoencoder trên dữ liệu bảng đã chuẩn hoá</td></tr>
+  <tr><td>Y tế</td><td>Khử nhiễu ảnh chụp liều thấp; tạo ảnh tổng hợp để tăng dữ liệu cho bệnh hiếm</td><td>Denoising AE, diffusion</td></tr>
+  <tr><td>Bán lẻ / marketing</td><td>Tạo ảnh sản phẩm trên nhiều bối cảnh, viết mô tả sản phẩm</td><td>Diffusion, LLM</td></tr>
+  <tr><td>Chia sẻ dữ liệu</td><td>Sinh dữ liệu bảng tổng hợp giữ thống kê nhưng không chứa người thật</td><td>VAE/GAN cho dữ liệu bảng</td></tr>
+</table></div>
+<div class="box warn"><span class="box-title">⚠️ Trách nhiệm khi dùng mô hình sinh</span>
+<p>Nội dung sinh ra có thể sai sự thật, sao chép dữ liệu huấn luyện (bản quyền, dữ liệu cá nhân), hoặc bị dùng làm deepfake. Ghi rõ nội dung do AI tạo, kiểm tra lại trước khi dùng, và không dùng để giả mạo người hay tổ chức thật. Dữ liệu tổng hợp dùng để huấn luyện mô hình y tế phải được đánh giá trên dữ liệu thật.</p></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Mô hình sinh học cấu trúc của \(\mathbf{x}\); autoencoder học bằng cách nén rồi tái tạo, không cần nhãn.</li>
+  <li>Sai số tái tạo lớn = bất thường; huấn luyện chỉ trên dữ liệu bình thường, chọn ngưỡng trên validation.</li>
+  <li>VAE: encoder ra \(\mu, \sigma\), loss = tái tạo + KL, lấy mẫu \(z \sim \mathcal N(0, I)\) để sinh.</li>
+  <li>GAN: generator vs discriminator; sắc nét nhưng khó huấn luyện.</li>
+  <li>Diffusion: học dự đoán nhiễu, sinh bằng cách khử nhiễu từng bước; LLM sinh từng token.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Vì sao autoencoder phát hiện bất thường phải được huấn luyện chỉ trên dữ liệu bình thường?</summary><p>Nếu có cả mẫu bất thường trong tập train, mô hình cũng học cách tái tạo tốt chúng, nên sai số tái tạo của mẫu bất thường không còn khác biệt.</p></details>
+<details class="quiz"><summary>Nếu đặt kích thước \(\mathbf{z}\) bằng 784 (bằng đầu vào) thì sao?</summary><p>Không còn nút thắt: mạng có thể học “sao chép” đầu vào mà không học được cấu trúc gì. Sai số tái tạo nhỏ với mọi mẫu, kể cả mẫu bất thường.</p></details>
+<details class="quiz"><summary>Trong vòng lặp GAN, vì sao dùng <code>fake.detach()</code> khi huấn luyện D?</summary><p>Ở bước đó chỉ muốn cập nhật D. <code>detach()</code> cắt đồ thị tính toán để gradient của loss D không chảy ngược vào G.</p></details>
+</article>
+</body>
+</html>

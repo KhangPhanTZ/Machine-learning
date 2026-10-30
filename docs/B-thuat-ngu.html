@@ -21,6 +21,7 @@
   <tr><th>Tiếng Anh</th><th>Tiếng Việt / giải thích</th><th>Ch.</th></tr>
   <tr><td>Activation function</td><td>Hàm kích hoạt — hàm phi tuyến áp dụng sau tổng có trọng số</td><td>8, 9</td></tr>
   <tr><td>Adam</td><td>Thuật toán tối ưu tự điều chỉnh learning rate cho từng tham số</td><td>10</td></tr>
+  <tr><td>AdamW</td><td>Adam với weight decay tách riêng — lựa chọn mặc định hiện nay</td><td>27</td></tr>
   <tr><td>Anomaly detection</td><td>Phát hiện bất thường</td><td>14</td></tr>
   <tr><td>Attention</td><td>Cơ chế chú ý — mỗi token “nhìn” các token khác, gán trọng số bằng softmax</td><td>25</td></tr>
   <tr><td>Autograd</td><td>Bộ tự động tính đạo hàm của PyTorch (<code>loss.backward()</code>)</td><td>20</td></tr>
@@ -32,6 +33,7 @@
   <tr><td>Bellman equation</td><td>Phương trình Bellman: \(Q(s,a) = R + \gamma\max Q(s',a')\)</td><td>17</td></tr>
   <tr><td>Bias (lỗi)</td><td>Độ chệch — mô hình quá đơn giản, underfit</td><td>7, 11</td></tr>
   <tr><td>Bias (tham số)</td><td>Hệ số tự do \(b\)</td><td>2</td></tr>
+  <tr><td>Canary / shadow deployment</td><td>Triển khai dần / chạy song song không dùng kết quả để kiểm tra mô hình mới</td><td>29</td></tr>
   <tr><td>Centroid</td><td>Tâm cụm</td><td>13</td></tr>
   <tr><td>Classification</td><td>Phân loại</td><td>6</td></tr>
   <tr><td>Clustering</td><td>Phân cụm</td><td>13</td></tr>
@@ -58,9 +60,11 @@
   <tr><td>Dense layer</td><td>Lớp kết nối đầy đủ (fully connected)</td><td>8</td></tr>
   <tr><td>Derivative / gradient</td><td>Đạo hàm / vector đạo hàm riêng</td><td>3, 10</td></tr>
   <tr><td>Device (CPU/GPU)</td><td>Thiết bị chạy tính toán; mô hình và dữ liệu phải cùng device</td><td>22</td></tr>
+  <tr><td>Diffusion model</td><td>Mô hình sinh học khử nhiễu từng bước (Stable Diffusion)</td><td>28</td></tr>
   <tr><td>Dimensionality reduction</td><td>Giảm chiều</td><td>15</td></tr>
   <tr><td>Discount factor γ</td><td>Hệ số chiết khấu</td><td>17</td></tr>
   <tr><td>Distortion</td><td>Hàm chi phí của K-means</td><td>13</td></tr>
+  <tr><td>Domain shift</td><td>Dữ liệu nơi triển khai khác nơi huấn luyện (máy chụp khác, vùng khác)</td><td>30</td></tr>
   <tr><td>Dropout</td><td>Tắt ngẫu nhiên một phần nơ-ron khi huấn luyện để chống overfitting</td><td>24</td></tr>
   <tr><td>Early stopping</td><td>Dừng sớm khi điểm validation không còn cải thiện</td><td>24</td></tr>
   <tr><td>Embedding</td><td>Vector biểu diễn chiều thấp học được</td><td>15, 16</td></tr>
@@ -77,38 +81,52 @@
   <tr><td>Fine-tuning</td><td>Tinh chỉnh mô hình đã huấn luyện sẵn</td><td>11</td></tr>
   <tr><td>Flatten</td><td>Trải phẳng tensor nhiều chiều thành vector</td><td>22</td></tr>
   <tr><td>Forward propagation</td><td>Lan truyền xuôi</td><td>8</td></tr>
+  <tr><td>GAN (Generative Adversarial Network)</td><td>Hai mạng đối kháng: generator tạo mẫu giả, discriminator phân biệt thật/giả</td><td>28</td></tr>
   <tr><td>Generalization</td><td>Khả năng tổng quát hoá cho dữ liệu mới</td><td>7</td></tr>
+  <tr><td>Grad-CAM</td><td>Bản đồ nhiệt cho thấy vùng ảnh mà CNN dựa vào để dự đoán</td><td>30</td></tr>
+  <tr><td>Gradient clipping</td><td>Giới hạn độ lớn gradient để tránh bùng nổ</td><td>27</td></tr>
   <tr><td>Gradient descent</td><td>Hạ gradient (hạ dốc)</td><td>3</td></tr>
   <tr><td>Hidden layer</td><td>Lớp ẩn</td><td>8</td></tr>
   <tr><td>Hyperparameter</td><td>Siêu tham số — do người chọn (α, λ, số lớp…)</td><td>1</td></tr>
   <tr><td>Information gain</td><td>Lượng thông tin thu được khi chia nút</td><td>12</td></tr>
   <tr><td>Iteration</td><td>Vòng lặp</td><td>3</td></tr>
   <tr><td>Label / target</td><td>Nhãn / giá trị mục tiêu \(y\)</td><td>1</td></tr>
+  <tr><td>Label smoothing</td><td>Làm “mềm” nhãn one-hot để mô hình bớt quá tự tin</td><td>30</td></tr>
   <tr><td>Learning curve</td><td>Đường cong học (J theo số vòng lặp hoặc theo m)</td><td>3, 11</td></tr>
+  <tr><td>Learning rate scheduler</td><td>Lịch thay đổi learning rate theo thời gian (cosine, OneCycle…)</td><td>27</td></tr>
   <tr><td>Learning rate α</td><td>Tốc độ học</td><td>3</td></tr>
   <tr><td>LLM (Large Language Model)</td><td>Mô hình ngôn ngữ lớn (GPT, Claude, Llama…)</td><td>25</td></tr>
   <tr><td>Logits</td><td>Đầu ra trước softmax/sigmoid</td><td>9</td></tr>
   <tr><td>Loss function</td><td>Hàm mất mát — lỗi trên một ví dụ</td><td>6</td></tr>
   <tr><td>LSTM / RNN</td><td>Mạng hồi quy — đọc chuỗi từng bước, giữ trạng thái ẩn</td><td>25</td></tr>
   <tr><td>Mean normalization</td><td>Chuẩn hoá trung bình</td><td>5, 16</td></tr>
+  <tr><td>Mixed precision</td><td>Tính toán bằng float16/bfloat16 để nhanh hơn, ít bộ nhớ hơn</td><td>27</td></tr>
   <tr><td>Multiclass / multi-label</td><td>Đa lớp (một nhãn) / đa nhãn (nhiều nhãn cùng lúc)</td><td>9</td></tr>
   <tr><td>Neuron / unit</td><td>Nơ-ron / đơn vị</td><td>8</td></tr>
   <tr><td>nn.Module</td><td>Lớp cơ sở để định nghĩa mạng trong PyTorch (<code>__init__</code> + <code>forward</code>)</td><td>22</td></tr>
   <tr><td>One-hot encoding</td><td>Mã hoá một-nóng</td><td>5, 12</td></tr>
+  <tr><td>ONNX</td><td>Định dạng mô hình trung lập để chạy ngoài PyTorch</td><td>29</td></tr>
   <tr><td>Overfitting</td><td>Quá khớp</td><td>7</td></tr>
   <tr><td>Parameter</td><td>Tham số — mô hình tự học (\(w, b\))</td><td>1</td></tr>
   <tr><td>Policy π</td><td>Chính sách — ánh xạ trạng thái → hành động</td><td>17</td></tr>
   <tr><td>Pooling</td><td>Gộp — giảm kích thước feature map (max/average)</td><td>24</td></tr>
+  <tr><td>PR-AUC</td><td>Diện tích dưới đường precision–recall — hợp với dữ liệu lệch lớp</td><td>31</td></tr>
   <tr><td>Precision / Recall</td><td>Độ chính xác dự báo dương / độ phủ</td><td>11</td></tr>
   <tr><td>Pretrained model</td><td>Mô hình đã huấn luyện sẵn trên dữ liệu lớn</td><td>24, 25</td></tr>
   <tr><td>Principal component</td><td>Thành phần chính</td><td>15</td></tr>
+  <tr><td>PSI (Population Stability Index)</td><td>Chỉ số đo độ lệch phân phối (drift) của một đặc trưng</td><td>29</td></tr>
+  <tr><td>Quantization</td><td>Lượng tử hoá — đổi trọng số sang int8 để nhỏ và nhanh hơn</td><td>29</td></tr>
   <tr><td>RAG (Retrieval-Augmented Generation)</td><td>Tìm tài liệu liên quan rồi đưa vào prompt cho LLM</td><td>25</td></tr>
   <tr><td>Random forest</td><td>Rừng ngẫu nhiên</td><td>12</td></tr>
+  <tr><td>Reconstruction error</td><td>Sai số tái tạo của autoencoder, dùng làm điểm bất thường</td><td>28</td></tr>
   <tr><td>Regression</td><td>Hồi quy</td><td>2</td></tr>
   <tr><td>Regularization</td><td>Chính quy hoá — phạt độ phức tạp</td><td>7</td></tr>
   <tr><td>Reinforcement learning</td><td>Học tăng cường</td><td>17</td></tr>
+  <tr><td>Residual connection</td><td>Kết nối tắt \(x + F(x)\) giúp huấn luyện mạng rất sâu</td><td>27</td></tr>
   <tr><td>Return</td><td>Tổng phần thưởng có chiết khấu</td><td>17</td></tr>
   <tr><td>Reward</td><td>Phần thưởng</td><td>17</td></tr>
+  <tr><td>Self-supervised learning</td><td>Học tự giám sát — nhãn được tạo từ chính dữ liệu</td><td>28</td></tr>
+  <tr><td>Sensitivity / specificity</td><td>Độ nhạy (recall) / độ đặc hiệu — thước đo chuẩn trong y tế</td><td>30</td></tr>
   <tr><td>Shape</td><td>Kích thước các chiều của tensor, ví dụ <code>[32, 3, 128, 128]</code></td><td>19</td></tr>
   <tr><td>Sigmoid / logistic function</td><td>Hàm sigmoid</td><td>6</td></tr>
   <tr><td>Skewed dataset</td><td>Bộ dữ liệu lệch lớp</td><td>11</td></tr>
@@ -123,9 +141,13 @@
   <tr><td>Transformer</td><td>Kiến trúc dựa trên attention — nền của BERT, GPT</td><td>25</td></tr>
   <tr><td>Transforms</td><td>Chuỗi biến đổi ảnh: resize, ToTensor, Normalize…</td><td>22, 23</td></tr>
   <tr><td>Underfitting</td><td>Chưa khớp</td><td>7</td></tr>
+  <tr><td>VAE (Variational Autoencoder)</td><td>Autoencoder có không gian ẩn dạng phân phối, sinh được mẫu mới</td><td>28</td></tr>
   <tr><td>Variance</td><td>Phương sai — mô hình quá nhạy với dữ liệu, overfit</td><td>7, 11</td></tr>
   <tr><td>Vectorization</td><td>Vector hoá — thay vòng lặp bằng phép toán ma trận</td><td>4</td></tr>
+  <tr><td>WAPE</td><td>Sai số tuyệt đối có trọng số — thước đo dự báo dễ hiểu cho kinh doanh</td><td>31</td></tr>
+  <tr><td>Warmup</td><td>Tăng dần learning rate trong các bước đầu huấn luyện</td><td>27</td></tr>
   <tr><td>Weight</td><td>Trọng số \(w\)</td><td>2</td></tr>
+  <tr><td>Weight decay</td><td>Phạt trọng số lớn — tương đương L2 regularization</td><td>7, 27</td></tr>
 </table>
 <script>
 (function () {

@@ -125,6 +125,46 @@ def train_epoch(model, loss_function, optimizer, train_loader, device):
   <li>Muốn vượt 99% cần mô hình hiểu cấu trúc không gian của ảnh: đó là CNN ở chương 24.</li>
 </ul>
 
+<h2>8. Phân tích lỗi: mô hình sai ở đâu?</h2>
+<p>97.44% nghĩa là khoảng 256 trong 10 000 ảnh bị sai. Con số tổng không cho biết nên cải thiện gì. Hãy mổ xẻ lỗi (chương 11):</p>
+<pre><code class="language-python">@torch.no_grad()
+def predict_all(model, loader, device):
+    model.eval()
+    probs, labels = [], []
+    for xb, yb in loader:
+        probs.append(torch.softmax(model(xb.to(device)), dim=1).cpu())
+        labels.append(yb)
+    return torch.cat(probs), torch.cat(labels)
+
+probs, labels = predict_all(model, test_loader, device)
+preds = probs.argmax(1)
+num_classes = probs.shape[1]
+cm = torch.zeros(num_classes, num_classes, dtype=torch.long)
+for t, p in zip(labels, preds):
+    cm[t, p] += 1                                   # hàng = nhãn thật, cột = dự đoán
+per_class_acc = cm.diag() / cm.sum(1)               # accuracy (recall) từng chữ số
+off = cm.clone(); off.fill_diagonal_(0)
+i = off.argmax()
+print(f"nhầm nhiều nhất: {i // num_classes} → {i % num_classes} ({off.max()} ảnh)")
+
+wrong = (preds != labels).nonzero().squeeze(1)
+conf = probs.max(1).values
+worst = wrong[conf[wrong].argsort(descending=True)[:16]]   # sai mà “rất tự tin” — xem kỹ nhất</code></pre>
+<ul>
+  <li><strong>Confusion matrix</strong> cho biết cặp chữ số hay nhầm. Với MNIST thường là 4↔9, 3↔5, 7↔2. Đó là những cặp nét giống nhau, và CNN (chương 24) xử lý tốt hơn vì nó nhìn hình dạng cục bộ.</li>
+  <li><strong>Accuracy từng lớp</strong>: một lớp kém hẳn thường do thiếu dữ liệu hoặc nhãn lớp đó nhiễu.</li>
+  <li><strong>Sai mà rất tự tin</strong>: in ra 16 ảnh này. Nhiều ảnh trong số đó người cũng đọc nhầm, hoặc thực ra nhãn gốc sai. Sửa nhãn sai trong tập train là cải thiện “rẻ” nhất.</li>
+</ul>
+<h3>Thử nghiệm nên làm tiếp (và cách so sánh công bằng)</h3>
+<table>
+  <tr><th>Thay đổi</th><th>Kỳ vọng</th><th>Chương</th></tr>
+  <tr><td>Thêm một lớp ẩn 128 → 64</td><td>Tăng nhẹ; dễ overfit hơn</td><td>21</td></tr>
+  <tr><td>Thêm <code>nn.Dropout(0.2)</code></td><td>Thu hẹp khoảng cách train–test</td><td>27</td></tr>
+  <tr><td>Scheduler + nhiều epoch hơn + dừng sớm</td><td>Tăng nhẹ, ổn định hơn</td><td>27</td></tr>
+  <tr><td>Đổi sang CNN 2 lớp tích chập</td><td>Tăng rõ, thường vượt 99%</td><td>24</td></tr>
+</table>
+<p>Khi so sánh: chia thêm một tập <strong>validation</strong> từ 60 000 ảnh train (ví dụ 55 000/5 000) để chọn cấu hình, cố định seed, và chỉ nhìn tập test ở lần cuối cùng. Lab dùng thẳng tập test sau mỗi epoch để minh hoạ; trong dự án thật làm vậy sẽ “học lỏm” tập test.</p>
+
 <div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
   <li><a data-pt="M2_training/C1_M2_Lab_1_mnist_classifier.ipynb">C1_M2 Lab 1 — Building Your First Image Classifier</a></li>
 </ul></div>
