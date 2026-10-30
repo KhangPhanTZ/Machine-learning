@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5. Feature scaling & feature engineering · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 5 · Khoá C1, tuần 2</div>
+  <h1>Feature scaling, learning rate &amp; feature engineering</h1>
+  <p class="lede">Những kỹ thuật “nhỏ” nhưng quyết định gradient descent chạy trong vài giây hay vài giờ, và mô hình tuyến tính có vẽ được đường cong hay không.</p>
+  <div class="meta"><span>⏱ 20 phút đọc</span><span>🧪 C1_W2_Lab03–Lab06</span></div>
+</header>
+
+<h2>Vấn đề: đặc trưng chênh lệch thang đo</h2>
+<p>Trong dữ liệu nhà, diện tích nằm trong khoảng 300–2000 còn số phòng ngủ chỉ 0–5. Đường đồng mức của \(J\) khi đó là những elip rất <strong>dẹt</strong>. Gradient descent sẽ đi zíc-zắc qua lại theo chiều hẹp, tiến rất chậm theo chiều dài.</p>
+<p>Lab03 cho thấy rõ: với dữ liệu thô, α = 9.9e-7 làm J dao động, α = 9e-7 hội tụ chậm, α = 1e-7 hội tụ nhưng rất chậm. Không có α nào “tốt” cho mọi chiều cùng lúc.</p>
+
+<h2>Các cách chuẩn hoá</h2>
+<table>
+  <tr><th>Phương pháp</th><th>Công thức</th><th>Khoảng giá trị</th></tr>
+  <tr><td>Chia cho max</td><td>\(x_j / \max(x_j)\)</td><td>\([0, 1]\) nếu \(x \ge 0\)</td></tr>
+  <tr><td>Mean normalization</td><td>\(\dfrac{x_j - \mu_j}{\max - \min}\)</td><td>khoảng \([-1, 1]\)</td></tr>
+  <tr><td><strong>Z-score</strong></td><td>\(\dfrac{x_j - \mu_j}{\sigma_j}\)</td><td>trung bình 0, độ lệch chuẩn 1</td></tr>
+</table>
+<pre><code class="language-python">def zscore_normalize_features(X):
+    mu = np.mean(X, axis=0)      # (n,)
+    sigma = np.std(X, axis=0)    # (n,)
+    X_norm = (X - mu) / sigma    # broadcasting
+    return X_norm, mu, sigma</code></pre>
+<p>Sau khi chuẩn hoá, Lab03 chạy với α = 0.1 và chỉ cần vài trăm vòng lặp để hội tụ — thay vì không bao giờ tới đích.</p>
+<div class="box warn"><span class="box-title">⚠️ Lưu μ và σ!</span>
+<p>Khi dự đoán cho dữ liệu mới, phải chuẩn hoá nó bằng <strong>đúng μ, σ của tập huấn luyện</strong>, không tính lại trên dữ liệu mới:</p>
+<pre><code class="language-python">x_house = np.array([1200, 3, 1, 40])
+x_house_norm = (x_house - X_mu) / X_sigma
+price = np.dot(x_house_norm, w_norm) + b_norm</code></pre>
+<p>Tương tự với tập validation/test (chương 11): chỉ <code>fit</code> scaler trên train, rồi <code>transform</code> các tập còn lại. Nếu tính μ, σ trên toàn bộ dữ liệu, thông tin của tập test sẽ “rò” vào mô hình (data leakage).</p></div>
+
+<h2>Chọn learning rate</h2>
+<ul>
+  <li>Vẽ <strong>learning curve</strong> J theo số vòng lặp. J phải giảm sau <em>mỗi</em> vòng.</li>
+  <li>Thử dãy α tăng gấp ~3 lần: 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1… Chọn giá trị lớn nhất mà J vẫn giảm đều, hoặc hơi nhỏ hơn.</li>
+  <li><strong>Automatic convergence test</strong>: dừng khi J giảm ít hơn ε (ví dụ \(10^{-3}\)) sau một vòng. Thực tế nhìn đồ thị thường đáng tin hơn chọn ε.</li>
+</ul>
+
+<h2>Feature engineering</h2>
+<p>Đặc trưng tốt thường quan trọng hơn thuật toán tốt. <strong>Feature engineering</strong> là dùng hiểu biết về bài toán để tạo đặc trưng mới, bằng cách biến đổi hoặc kết hợp đặc trưng cũ. Ví dụ kinh điển: từ chiều mặt tiền \(x_1\) và chiều sâu \(x_2\) của lô đất, tạo đặc trưng diện tích \(x_3 = x_1x_2\).</p>
+<figure class="medium"><img src="images/C1_W2_Lab07_FeatureEngLecture.PNG" alt="Ví dụ feature engineering: diện tích = chiều rộng × chiều sâu" loading="lazy"><figcaption>Slide bài giảng: feature engineering, hồi quy đa thức và việc chọn đặc trưng.</figcaption></figure>
+
+<h3>Hồi quy đa thức</h3>
+<p>Mô hình tuyến tính có thể vẽ đường cong nếu ta đưa vào các đặc trưng phi tuyến của \(x\):</p>
+<div class="math-box">$$ f_{\mathbf{w},b}(x) = w_0 x + w_1 x^2 + w_2 x^3 + b $$</div>
+<pre><code class="language-python">x = np.arange(0, 20, 1)
+y = x**2
+X = np.c_[x, x**2, x**3]     # ghép 3 cột đặc trưng
+
+# Chưa chuẩn hoá: x^3 lên tới ~7000, phải dùng α rất nhỏ
+model_w, model_b = run_gradient_descent_feng(X, y, iterations=10000, alpha=1e-7)
+# w ≈ [0.08, 0.54, 0.03]: trọng số của x^2 lớn nhất
+
+# Chuẩn hoá z-score: dùng được α = 0.1 và khớp gần như hoàn hảo
+X = zscore_normalize_features(X)
+model_w, model_b = run_gradient_descent_feng(X, y, iterations=100000, alpha=1e-1)</code></pre>
+<p>Lab04 cho thấy gradient descent tự gán trọng số lớn cho đặc trưng phù hợp nhất. Với \(y = \cos(x/2)\) và đặc trưng tới \(x^{13}\), mô hình vẫn khớp được khá tốt — nhưng đây cũng là cửa ngõ dẫn tới <strong>overfitting</strong> (chương 7).</p>
+
+<h2>Scikit-learn</h2>
+<p>Trong thực tế, ta không tự viết gradient descent mà dùng thư viện. Lab05 và Lab06:</p>
+<pre><code class="language-python">from sklearn.linear_model import SGDRegressor, LinearRegression
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+X_norm = scaler.fit_transform(X_train)      # z-score
+
+sgdr = SGDRegressor(max_iter=1000)          # gradient descent ngẫu nhiên
+sgdr.fit(X_norm, y_train)
+print(sgdr.coef_, sgdr.intercept_)          # w, b
+y_pred = sgdr.predict(X_norm)
+
+linear_model = LinearRegression()           # nghiệm đóng (normal equation)
+linear_model.fit(X_train, y_train)</code></pre>
+
+<h3>Normal equation — nghiệm đóng</h3>
+<p>Riêng hồi quy tuyến tính có nghiệm chính xác không cần lặp. Thêm một cột toàn số 1 vào \(\mathbf{X}\) để gộp \(b\) vào \(\mathbf{w}\), khi đó:</p>
+<div class="math-box">$$ \mathbf{w} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y} $$</div>
+<table>
+  <tr><th></th><th>Gradient descent</th><th>Normal equation</th></tr>
+  <tr><td>Cần chọn α</td><td>Có</td><td>Không</td></tr>
+  <tr><td>Số vòng lặp</td><td>Nhiều</td><td>Không lặp</td></tr>
+  <tr><td>Khi \(n\) lớn (≥ 10.000)</td><td>Vẫn tốt</td><td>Chậm: nghịch đảo ma trận \(n\times n\) tốn \(O(n^3)\)</td></tr>
+  <tr><td>Dùng cho mô hình khác</td><td>Mọi mô hình khả vi</td><td>Chỉ hồi quy tuyến tính</td></tr>
+</table>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: biến phân loại &amp; biến đổi log</span>
+<ul>
+  <li><strong>One-hot encoding</strong> cho biến phân loại (quận, màu sắc…): mỗi giá trị thành một cột 0/1. Không mã hoá “Q1=1, Q2=2, Q3=3” vì mô hình sẽ hiểu sai là Q3 “gấp ba” Q1. Chương 12 dùng one-hot cho cây quyết định.</li>
+  <li><strong>Biến đổi log</strong> cho biến lệch phải mạnh (thu nhập, giá nhà, lượt xem): \(\log(1+x)\) giúp phân phối cân đối hơn và giảm ảnh hưởng của giá trị cực lớn.</li>
+  <li>Cây quyết định (chương 12) <em>không</em> cần feature scaling, vì nó chỉ so sánh ngưỡng trên từng đặc trưng.</li>
+  <li><code>sklearn.preprocessing.PolynomialFeatures(degree=d)</code> tạo đặc trưng đa thức tự động — dùng trong lab C2_W3 (chương 11).</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab03_Feature_Scaling_and_Learning_Rate_Soln.ipynb">C1_W2_Lab03 — Feature scaling and Learning Rate</a></li>
+  <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab04_FeatEng_PolyReg_Soln.ipynb">C1_W2_Lab04 — Feature Engineering and Polynomial Regression</a></li>
+  <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab05_Sklearn_GD_Soln.ipynb">C1_W2_Lab05 — Linear Regression using Scikit-Learn (SGD)</a></li>
+  <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab06_Sklearn_Normal_Soln.ipynb">C1_W2_Lab06 — Linear Regression, closed-form</a></li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Chuẩn hoá z-score giúp gradient descent hội tụ nhanh hơn nhiều; luôn dùng μ, σ của tập train.</li>
+  <li>Chọn α bằng cách thử dãy tăng ×3 và nhìn learning curve.</li>
+  <li>Đặc trưng đa thức cho phép mô hình tuyến tính khớp đường cong.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Một đặc trưng có giá trị trong khoảng [−0.001, 0.001]. Có cần scale không?</summary><p>Nên scale — khoảng quá nhỏ cũng gây vấn đề như khoảng quá lớn. Mục tiêu là các đặc trưng có thang đo tương đương nhau, quanh khoảng [−1, 1].</p></details>
+<details class="quiz"><summary>Dùng đặc trưng x, x², x³ với x từ 1 đến 1000 mà không scale, chuyện gì xảy ra?</summary><p>x³ lên tới \(10^9\), lớn hơn x hàng triệu lần. Gradient descent gần như không thể hội tụ với bất kỳ α nào.</p></details>
+</article>
+</body>
+</html>

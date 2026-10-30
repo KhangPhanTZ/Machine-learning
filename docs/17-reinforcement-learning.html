@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>17. Học tăng cường & Deep Q-Learning · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 17 · Khoá C3, tuần 3</div>
+  <h1>Học tăng cường &amp; Deep Q-Learning</h1>
+  <p class="lede">Không ai chỉ cho tàu đổ bộ cách hạ cánh. Nó chỉ được thưởng khi đáp êm và bị phạt khi rơi vỡ — và tự học ra cách điều khiển sau vài trăm lần thử.</p>
+  <div class="meta"><span>⏱ 30 phút đọc</span><span>🧪 C3 Deep Q-Learning — Lunar Lander</span></div>
+</header>
+
+<figure class="medium"><img src="images/lunar_lander.gif" alt="Hoạt hình tàu đổ bộ mặt trăng hạ cánh" loading="lazy"><figcaption>Môi trường Lunar Lander của OpenAI Gym.</figcaption></figure>
+
+<h2>Khung học tăng cường</h2>
+<p>Trong học tăng cường (reinforcement learning, RL), một <strong>tác tử</strong> (agent) tương tác với <strong>môi trường</strong> theo từng bước thời gian \(t\):</p>
+<ol>
+  <li>Quan sát <strong>trạng thái</strong> \(s_t\);</li>
+  <li>Chọn <strong>hành động</strong> \(a_t\) theo <strong>chính sách</strong> \(\pi(s)\);</li>
+  <li>Nhận <strong>phần thưởng</strong> \(R_t\) và chuyển sang trạng thái mới \(s_{t+1}\).</li>
+</ol>
+<p>Ta không bảo tác tử <em>làm gì</em>, chỉ bảo nó <em>điều gì tốt</em> (hàm phần thưởng). Giống huấn luyện chó: thưởng khi làm đúng, không cần giải thích cách làm.</p>
+
+<h3>Return và hệ số chiết khấu</h3>
+<div class="math-box">$$ \text{Return} = R_1 + \gamma R_2 + \gamma^2 R_3 + \dots \qquad (0 &lt; \gamma \le 1) $$</div>
+<p>\(\gamma\) (gamma) làm phần thưởng ở xa có giá trị nhỏ hơn — tác tử “thiếu kiên nhẫn”, ưu tiên phần thưởng sớm. Phần thưởng âm (phạt) bị đẩy càng xa càng tốt. Lab dùng \(\gamma = 0.995\).</p>
+
+<h3>Markov Decision Process (MDP)</h3>
+<p>Tính chất Markov: tương lai chỉ phụ thuộc trạng thái <em>hiện tại</em>, không phụ thuộc cách ta đi đến đó. Mục tiêu RL: tìm chính sách \(\pi\) cực đại hoá return kỳ vọng.</p>
+
+<h2>Hàm giá trị trạng thái–hành động Q(s, a)</h2>
+<p>\(Q(s, a)\) = return nếu bắt đầu ở trạng thái \(s\), thực hiện hành động \(a\) <em>một lần</em>, rồi sau đó hành động tối ưu. Nếu biết \(Q\), chính sách tốt nhất rất đơn giản:</p>
+<div class="math-box">$$ \pi(s) = \arg\max_a Q(s, a) $$</div>
+
+<h3>Phương trình Bellman</h3>
+<div class="math-box">$$ Q(s, a) = R(s) + \gamma\max_{a'} Q(s', a') $$</div>
+<p>Return = phần thưởng nhận ngay + giá trị (đã chiết khấu) của trạng thái tiếp theo khi hành động tối ưu. Đây là định nghĩa đệ quy cho phép ta học \(Q\) dần dần.</p>
+<div class="box note"><span class="box-title">💡 Môi trường ngẫu nhiên</span>
+<p>Khi hành động không luôn dẫn đến cùng một kết quả (ví dụ robot trượt chân), ta tối đa hoá <em>kỳ vọng</em>: \(Q(s,a) = R(s) + \gamma\,\mathbb{E}\left[\max_{a'}Q(s',a')\right]\).</p></div>
+
+<h2>Bài toán Lunar Lander</h2>
+<table>
+  <tr><th>Thành phần</th><th>Chi tiết</th></tr>
+  <tr><td>Trạng thái (8 số)</td><td>toạ độ \(x, y\); vận tốc \(\dot x, \dot y\); góc \(\theta\); vận tốc góc \(\dot\theta\); hai cờ \(l, r\) cho biết chân trái/phải chạm đất</td></tr>
+  <tr><td>Hành động (4)</td><td>0 = không làm gì · 1 = động cơ trái · 2 = động cơ chính · 3 = động cơ phải</td></tr>
+  <tr><td>Phần thưởng</td><td>+ khi tiến gần bãi đáp và chậm lại; +10 mỗi chân chạm đất; +100 hạ cánh an toàn, −100 rơi vỡ; −0.3 mỗi khung hình bật động cơ chính, −0.03 cho động cơ bên</td></tr>
+  <tr><td>Kết thúc</td><td>tàu rơi vỡ, bay ra ngoài, hoặc đứng yên</td></tr>
+  <tr><td>Giải xong</td><td>trung bình ≥ 200 điểm trên 100 episode gần nhất</td></tr>
+</table>
+<p>Trạng thái là số thực liên tục → không thể lập bảng \(Q\) cho mọi trạng thái. Ta dùng một <strong>mạng nơ-ron</strong> để xấp xỉ \(Q\).</p>
+
+<h2>Deep Q-Network (DQN)</h2>
+<p>Mạng nhận trạng thái (8 số) và trả về \(Q(s, a)\) cho <em>cả 4</em> hành động một lúc. Mạng mình xây trong lab:</p>
+<pre><code class="language-python">q_network = Sequential([
+    Input(shape=(state_size,)),                 # 8
+    Dense(64, activation='relu'),
+    Dense(64, activation='relu'),
+    Dense(num_actions, activation='linear'),    # 4 giá trị Q
+])
+target_q_network = Sequential([                 # cùng kiến trúc
+    Input(shape=(state_size,)),
+    Dense(64, activation='relu'),
+    Dense(64, activation='relu'),
+    Dense(num_actions, activation='linear'),
+])
+optimizer = Adam(learning_rate=ALPHA)           # ALPHA = 1e-3</code></pre>
+<p>Ý tưởng huấn luyện: dùng phương trình Bellman để <strong>tự tạo nhãn</strong>. Với mỗi trải nghiệm \((s, a, R, s')\):</p>
+<div class="math-box">$$ y = R + \gamma\max_{a'}\hat Q(s', a'), \qquad \text{huấn luyện để } Q(s, a) \approx y $$</div>
+<p>Biến RL thành bài toán hồi quy có giám sát với loss MSE.</p>
+
+<h3>Hai kỹ thuật giúp ổn định</h3>
+<ul>
+  <li><strong>Target network \(\hat Q\)</strong>: nếu dùng chính \(Q\) để tạo nhãn \(y\), nhãn thay đổi sau mỗi lần cập nhật — như đuổi theo cái bóng của mình. Dùng một mạng riêng \(\hat Q\) để tính \(y\), và cập nhật nó <em>mềm</em> (soft update) rất chậm theo \(Q\):
+  $$ \mathbf{w}_{\hat Q} \leftarrow \tau\,\mathbf{w}_Q + (1 - \tau)\,\mathbf{w}_{\hat Q}, \qquad \tau = 10^{-3} $$</li>
+  <li><strong>Experience replay</strong>: lưu các trải nghiệm \((s, a, R, s', \text{done})\) vào bộ nhớ (100.000 phần tử). Mỗi lần học lấy ngẫu nhiên một mini-batch, phá vỡ tương quan giữa các bước liên tiếp.</li>
+</ul>
+<figure class="medium"><img src="images/deep_q_algorithm.png" alt="Thuật toán Deep Q-Learning với experience replay" loading="lazy"><figcaption>Thuật toán Deep Q-Learning với experience replay (từ lab).</figcaption></figure>
+
+<h3>Hàm loss — code mình viết</h3>
+<pre><code class="language-python">def compute_loss(experiences, gamma, q_network, target_q_network):
+    states, actions, rewards, next_states, done_vals = experiences
+
+    # max_a' Q̂(s', a') tính bằng target network
+    max_qsa = tf.reduce_max(target_q_network(next_states), axis=-1)
+
+    # y = R nếu episode kết thúc, ngược lại R + γ max Q̂(s', a')
+    y_targets = rewards + gamma * max_qsa * (1 - done_vals)
+
+    # lấy Q(s, a) của đúng hành động đã thực hiện
+    q_values = q_network(states)
+    q_values = tf.gather_nd(q_values, tf.stack([tf.range(q_values.shape[0]),
+                                                tf.cast(actions, tf.int32)], axis=1))
+    loss = MSE(y_targets, q_values)
+    return loss
+
+@tf.function
+def agent_learn(experiences, gamma):
+    with tf.GradientTape() as tape:
+        loss = compute_loss(experiences, gamma, q_network, target_q_network)
+    gradients = tape.gradient(loss, q_network.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, q_network.trainable_variables))
+    utils.update_target_network(q_network, target_q_network)   # soft update</code></pre>
+<p>Chú ý mẹo <code>(1 - done_vals)</code>: khi episode đã kết thúc, không có trạng thái tiếp theo, nên \(y = R\).</p>
+
+<h3>Khám phá hay khai thác: ε-greedy</h3>
+<p>Nếu luôn chọn \(\arg\max_a Q\), tác tử có thể không bao giờ thử những hành động mà ban đầu nó (sai lầm) đánh giá thấp. Chính sách <strong>ε-greedy</strong>:</p>
+<ul>
+  <li>Với xác suất \(1 - \varepsilon\): chọn hành động có \(Q\) lớn nhất (<em>exploitation</em>).</li>
+  <li>Với xác suất \(\varepsilon\): chọn ngẫu nhiên (<em>exploration</em>).</li>
+</ul>
+<p>Bắt đầu với \(\varepsilon = 1\) (hoàn toàn ngẫu nhiên), giảm dần (nhân 0.995 sau mỗi episode) tới tối thiểu 0.01.</p>
+
+<h2>Kết quả huấn luyện</h2>
+<div class="box lab"><span class="box-title">🧪 Log huấn luyện trong lab của mình</span>
+<pre><code class="language-plaintext">Episode 300 | Total point average of the last 100 episodes: -77.256
+Episode 400 | Total point average of the last 100 episodes: -25.01
+Episode 500 | Total point average of the last 100 episodes: 159.91
+Episode 534 | Total point average of the last 100 episodes: 201.37
+
+Environment solved in 534 episodes!
+Total Runtime: 731.01 s (12.18 min)</code></pre>
+<p>Siêu tham số: bộ nhớ 100.000, \(\gamma = 0.995\), \(\alpha = 10^{-3}\), cập nhật mỗi 4 bước, mini-batch 64. Mô hình đã huấn luyện được lưu ở <code>lunar_lander_model.h5</code>.</p></div>
+
+<div class="box warn"><span class="box-title">⚠️ RL rất “khó tính”</span>
+<p>Khác học có giám sát, thuật toán RL nhạy với siêu tham số: đổi \(\gamma\), \(\tau\), learning rate hay kích thước bộ nhớ có thể làm tác tử học chậm gấp 10 lần hoặc không học được. Andrew Ng cũng lưu ý: RL rất thú vị và hứa hẹn, nhưng ứng dụng thực tế ít hơn nhiều so với học có giám sát và không giám sát.</p></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: RL hiện đại</span>
+<ul>
+  <li><strong>Double DQN, Dueling DQN, Prioritized Replay</strong>: các cải tiến của DQN, gộp lại thành <strong>Rainbow</strong>.</li>
+  <li><strong>Policy gradient</strong> (REINFORCE, <strong>PPO</strong>): học trực tiếp chính sách \(\pi(a|s)\) thay vì \(Q\); xử lý tốt không gian hành động liên tục (điều khiển robot). <strong>Actor-Critic</strong> (A2C, SAC) kết hợp cả hai.</li>
+  <li><strong>AlphaGo / AlphaZero</strong>: RL + tìm kiếm cây Monte Carlo, đánh bại nhà vô địch cờ vây.</li>
+  <li><strong>RLHF</strong> (Reinforcement Learning from Human Feedback): cách tinh chỉnh các LLM như ChatGPT, Claude — con người so sánh các câu trả lời, một mô hình phần thưởng học từ đó, rồi PPO (hoặc các biến thể như DPO) tối ưu mô hình ngôn ngữ theo phần thưởng.</li>
+  <li>Thư viện: <strong>Gymnasium</strong> (kế nhiệm OpenAI Gym), <strong>Stable-Baselines3</strong> (cài sẵn DQN, PPO, SAC…).</li>
+</ul>
+<pre><code class="language-python">import gymnasium as gym
+from stable_baselines3 import DQN
+
+env = gym.make("LunarLander-v3")
+model = DQN("MlpPolicy", env, verbose=1).learn(total_timesteps=500_000)</code></pre></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c3_w1_prac2/Files/home/jovyan/work/C3_W3_A1_Assignment.ipynb">C3 Practice Lab — Deep Q-Learning, Lunar Lander</a> (graded: Q-network, target network, <code>compute_loss</code>)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>RL: trạng thái, hành động, phần thưởng, chính sách; tối đa hoá return có chiết khấu \(\gamma\).</li>
+  <li>Bellman: \(Q(s,a) = R(s) + \gamma\max_{a'}Q(s',a')\); chính sách tối ưu \(\pi(s) = \arg\max_a Q(s,a)\).</li>
+  <li>DQN: mạng nơ-ron xấp xỉ Q, huấn luyện với nhãn Bellman, ổn định nhờ target network + experience replay, khám phá bằng ε-greedy.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Phần thưởng [0, 0, 0, 100], γ = 0.5. Return từ trạng thái đầu bằng bao nhiêu?</summary><p>\(0 + 0.5\cdot 0 + 0.25\cdot 0 + 0.125 \cdot 100 = 12.5\).</p></details>
+<details class="quiz"><summary>Vì sao lớp đầu ra của Q-network có 4 nơ-ron thay vì nhận (s, a) làm đầu vào và trả 1 giá trị?</summary><p>Hiệu quả hơn: một lần forward cho ngay Q của cả 4 hành động, đủ để tính \(\max_a\) và chọn hành động. Nếu nhận (s, a) làm đầu vào thì phải chạy mạng 4 lần.</p></details>
+</article>
+</body>
+</html>

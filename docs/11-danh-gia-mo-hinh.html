@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>11. Đánh giá mô hình, bias & variance · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 11 · Khoá C2, tuần 3</div>
+  <h1>Đánh giá mô hình, bias &amp; variance</h1>
+  <p class="lede">Mô hình chạy chưa tốt. Nên thu thập thêm dữ liệu? Thêm đặc trưng? Tăng λ? Chọn sai hướng có thể tốn hàng tháng. Chương này dạy cách chẩn đoán trước khi chữa.</p>
+  <div class="meta"><span>⏱ 28 phút đọc</span><span>🧪 C2W3 Lab01, Lab02 · C2_W3 Practice</span></div>
+</header>
+
+<h2>Chia dữ liệu: train / cross-validation / test</h2>
+<p>J_train thấp không nói lên điều gì — mô hình có thể đã thuộc lòng dữ liệu. Ta cần đánh giá trên dữ liệu mà mô hình <em>chưa thấy</em>.</p>
+<table>
+  <tr><th>Tập</th><th>Tỉ lệ thường dùng</th><th>Dùng để</th></tr>
+  <tr><td><strong>Training</strong></td><td>60%</td><td>Học tham số \(\mathbf{w}, b\)</td></tr>
+  <tr><td><strong>Cross-validation</strong> (dev, validation)</td><td>20%</td><td>Chọn mô hình: bậc đa thức, kiến trúc mạng, λ…</td></tr>
+  <tr><td><strong>Test</strong></td><td>20%</td><td>Ước lượng khách quan hiệu năng cuối cùng — chỉ dùng <em>một lần</em></td></tr>
+</table>
+<pre><code class="language-python">from sklearn.model_selection import train_test_split
+
+# 60% train, 40% còn lại
+x_train, x_, y_train, y_ = train_test_split(x, y, test_size=0.40, random_state=1)
+# chia đôi phần còn lại: 20% cv, 20% test
+x_cv, x_test, y_cv, y_test = train_test_split(x_, y_, test_size=0.50, random_state=1)
+del x_, y_</code></pre>
+<div class="box warn"><span class="box-title">⚠️ Vì sao cần cả tập CV lẫn tập test?</span>
+<p>Nếu chọn bậc đa thức dựa trên tập test, thì bậc đa thức đã được “khớp” với tập test — J_test trở thành ước lượng lạc quan. Tập CV dùng để <em>chọn</em>; tập test giữ nguyên vẹn để <em>báo cáo</em>.</p></div>
+
+<h3>Thước đo lỗi</h3>
+<p>Hồi quy: MSE (không có regularization). Phân loại: tỉ lệ phân loại sai. Hai hàm mình viết trong Practice Lab:</p>
+<pre><code class="language-python">def eval_mse(y, yhat):
+    m = len(y)
+    err = 0.0
+    for i in range(m):
+        err += (yhat[i] - y[i]) ** 2
+    err = err / (2 * m)
+    return err
+
+def eval_cat_err(y, yhat):
+    m = len(y)
+    incorrect = 0
+    for i in range(m):
+        if yhat[i] != y[i]:
+            incorrect += 1
+    cerr = incorrect / m
+    return cerr</code></pre>
+
+<h2>Chọn mô hình bằng tập CV</h2>
+<p>Lab01 huấn luyện hồi quy đa thức bậc 1 đến 10, mỗi bậc tính J_train và J_cv, rồi chọn bậc có J_cv nhỏ nhất. Cùng cách đó cho mạng nơ-ron: thử 3 kiến trúc với số lớp/nơ-ron khác nhau, chọn cái có lỗi CV thấp nhất.</p>
+<figure class="medium"><img src="images/C2_W3_NN_Arch.png" alt="Ba kiến trúc mạng nơ-ron khác nhau để so sánh" loading="lazy"><figcaption>Ba kiến trúc mạng được so sánh trong Lab01.</figcaption></figure>
+<pre><code class="language-python">from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+
+train_mses, cv_mses = [], []
+for degree in range(1, 11):
+    poly = PolynomialFeatures(degree, include_bias=False)
+    X_train_m = poly.fit_transform(x_train)
+    scaler = StandardScaler()
+    X_train_m = scaler.fit_transform(X_train_m)          # fit trên TRAIN
+    model = LinearRegression().fit(X_train_m, y_train)
+    train_mses.append(mean_squared_error(y_train, model.predict(X_train_m)) / 2)
+
+    X_cv_m = scaler.transform(poly.transform(x_cv))      # chỉ transform cho CV
+    cv_mses.append(mean_squared_error(y_cv, model.predict(X_cv_m)) / 2)
+
+best_degree = np.argmin(cv_mses) + 1</code></pre>
+
+<h2>Chẩn đoán bias và variance</h2>
+<figure class="medium"><img src="images/C2_W3_BiasVariance.png" alt="Đồ thị J_train và J_cv theo bậc đa thức" loading="lazy"><figcaption>J_train giảm khi mô hình phức tạp hơn; J_cv có hình chữ U.</figcaption></figure>
+<table>
+  <tr><th>Triệu chứng</th><th>Chẩn đoán</th></tr>
+  <tr><td>J_train cao, J_cv ≈ J_train</td><td><strong>High bias</strong> (underfit)</td></tr>
+  <tr><td>J_train thấp, J_cv ≫ J_train</td><td><strong>High variance</strong> (overfit)</td></tr>
+  <tr><td>J_train cao <em>và</em> J_cv ≫ J_train</td><td>Cả hai (hiếm, hay gặp với mạng nơ-ron)</td></tr>
+</table>
+
+<h3>Mức hiệu năng cơ sở (baseline)</h3>
+<p>“Cao” là so với cái gì? Lab02 nhấn mạnh việc xác định <strong>baseline</strong>: hiệu năng của con người, của thuật toán đối thủ, hoặc ước lượng từ kinh nghiệm. Ví dụ nhận dạng giọng nói:</p>
+<table>
+  <tr><th></th><th>Ví dụ A</th><th>Ví dụ B</th></tr>
+  <tr><td>Baseline (con người)</td><td>10.6%</td><td>10.6%</td></tr>
+  <tr><td>J_train</td><td>10.8%</td><td>15.0%</td></tr>
+  <tr><td>J_cv</td><td>14.8%</td><td>15.5%</td></tr>
+  <tr><td>Chẩn đoán</td><td>Khoảng cách train–cv 4.0% → <strong>variance</strong></td><td>Khoảng cách baseline–train 4.4% → <strong>bias</strong></td></tr>
+</table>
+<p>Ở ví dụ A, J_train 10.8% trông có vẻ cao nhưng thật ra đã gần ngang con người (âm thanh nhiễu đến mức người cũng nghe nhầm).</p>
+
+<h3>Bảng “thuốc chữa”</h3>
+<table>
+  <tr><th>Sửa high bias</th><th>Sửa high variance</th></tr>
+  <tr><td>Thêm đặc trưng</td><td>Thêm dữ liệu huấn luyện</td></tr>
+  <tr><td>Thêm đặc trưng đa thức</td><td>Dùng ít đặc trưng hơn</td></tr>
+  <tr><td>Giảm λ</td><td>Tăng λ</td></tr>
+  <tr><td>Dùng mạng lớn hơn</td><td>(Mạng lớn + regularization tốt thường vẫn ổn)</td></tr>
+</table>
+<div class="box note"><span class="box-title">💡 Mạng nơ-ron và bias–variance</span>
+<p>Mạng nơ-ron lớn là cỗ máy giảm bias: nếu J_train cao → làm mạng to hơn. Nếu J_cv cao → thêm dữ liệu. Một mạng lớn <em>có regularization phù hợp</em> hầu như không bao giờ tệ hơn mạng nhỏ — chỉ tốn tính toán hơn.</p></div>
+
+<h3>Chọn λ</h3>
+<p>Thử dãy λ = 0, 0.01, 0.02, 0.04, …, 10 (gấp đôi mỗi lần), huấn luyện mỗi giá trị, chọn λ có J_cv thấp nhất. Đồ thị J_cv theo λ là ảnh gương của đồ thị theo bậc đa thức: λ nhỏ → variance cao, λ lớn → bias cao.</p>
+
+<h3>Learning curve</h3>
+<p>Vẽ J_train và J_cv theo <em>kích thước tập huấn luyện</em> \(m\):</p>
+<ul>
+  <li><strong>High bias</strong>: hai đường nhanh chóng đi ngang ở mức cao, sát nhau. <em>Thêm dữ liệu không giúp gì.</em></li>
+  <li><strong>High variance</strong>: khoảng cách lớn giữa hai đường, J_cv vẫn đang giảm. <em>Thêm dữ liệu sẽ giúp.</em></li>
+</ul>
+
+<h2>Bài thực hành: mạng nơ-ron phân loại 6 lớp</h2>
+<p>Practice Lab so sánh ba mô hình trên dữ liệu 2 chiều có 6 cụm:</p>
+<pre><code class="language-python">from tensorflow.keras import regularizers
+
+# "Complex" — dễ overfit
+model = Sequential([
+    Dense(120, activation='relu'),
+    Dense(40, activation='relu'),
+    Dense(6, activation='linear'),
+], name="Complex")
+
+# "Simple" — ít tham số
+model_s = Sequential([
+    Dense(6, activation='relu'),
+    Dense(6, activation='linear'),
+], name="Simple")
+
+# "Regularized complex" — mạng lớn + L2
+model_r = Sequential([
+    Dense(120, activation='relu', kernel_regularizer=regularizers.l2(0.1)),
+    Dense(40, activation='relu', kernel_regularizer=regularizers.l2(0.1)),
+    Dense(6, activation='linear'),
+], name="RegularizedComplex")
+
+for m_ in (model, model_s, model_r):
+    m_.compile(loss=SparseCategoricalCrossentropy(from_logits=True),
+               optimizer=Adam(learning_rate=0.01))</code></pre>
+<p>Kết quả: mô hình Complex có lỗi train rất thấp nhưng lỗi CV cao hơn hẳn (overfit, ranh giới quyết định méo mó quanh từng điểm). Simple và Regularized cho lỗi CV tốt hơn; mô hình regularized cho ranh giới mượt nhất. Lab còn thử nhiều giá trị λ (0, 0.001, 0.01, 0.05, 0.1, 0.2, 0.3) để tìm giá trị tốt nhất.</p>
+
+<h2>Quy trình phát triển hệ thống ML</h2>
+<h3>Phân tích lỗi (error analysis)</h3>
+<p>Lấy khoảng 100 ví dụ CV bị phân loại sai, xem thủ công và đếm theo nhóm (ví dụ bộ lọc spam: lừa đảo dược phẩm, cố tình viết sai chính tả, đánh cắp mật khẩu…). Tập trung vào nhóm chiếm tỉ lệ lớn nhất — đó là nơi cải thiện đáng công nhất.</p>
+<h3>Thêm dữ liệu</h3>
+<ul>
+  <li><strong>Data augmentation</strong>: tạo ví dụ mới bằng cách biến đổi ví dụ cũ (xoay, phóng to, méo ảnh chữ; thêm tiếng ồn nền vào âm thanh). Biến đổi phải giống với nhiễu có trong dữ liệu thật.</li>
+  <li><strong>Data synthesis</strong>: tạo dữ liệu nhân tạo hoàn toàn (ví dụ render chữ bằng nhiều font để làm OCR).</li>
+  <li><strong>Data-centric AI</strong>: giữ nguyên mô hình, cải thiện chất lượng dữ liệu (sửa nhãn sai, bổ sung trường hợp khó).</li>
+</ul>
+<h3>Transfer learning</h3>
+<p>Mượn một mạng đã được huấn luyện trên tập dữ liệu khổng lồ (ví dụ 1 triệu ảnh ImageNet), thay lớp đầu ra, rồi:</p>
+<ol>
+  <li>Chỉ huấn luyện lớp đầu ra mới (khi dữ liệu rất ít), hoặc</li>
+  <li><strong>Fine-tune</strong> toàn bộ mạng, khởi tạo từ trọng số đã học (khi có nhiều dữ liệu hơn).</li>
+</ol>
+<p>Hoạt động được vì các lớp đầu học những đặc trưng chung (cạnh, góc, hình dạng) hữu ích cho nhiều bài toán. Đầu vào phải cùng loại (ảnh cho ảnh, âm thanh cho âm thanh).</p>
+
+<h2>Bộ dữ liệu lệch: precision &amp; recall</h2>
+<p>Bài toán phát hiện bệnh hiếm (0.5% dân số): một “mô hình” luôn đoán <code>y = 0</code> có độ chính xác 99.5%! Accuracy vô nghĩa ở đây. Dùng <strong>ma trận nhầm lẫn</strong>:</p>
+<table>
+  <tr><th></th><th>Thực tế = 1</th><th>Thực tế = 0</th></tr>
+  <tr><td><strong>Dự đoán = 1</strong></td><td>True Positive (TP)</td><td>False Positive (FP)</td></tr>
+  <tr><td><strong>Dự đoán = 0</strong></td><td>False Negative (FN)</td><td>True Negative (TN)</td></tr>
+</table>
+<div class="math-box">$$
+\text{Precision} = \frac{TP}{TP + FP} \qquad
+\text{Recall} = \frac{TP}{TP + FN} \qquad
+F_1 = \frac{2\,P\,R}{P + R}
+$$</div>
+<ul>
+  <li><strong>Precision</strong>: trong những ca mô hình báo “có bệnh”, bao nhiêu % thật sự có bệnh?</li>
+  <li><strong>Recall</strong>: trong những người thật sự có bệnh, mô hình phát hiện được bao nhiêu %?</li>
+  <li>Tăng ngưỡng (ví dụ 0.7) → precision tăng, recall giảm; hạ ngưỡng (0.3) → ngược lại.</li>
+  <li><strong>F1</strong> là trung bình điều hoà — bị kéo về phía giá trị nhỏ hơn, nên mô hình phải tốt <em>cả hai</em> mới có F1 cao. F1 được dùng để chọn ngưỡng ε trong phát hiện bất thường (chương 14).</li>
+</ul>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: K-fold CV, ROC-AUC và các công cụ khác</span>
+<ul>
+  <li><strong>K-fold cross-validation</strong>: chia dữ liệu thành K phần, lần lượt dùng mỗi phần làm CV và K−1 phần còn lại để train, lấy trung bình. Đáng tin hơn một lần chia khi dữ liệu ít: <code>sklearn.model_selection.cross_val_score(model, X, y, cv=5)</code>.</li>
+  <li><strong>ROC curve &amp; AUC</strong>: vẽ True Positive Rate theo False Positive Rate ở mọi ngưỡng; AUC = 1 là hoàn hảo, 0.5 là đoán ngẫu nhiên. <strong>PR curve</strong> (precision–recall) hợp lý hơn khi dữ liệu rất lệch.</li>
+  <li><strong>Stratified split</strong>: giữ tỉ lệ lớp ở mọi tập — <code>train_test_split(..., stratify=y)</code>.</li>
+  <li><strong>Hyperparameter search</strong>: <code>GridSearchCV</code>, <code>RandomizedSearchCV</code>, hoặc Bayesian optimization (Optuna).</li>
+  <li><strong>Double descent</strong>: với mạng nơ-ron cực lớn, J_cv có thể giảm lần nữa sau khi vượt qua điểm “thuộc lòng” — hiện tượng hiện đại mà đường cong chữ U cổ điển không giải thích được.</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c2_w3/Files/home/jovyan/work/C2W3_Lab_01_Model_Evaluation_and_Selection.ipynb">C2W3 Lab01 — Model Evaluation and Selection</a></li>
+  <li><a data-nb="c2_w3/Files/home/jovyan/work/C2W3_Lab_02_Diagnosing_Bias_and_Variance.ipynb">C2W3 Lab02 — Diagnosing Bias and Variance</a></li>
+  <li><a data-nb="c2_w3_prac/Files/home/jovyan/work/C2_W3_Assignment.ipynb">C2_W3 Practice Lab — Advice for Applying Machine Learning</a> (graded: <code>eval_mse</code>, <code>eval_cat_err</code>, 3 mô hình)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Train để học tham số, CV để chọn mô hình/siêu tham số, test để báo cáo.</li>
+  <li>So J_train với baseline → bias; so J_cv với J_train → variance.</li>
+  <li>Dữ liệu lệch: dùng precision, recall, F1 thay cho accuracy.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Baseline 1%, J_train 1.2%, J_cv 1.3%. Nên làm gì tiếp?</summary><p>Mô hình đã rất tốt — cả bias (0.2%) lẫn variance (0.1%) đều nhỏ. Nếu cần cải thiện thêm, làm error analysis để tìm nhóm lỗi cụ thể.</p></details>
+<details class="quiz"><summary>Learning curve: J_train và J_cv đều ở ~20%, sát nhau, baseline 5%. Thêm dữ liệu có giúp không?</summary><p>Không — đây là high bias. Cần mô hình mạnh hơn (thêm đặc trưng, mạng lớn hơn, giảm λ).</p></details>
+<details class="quiz"><summary>TP = 15, FP = 5, FN = 10. Tính precision, recall, F1.</summary><p>P = 15/20 = 0.75; R = 15/25 = 0.6; F1 = 2·0.75·0.6/1.35 ≈ 0.667.</p></details>
+</article>
+</body>
+</html>

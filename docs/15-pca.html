@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15. Giảm chiều với PCA · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 15 · Khoá C3, tuần 2 (phần đọc thêm)</div>
+  <h1>Giảm chiều với PCA</h1>
+  <p class="lede">Dữ liệu 50 chiều không thể vẽ ra. PCA tìm vài “hướng nhìn” giữ lại nhiều thông tin nhất, để ta có thể vẽ, nén, hoặc tăng tốc các thuật toán khác.</p>
+  <div class="meta"><span>⏱ 15 phút đọc</span><span>📚 Chương mở rộng — không có bài lab graded trong repo</span></div>
+</header>
+
+<div class="box note"><span class="box-title">💡 Về chương này</span>
+<p>PCA nằm trong phần optional của khoá C3 và không có bài lab trong repo. Chương được bổ sung để hoàn thiện mảng học không giám sát, và vì PCA cực kỳ hay gặp trong thực tế.</p></div>
+
+<h2>Ý tưởng</h2>
+<p>Giả sử dữ liệu ô tô có hai đặc trưng: chiều dài và chiều rộng. Hai đặc trưng này tương quan rất mạnh (xe dài thì thường rộng). Thay vì dùng cả hai trục, ta có thể chiếu mọi điểm lên một trục mới \(z\) chạy dọc theo hướng “kích thước xe” — mất rất ít thông tin, nhưng từ 2 chiều xuống còn 1.</p>
+<p><strong>Principal Component Analysis</strong> tìm trục mới (thành phần chính) sao cho khi chiếu dữ liệu lên, <strong>phương sai</strong> (độ trải rộng) của dữ liệu được giữ lại lớn nhất. Trục thứ hai vuông góc với trục thứ nhất và giữ phần phương sai lớn nhất còn lại, và cứ thế.</p>
+
+<h2>Thuật toán</h2>
+<ol>
+  <li><strong>Chuẩn hoá</strong>: trừ trung bình (bắt buộc) và chia độ lệch chuẩn (nếu các đặc trưng khác thang đo).</li>
+  <li>Tính ma trận hiệp phương sai \(\Sigma = \frac{1}{m}\mathbf{X}^\top\mathbf{X}\) (kích thước \(n \times n\)).</li>
+  <li>Tìm các vector riêng (eigenvectors) của \(\Sigma\), sắp xếp theo trị riêng giảm dần. Đó là các thành phần chính \(\mathbf{u}_1, \mathbf{u}_2, \dots\)</li>
+  <li>Chiếu: \(z_k = \mathbf{x}\cdot\mathbf{u}_k\) với \(k = 1..K\).</li>
+</ol>
+<div class="math-box">$$ \mathbf{Z} = \mathbf{X}\mathbf{U}_K \quad (m\times K), \qquad \hat{\mathbf{X}} = \mathbf{Z}\mathbf{U}_K^\top \approx \mathbf{X} \quad\text{(khôi phục xấp xỉ)} $$</div>
+<p>Trong thực tế người ta dùng phân tích SVD của \(\mathbf{X}\) thay cho tính \(\Sigma\) trực tiếp — ổn định số học hơn.</p>
+<pre><code class="language-python">import numpy as np
+
+def pca(X, K):
+    X_c = X - X.mean(axis=0)                     # căn giữa
+    U, S, Vt = np.linalg.svd(X_c, full_matrices=False)
+    components = Vt[:K]                          # (K, n): các thành phần chính
+    Z = X_c @ components.T                       # (m, K): dữ liệu sau chiếu
+    explained = (S**2) / np.sum(S**2)            # tỉ lệ phương sai mỗi thành phần
+    return Z, components, explained[:K]</code></pre>
+
+<h2>Với scikit-learn</h2>
+<pre><code class="language-python">from sklearn.decomposition import PCA
+
+pca = PCA(n_components=2)
+Z = pca.fit_transform(X)                         # (m, 2) — có thể vẽ scatter plot
+print(pca.explained_variance_ratio_)             # ví dụ [0.72, 0.18] → giữ 90% phương sai
+X_approx = pca.inverse_transform(Z)
+
+# Hoặc: chọn đủ thành phần để giữ 95% phương sai
+pca95 = PCA(n_components=0.95).fit(X)
+print(pca95.n_components_)</code></pre>
+
+<h2>Khi nào dùng PCA?</h2>
+<ul>
+  <li>✅ <strong>Trực quan hoá</strong>: chiếu dữ liệu nhiều chiều xuống 2–3 chiều để vẽ (ví dụ dữ liệu kinh tế của 50 quốc gia).</li>
+  <li>✅ <strong>Nén dữ liệu</strong> để tiết kiệm bộ nhớ/băng thông (ít phổ biến hơn trước).</li>
+  <li>⚠️ <strong>Tăng tốc học có giám sát</strong>: từng phổ biến, nay ít cần vì thuật toán hiện đại xử lý tốt dữ liệu nhiều chiều.</li>
+  <li>❌ <strong>Không</strong> dùng PCA để chống overfitting — dùng regularization. PCA bỏ thông tin mà không nhìn vào nhãn \(y\), có thể bỏ đúng thứ quan trọng.</li>
+</ul>
+<div class="box warn"><span class="box-title">⚠️ PCA không phải hồi quy tuyến tính</span>
+<p>Hồi quy tuyến tính cực tiểu khoảng cách <em>theo phương thẳng đứng</em> (theo trục \(y\)) để dự đoán \(y\). PCA cực tiểu khoảng cách <em>vuông góc</em> tới trục mới, và mọi đặc trưng bình đẳng — không có biến nào là “mục tiêu”.</p></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: giảm chiều phi tuyến</span>
+<ul>
+  <li><strong>t-SNE</strong> và <strong>UMAP</strong>: giữ cấu trúc lân cận cục bộ, cho hình ảnh cụm rất đẹp (ví dụ trực quan hoá MNIST thành 10 cụm). Chỉ dùng để <em>nhìn</em>; khoảng cách giữa các cụm trên hình không mang nhiều ý nghĩa.</li>
+  <li><strong>Autoencoder</strong>: mạng nơ-ron có “cổ chai” ở giữa — PCA phi tuyến.</li>
+  <li><strong>Embeddings</strong>: các vector đặc trưng \(\mathbf{v}_u, \mathbf{v}_m\) trong hệ gợi ý (chương 16) và word embeddings trong NLP cũng là biểu diễn chiều thấp học được.</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>PCA tìm các trục vuông góc giữ phương sai lớn nhất; phải căn giữa dữ liệu trước.</li>
+  <li>Chọn K theo tỉ lệ phương sai giữ lại (ví dụ 95%) hoặc K = 2–3 để vẽ.</li>
+  <li>Dùng để trực quan hoá; không dùng thay regularization.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Dữ liệu có 2 đặc trưng giống hệt nhau (x₂ = x₁). Thành phần chính thứ nhất giữ bao nhiêu % phương sai?</summary><p>100% — mọi điểm nằm trên đường thẳng \(x_2 = x_1\); thành phần thứ hai có phương sai 0.</p></details>
+</article>
+</body>
+</html>

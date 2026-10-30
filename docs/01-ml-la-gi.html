@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1. Machine Learning là gì? · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 1 · Khoá C1, tuần 1</div>
+  <h1>Machine Learning là gì?</h1>
+  <p class="lede">Thay vì viết luật bằng tay, ta cho máy xem thật nhiều ví dụ và để nó tự rút ra quy luật.</p>
+  <div class="meta"><span>⏱ 12 phút đọc</span><span>🧪 C1_W1_Lab01</span></div>
+</header>
+
+<h2>Định nghĩa</h2>
+<blockquote>“Field of study that gives computers the ability to learn without being explicitly programmed.” — Arthur Samuel, 1959</blockquote>
+<p>Một định nghĩa chặt hơn của Tom Mitchell (1997): một chương trình <em>học</em> từ kinh nghiệm <strong>E</strong> đối với tác vụ <strong>T</strong> và thước đo hiệu năng <strong>P</strong>, nếu hiệu năng trên T (đo bằng P) tăng lên nhờ E. Ví dụ với bộ lọc thư rác: T = phân loại email, E = hàng nghìn email đã gắn nhãn “spam / không spam”, P = tỉ lệ phân loại đúng.</p>
+
+<p>Lập trình truyền thống và machine learning khác nhau ở chỗ cái gì là đầu vào, cái gì là đầu ra:</p>
+<table>
+  <tr><th></th><th>Đầu vào</th><th>Đầu ra</th></tr>
+  <tr><td>Lập trình truyền thống</td><td>Dữ liệu + <strong>luật</strong> (do người viết)</td><td>Kết quả</td></tr>
+  <tr><td>Machine learning</td><td>Dữ liệu + <strong>kết quả mong muốn</strong></td><td>Luật (mô hình)</td></tr>
+</table>
+
+<h2>Các nhánh chính</h2>
+<h3>Học có giám sát (supervised learning)</h3>
+<p>Dữ liệu huấn luyện có sẵn “đáp án” \(y\) cho mỗi đầu vào \(x\). Mô hình học ánh xạ \(x \to y\) để dự đoán cho đầu vào mới.</p>
+<ul>
+  <li><strong>Hồi quy (regression)</strong>: \(y\) là số thực, vô số giá trị có thể. Ví dụ: diện tích nhà → giá nhà (chương 2–5).</li>
+  <li><strong>Phân loại (classification)</strong>: \(y\) thuộc một tập hữu hạn lớp. Ví dụ: kích thước khối u → lành / ác tính (chương 6), ảnh chữ viết tay → chữ số 0–9 (chương 8–9).</li>
+</ul>
+<h3>Học không giám sát (unsupervised learning)</h3>
+<p>Chỉ có \(x\), không có \(y\). Thuật toán tự tìm cấu trúc trong dữ liệu.</p>
+<ul>
+  <li><strong>Phân cụm (clustering)</strong>: gom khách hàng, bài báo, gen… thành nhóm giống nhau (chương 13).</li>
+  <li><strong>Phát hiện bất thường (anomaly detection)</strong>: tìm giao dịch gian lận, máy móc hỏng (chương 14).</li>
+  <li><strong>Giảm chiều (dimensionality reduction)</strong>: nén dữ liệu nhiều chiều mà giữ thông tin chính (chương 15).</li>
+</ul>
+<h3>Hệ gợi ý &amp; học tăng cường</h3>
+<p><strong>Hệ gợi ý (recommender systems)</strong> là một trong những ứng dụng mang lại nhiều giá trị thương mại nhất (chương 16). <strong>Học tăng cường (reinforcement learning)</strong> không có đáp án đúng cho từng bước, chỉ có <em>phần thưởng</em>; tác tử tự thử–sai để học chiến lược (chương 17).</p>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: self-supervised learning</span>
+<p>Các mô hình ngôn ngữ lớn (LLM) như GPT hay Claude được huấn luyện chủ yếu bằng <strong>học tự giám sát</strong>: nhãn được tạo tự động từ chính dữ liệu (ví dụ: che một từ rồi đoán nó, hoặc đoán từ tiếp theo). Về mặt kỹ thuật đây vẫn là bài toán có giám sát (có \(x\) và \(y\)) nhưng không cần con người gán nhãn — nhờ vậy dùng được lượng dữ liệu khổng lồ trên internet.</p></div>
+
+<h2>Thuật ngữ cơ bản</h2>
+<figure class="medium"><img src="images/C1_W1_L3_S1_model.png" alt="Sơ đồ: training set → learning algorithm → mô hình f, x → f → y-hat" loading="lazy"><figcaption>Training set đi qua thuật toán học để tạo ra mô hình \(f\); đưa \(x\) vào \(f\) ta được dự đoán \(\hat y\).</figcaption></figure>
+<ul>
+  <li><strong>Training set</strong> — tập dữ liệu dùng để huấn luyện.</li>
+  <li><strong>Feature (đặc trưng)</strong> \(x\) — biến đầu vào: diện tích, số phòng, tuổi nhà…</li>
+  <li><strong>Target (mục tiêu)</strong> \(y\) — giá trị cần dự đoán.</li>
+  <li><strong>Model / hypothesis</strong> \(f\) — hàm ánh xạ \(x\) sang \(\hat y\).</li>
+  <li><strong>Parameters (tham số)</strong> \(w, b\) — những con số mô hình học được.</li>
+  <li><strong>Hyperparameters (siêu tham số)</strong> — những thứ <em>ta</em> chọn trước khi học: \(\alpha\), \(\lambda\), số lớp, số nơ-ron…</li>
+</ul>
+
+<h2>Quy trình một dự án ML</h2>
+<ol>
+  <li><strong>Xác định bài toán</strong>: dự đoán cái gì, đo thành công bằng gì?</li>
+  <li><strong>Thu thập &amp; làm sạch dữ liệu</strong>.</li>
+  <li><strong>Huấn luyện mô hình</strong>, bắt đầu bằng mô hình đơn giản (baseline).</li>
+  <li><strong>Đánh giá &amp; chẩn đoán</strong>: bias hay variance? cần thêm dữ liệu hay thêm đặc trưng? (chương 11)</li>
+  <li><strong>Lặp lại</strong> bước 2–4.</li>
+  <li><strong>Triển khai &amp; giám sát</strong>: dữ liệu thực tế thay đổi theo thời gian (data drift), mô hình cần được theo dõi và huấn luyện lại.</li>
+</ol>
+<div class="box note"><span class="box-title">💡 Andrew Ng hay nhấn mạnh</span>
+<p>Vòng lặp “chọn kiến trúc → huấn luyện → chẩn đoán” càng nhanh thì dự án càng tiến nhanh. Phần lớn thời gian của kỹ sư ML không nằm ở viết thuật toán mới mà ở <em>dữ liệu</em> và <em>chẩn đoán lỗi</em>.</p></div>
+
+<h2>Công cụ: Python &amp; Jupyter</h2>
+<p>Lab đầu tiên giới thiệu môi trường Jupyter Notebook: các ô <em>markdown</em> để ghi chú và ô <em>code</em> để chạy Python. Phím tắt quan trọng nhất là <kbd>Shift</kbd>+<kbd>Enter</kbd> (chạy ô và chuyển xuống ô dưới).</p>
+<pre><code class="language-python"># f-string: cách in giá trị gọn gàng dùng xuyên suốt các lab
+w, b = 200, 100
+print(f"w = {w}, b = {b}, dự đoán cho x=1.2: {w * 1.2 + b}")</code></pre>
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c1_w1/home/jovyan/work/C1_W1_Lab01_Python_Jupyter_Soln.ipynb">C1_W1_Lab01 — Python &amp; Jupyter</a></li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Supervised: có nhãn \(y\) → hồi quy (số thực) hoặc phân loại (lớp rời rạc).</li>
+  <li>Unsupervised: không có nhãn → phân cụm, phát hiện bất thường, giảm chiều.</li>
+  <li>Tham số do mô hình học; siêu tham số do người chọn.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Dự đoán nhiệt độ ngày mai là bài toán gì?</summary><p>Hồi quy có giám sát — \(y\) là số thực, và có dữ liệu lịch sử với nhiệt độ thật.</p></details>
+<details class="quiz"><summary>Gom các bài báo cùng chủ đề trên Google News thuộc loại nào?</summary><p>Học không giám sát (phân cụm): không ai gán sẵn nhãn chủ đề, thuật toán tự nhóm bài theo nội dung.</p></details>
+<details class="quiz"><summary>Learning rate α là tham số hay siêu tham số?</summary><p>Siêu tham số — ta chọn nó, gradient descent không tự học ra nó.</p></details>
+</article>
+</body>
+</html>

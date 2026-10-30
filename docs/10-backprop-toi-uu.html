@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10. Backpropagation & tối ưu hoá · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 10 · Khoá C2, tuần 2 (optional)</div>
+  <h1>Backpropagation &amp; tối ưu hoá</h1>
+  <p class="lede">Mạng có hàng triệu tham số. Làm sao tính đạo hàm của chi phí theo từng tham số một cách hiệu quả? Câu trả lời: quy tắc chuỗi, đi ngược từ phải sang trái.</p>
+  <div class="meta"><span>⏱ 22 phút đọc</span><span>🧪 C2_W2 Derivatives, Backprop</span></div>
+</header>
+
+<h2>Đạo hàm — nhắc lại nhanh</h2>
+<p>Lab Derivatives định nghĩa đạo hàm một cách không hình thức: nếu \(w\) tăng một lượng rất nhỏ \(\varepsilon\) làm \(J\) tăng \(k\varepsilon\), thì \(\frac{\partial J}{\partial w} = k\).</p>
+<pre><code class="language-python">J = (3)**2                       # J = w^2 tại w = 3
+J_eps = (3 + 0.001)**2
+k = (J_eps - J) / 0.001          # ≈ 6.001  → dJ/dw = 2w = 6</code></pre>
+<p>Lab dùng thư viện <strong>SymPy</strong> để tính đạo hàm ký hiệu và so sánh:</p>
+<pre><code class="language-python">from sympy import symbols, diff
+J, w = symbols('J, w')
+J = w**2
+dJ_dw = diff(J, w)               # 2*w
+dJ_dw.subs([(w, 3)])             # 6</code></pre>
+<table>
+  <tr><th>\(J\)</th><th>\(\partial J/\partial w\)</th></tr>
+  <tr><td>\(w^2\)</td><td>\(2w\)</td></tr>
+  <tr><td>\(2w\)</td><td>\(2\)</td></tr>
+  <tr><td>\(w^3\)</td><td>\(3w^2\)</td></tr>
+  <tr><td>\(1/w\)</td><td>\(-1/w^2\)</td></tr>
+  <tr><td>\(1/w^2\)</td><td>\(-2/w^3\)</td></tr>
+</table>
+
+<h2>Đồ thị tính toán (computation graph)</h2>
+<p>Chia một biểu thức phức tạp thành các bước nhỏ, mỗi nút một phép tính. Ví dụ trong lab: \(J = (2 + 3w)^2\) với \(w = 3\).</p>
+<div class="math-box">$$ w \xrightarrow{\;a = 2 + 3w\;} a = 11 \xrightarrow{\;J = a^2\;} J = 121 $$</div>
+<p><strong>Lan truyền ngược</strong>: đi từ phải sang trái, mỗi nút chỉ cần biết đạo hàm cục bộ của nó.</p>
+<ul>
+  <li>\(\frac{\partial J}{\partial a} = 2a = 22\)</li>
+  <li>\(\frac{\partial a}{\partial w} = 3\)</li>
+  <li><strong>Quy tắc chuỗi</strong>: \(\frac{\partial J}{\partial w} = \frac{\partial a}{\partial w}\cdot\frac{\partial J}{\partial a} = 3 \times 22 = 66\)</li>
+</ul>
+<p>Trực giác: \(w\) tăng một chút → \(a\) tăng gấp 3 lượng đó → \(J\) tăng gấp 22 lượng thay đổi của \(a\). Tổng cộng \(J\) nhạy gấp 66 lần.</p>
+
+<h3>Một mạng nơ-ron nhỏ</h3>
+<figure class="medium"><img src="images/C2_W2_BP_network1.PNG" alt="Đồ thị tính toán của một mạng nơ-ron đơn giản" loading="lazy"><figcaption>Đồ thị tính toán của mạng một nơ-ron với hàm chi phí bình phương.</figcaption></figure>
+<p>Với \(x = 2, w = -2, b = 8, y = 1\):</p>
+<table>
+  <tr><th>Bước</th><th>Forward</th><th>Backward</th></tr>
+  <tr><td>\(c = wx\)</td><td>\(c = -4\)</td><td>\(\frac{\partial J}{\partial w} = \frac{\partial J}{\partial c}\cdot x = 3 \cdot 2 = 6\)</td></tr>
+  <tr><td>\(a = c + b\)</td><td>\(a = 4\)</td><td>\(\frac{\partial J}{\partial c} = \frac{\partial J}{\partial b} = \frac{\partial J}{\partial a} = 3\)</td></tr>
+  <tr><td>\(d = a - y\)</td><td>\(d = 3\)</td><td>\(\frac{\partial J}{\partial a} = \frac{\partial J}{\partial d} = 3\)</td></tr>
+  <tr><td>\(J = \frac{1}{2}d^2\)</td><td>\(J = 4.5\)</td><td>\(\frac{\partial J}{\partial d} = d = 3\)</td></tr>
+</table>
+
+<div class="box note"><span class="box-title">💡 Vì sao backprop hiệu quả?</span>
+<p>Với \(N\) nút và \(P\) tham số, tính đạo hàm từng tham số bằng sai phân (tăng mỗi tham số một chút rồi chạy lại cả mạng) tốn khoảng \(N \times P\) bước. Backprop chỉ cần khoảng \(N + P\) bước: một lượt forward và một lượt backward, tái sử dụng các đạo hàm trung gian. Với \(N = 10^4\), \(P = 10^5\): \(10^9\) so với \(1.1\times 10^5\) bước — nhanh hơn ~10.000 lần.</p></div>
+
+<h2>Backprop cho mạng nhiều lớp (dạng ma trận)</h2>
+<p>Với mạng dense, ký hiệu \(\delta^{[l]} = \partial J / \partial \mathbf{Z}^{[l]}\). Với đầu ra sigmoid + log loss (hoặc softmax + cross-entropy), lớp cuối có dạng đẹp quen thuộc:</p>
+<div class="math-box">$$
+\begin{aligned}
+\delta^{[L]} &= \mathbf{A}^{[L]} - \mathbf{Y} \\
+\delta^{[l]} &= \left(\delta^{[l+1]}\,\mathbf{W}^{[l+1]\top}\right) \odot g'\!\left(\mathbf{Z}^{[l]}\right) \\
+\frac{\partial J}{\partial \mathbf{W}^{[l]}} &= \frac{1}{m}\,\mathbf{A}^{[l-1]\top}\delta^{[l]}, \qquad
+\frac{\partial J}{\partial \mathbf{b}^{[l]}} = \frac{1}{m}\sum_{i}\delta^{[l]}_{i}
+\end{aligned}
+$$</div>
+<p>(\(\odot\) là nhân từng phần tử; với ReLU, \(g'(z) = 1\) nếu \(z &gt; 0\), ngược lại 0.)</p>
+<details class="quiz"><summary>Cài đặt NumPy cho mạng 2 lớp (bấm để xem)</summary>
+<pre><code class="language-python">def train_step(X, Y, W1, b1, W2, b2, alpha):
+    m = X.shape[0]
+    # forward
+    Z1 = X @ W1 + b1;  A1 = np.maximum(0, Z1)        # ReLU
+    Z2 = A1 @ W2 + b2; A2 = 1 / (1 + np.exp(-Z2))    # sigmoid
+    # backward
+    dZ2 = A2 - Y                                     # (m, 1)
+    dW2 = A1.T @ dZ2 / m;  db2 = dZ2.mean(axis=0)
+    dZ1 = (dZ2 @ W2.T) * (Z1 &gt; 0)                    # (m, h)
+    dW1 = X.T @ dZ1 / m;   db1 = dZ1.mean(axis=0)
+    # cập nhật
+    W1 -= alpha * dW1; b1 -= alpha * db1
+    W2 -= alpha * dW2; b2 -= alpha * db2
+    return W1, b1, W2, b2</code></pre></details>
+<p>Trong thực tế, TensorFlow và PyTorch làm việc này tự động bằng <strong>automatic differentiation (autodiff)</strong>: chúng ghi lại đồ thị tính toán khi chạy forward rồi tự động tính backward.</p>
+<pre><code class="language-python">w = tf.Variable(3.0)
+with tf.GradientTape() as tape:
+    J = (2 + 3 * w) ** 2
+dJ_dw = tape.gradient(J, w)       # 66.0</code></pre>
+<p>Chính <code>GradientTape</code> này được dùng trong vòng huấn luyện tuỳ chỉnh của hệ gợi ý (chương 16) và Deep Q-Learning (chương 17).</p>
+
+<h2>Thuật toán tối ưu Adam</h2>
+<p>Gradient descent dùng một α cố định cho mọi tham số. <strong>Adam</strong> (Adaptive Moment estimation) điều chỉnh α riêng cho từng tham số:</p>
+<ul>
+  <li>Nếu một tham số liên tục đi cùng một hướng → tăng bước để đi nhanh hơn.</li>
+  <li>Nếu tham số dao động qua lại → giảm bước để ổn định.</li>
+</ul>
+<div class="math-box">$$
+\begin{aligned}
+\mathbf{m} &\leftarrow \beta_1\mathbf{m} + (1-\beta_1)\nabla J &&\text{(trung bình động của gradient — “quán tính”)}\\
+\mathbf{v} &\leftarrow \beta_2\mathbf{v} + (1-\beta_2)(\nabla J)^2 &&\text{(trung bình động của bình phương gradient)}\\
+\mathbf{w} &\leftarrow \mathbf{w} - \alpha\frac{\hat{\mathbf{m}}}{\sqrt{\hat{\mathbf{v}}}+\epsilon}
+\end{aligned}
+$$</div>
+<p>Mặc định \(\beta_1 = 0.9, \beta_2 = 0.999\). \(\hat{\mathbf m}, \hat{\mathbf v}\) là bản đã hiệu chỉnh độ lệch ở những bước đầu. Trong Keras: <code>tf.keras.optimizers.Adam(learning_rate=1e-3)</code>.</p>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: các vấn đề khi huấn luyện mạng sâu</span>
+<ul>
+  <li><strong>Vanishing / exploding gradient</strong>: nhân nhiều đạo hàm qua nhiều lớp khiến gradient nhỏ dần về 0 hoặc lớn vô hạn. Giải pháp: ReLU, khởi tạo He/Xavier, batch normalization, kết nối tắt (residual connection như ResNet), gradient clipping.</li>
+  <li><strong>Learning rate schedule</strong>: giảm α dần theo thời gian (step decay, cosine decay), hoặc tăng dần ở đầu (warmup) — gần như bắt buộc khi huấn luyện Transformer.</li>
+  <li><strong>Các optimizer khác</strong>: SGD + momentum (vẫn rất mạnh cho thị giác máy tính), RMSProp, AdamW (Adam + weight decay tách rời — chuẩn cho LLM).</li>
+  <li><strong>Batch size</strong>: batch lớn → gradient ít nhiễu, tận dụng GPU tốt; batch nhỏ → nhiễu nhiều hơn, đôi khi tổng quát hoá tốt hơn.</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c2_w2_optional/Files/home/jovyan/work/C2_W2_Derivatives.ipynb">C2_W2 Optional — Derivatives</a></li>
+  <li><a data-nb="c2_w2_optional/Files/home/jovyan/work/C2_W2_Backprop.ipynb">C2_W2 Optional — Back propagation using a computation graph</a></li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Backprop = quy tắc chuỗi áp dụng có hệ thống trên đồ thị tính toán, từ đầu ra về đầu vào.</li>
+  <li>Chi phí ~ N + P bước thay vì N × P — đó là lý do huấn luyện được mạng hàng tỉ tham số.</li>
+  <li>Adam tự điều chỉnh learning rate cho từng tham số; là lựa chọn mặc định tốt.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>J = (2 + 3w)² tại w = 1. Tính ∂J/∂w.</summary><p>\(a = 5\), \(\partial J/\partial a = 10\), \(\partial a/\partial w = 3\) → \(30\).</p></details>
+<details class="quiz"><summary>Trong backprop, vì sao phải lưu lại các giá trị trung gian từ lượt forward?</summary><p>Vì đạo hàm cục bộ cần chúng: ví dụ \(\partial J/\partial w = \partial J/\partial c \cdot x\) cần biết \(x\); \(g'(Z)\) cần biết \(Z\). Đây cũng là lý do huấn luyện tốn bộ nhớ hơn suy luận nhiều.</p></details>
+</article>
+</body>
+</html>

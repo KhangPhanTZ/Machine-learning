@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12. Cây quyết định & ensemble · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 12 · Khoá C2, tuần 4</div>
+  <h1>Cây quyết định &amp; ensemble</h1>
+  <p class="lede">Một chuỗi câu hỏi có/không, giống trò “20 câu hỏi”. Đơn giản, dễ giải thích — và khi gom hàng trăm cây lại, trở thành một trong những thuật toán mạnh nhất cho dữ liệu dạng bảng.</p>
+  <div class="meta"><span>⏱ 25 phút đọc</span><span>🧪 C2_W4 Practice — Decision Trees</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Bài toán: nấm ăn được hay độc?</h2>
+<figure class="small"><img src="images/mushroom.png" alt="Hình minh hoạ một cây nấm" loading="lazy"><figcaption>Mỗi cây nấm được mô tả bằng 3 đặc trưng nhị phân.</figcaption></figure>
+<p>Practice Lab có 10 cây nấm, mỗi cây có 3 đặc trưng đã được <strong>one-hot</strong> thành 0/1:</p>
+<table>
+  <tr><th>Đặc trưng</th><th>1</th><th>0</th></tr>
+  <tr><td>Màu mũ (Cap Color)</td><td>Nâu</td><td>Đỏ</td></tr>
+  <tr><td>Hình dạng thân (Stalk Shape)</td><td>Thon dần</td><td>Phình to</td></tr>
+  <tr><td>Đơn độc (Solitary)</td><td>Có</td><td>Không</td></tr>
+</table>
+<p>Nhãn: 1 = ăn được, 0 = độc. Mục tiêu: xây cây quyết định để phân loại nấm mới.</p>
+
+<h2>Cây quyết định hoạt động thế nào</h2>
+<ul>
+  <li><strong>Nút gốc / nút quyết định</strong>: hỏi một câu về một đặc trưng (“mũ màu nâu?”), chia dữ liệu sang nhánh trái (có) và phải (không).</li>
+  <li><strong>Nút lá</strong>: đưa ra dự đoán (lớp chiếm đa số tại nút đó).</li>
+</ul>
+<p>Thuật toán học là <strong>đệ quy</strong>, theo kiểu tham lam:</p>
+<ol>
+  <li>Tại nút hiện tại, thử tất cả đặc trưng, chọn đặc trưng cho <strong>information gain</strong> lớn nhất.</li>
+  <li>Chia dữ liệu theo đặc trưng đó thành hai nhánh.</li>
+  <li>Lặp lại cho mỗi nhánh cho tới khi gặp điều kiện dừng:
+    <ul>
+      <li>Nút đã “thuần” (100% một lớp);</li>
+      <li>Đạt độ sâu tối đa (<code>max_depth</code>);</li>
+      <li>Information gain nhỏ hơn ngưỡng;</li>
+      <li>Số ví dụ tại nút nhỏ hơn ngưỡng.</li>
+    </ul></li>
+</ol>
+
+<h2>Entropy — đo độ “lẫn lộn”</h2>
+<p>Gọi \(p_1\) là tỉ lệ ví dụ thuộc lớp 1 tại một nút:</p>
+<div class="math-box">$$ H(p_1) = -p_1\log_2(p_1) - (1 - p_1)\log_2(1 - p_1) \qquad (\text{quy ước } 0\log_2 0 = 0) $$</div>
+<div class="demo" data-demo="entropy"></div>
+<pre><code class="language-python">def compute_entropy(y):
+    entropy = 0.
+    if len(y) == 0:
+        return entropy
+    p1 = np.mean(y)              # tỉ lệ số 1
+    if p1 == 0 or p1 == 1:
+        return entropy           # nút thuần
+    entropy = -p1 * np.log2(p1) - (1 - p1) * np.log2(1 - p1)
+    return entropy</code></pre>
+
+<h2>Information gain</h2>
+<p>Information gain là mức giảm entropy khi chia một nút:</p>
+<div class="math-box">$$ \text{IG} = H(p_1^{\text{node}}) - \left(w^{\text{left}} H(p_1^{\text{left}}) + w^{\text{right}} H(p_1^{\text{right}})\right) $$</div>
+<p>với \(w^{\text{left}}, w^{\text{right}}\) là tỉ lệ ví dụ đi vào mỗi nhánh. Nhánh lớn hơn có trọng số lớn hơn — một nhánh thuần nhưng chỉ có 1 ví dụ không đáng giá nhiều.</p>
+<pre><code class="language-python">def split_dataset(X, node_indices, feature):
+    left_indices, right_indices = [], []
+    for idx in node_indices:
+        if X[idx, feature] == 1:
+            left_indices.append(idx)
+        else:
+            right_indices.append(idx)
+    return left_indices, right_indices
+
+def compute_information_gain(X, y, node_indices, feature):
+    left_indices, right_indices = split_dataset(X, node_indices, feature)
+    y_node, y_left, y_right = y[node_indices], y[left_indices], y[right_indices]
+
+    H_node = compute_entropy(y_node)
+    H_left = compute_entropy(y_left)
+    H_right = compute_entropy(y_right)
+    w_left = len(left_indices) / len(node_indices)
+    w_right = len(right_indices) / len(node_indices)
+
+    return H_node - (w_left * H_left + w_right * H_right)
+
+def get_best_split(X, y, node_indices):
+    if len(np.unique(y[node_indices])) == 1:
+        return -1                              # nút thuần, không cần chia
+    best_feature, best_info_gain = -1, -float('inf')
+    for feature in range(X.shape[1]):
+        info_gain = compute_information_gain(X, y, node_indices, feature)
+        if info_gain &gt; best_info_gain:
+            best_info_gain, best_feature = info_gain, feature
+    return best_feature</code></pre>
+<p>Với dữ liệu nấm, information gain tại gốc: Cap Color ≈ 0.035, Stalk Shape ≈ 0.12, <strong>Solitary ≈ 0.28</strong> → chia theo “Solitary” trước. Hàm <code>build_tree_recursive</code> trong lab gọi <code>get_best_split</code> đệ quy tới độ sâu tối đa 2.</p>
+
+<h2>Đặc trưng nhiều giá trị và đặc trưng liên tục</h2>
+<ul>
+  <li><strong>Đặc trưng phân loại có k giá trị</strong> (ví dụ hình dạng tai: nhọn / tròn / cụp): dùng one-hot thành k đặc trưng nhị phân.</li>
+  <li><strong>Đặc trưng liên tục</strong> (cân nặng): sắp xếp các giá trị, thử các ngưỡng là trung điểm giữa hai giá trị liên tiếp, chọn ngưỡng cho IG lớn nhất. Câu hỏi trở thành “cân nặng ≤ 9 kg?”.</li>
+  <li><strong>Cây hồi quy</strong>: dự đoán số thực (trung bình các \(y\) ở lá), và thay entropy bằng <em>giảm phương sai</em> (variance reduction).</li>
+</ul>
+
+<h2>Ensemble: nhiều cây tốt hơn một cây</h2>
+<p>Một cây đơn lẻ rất <strong>nhạy</strong> với dữ liệu: đổi một ví dụ có thể làm thay đổi nút gốc và cả cây (variance cao). Giải pháp: huấn luyện nhiều cây khác nhau và cho chúng bỏ phiếu.</p>
+<h3>Bagging &amp; Random Forest</h3>
+<ol>
+  <li>Lặp \(B\) lần (ví dụ \(B = 100\)): tạo một tập dữ liệu mới bằng <strong>lấy mẫu có hoàn lại</strong> (bootstrap) \(m\) ví dụ từ tập gốc, rồi huấn luyện một cây trên đó.</li>
+  <li><strong>Random forest</strong> thêm một bước: tại mỗi nút, chỉ xét một tập con ngẫu nhiên \(k\) đặc trưng (thường \(k = \sqrt{n}\)). Điều này làm các cây khác nhau hơn, nên trung bình của chúng ổn định hơn.</li>
+  <li>Dự đoán: bỏ phiếu đa số (phân loại) hoặc lấy trung bình (hồi quy).</li>
+</ol>
+<h3>Boosting &amp; XGBoost</h3>
+<p>Thay vì lấy mẫu đều, <strong>boosting</strong> huấn luyện các cây <em>tuần tự</em>: cây sau tập trung vào những ví dụ mà các cây trước còn dự đoán sai — giống “luyện tập có chủ đích”. <strong>XGBoost</strong> (eXtreme Gradient Boosting) là cài đặt rất nhanh, có sẵn regularization, thường thắng các cuộc thi với dữ liệu dạng bảng.</p>
+<pre><code class="language-python">from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+
+tree = DecisionTreeClassifier(max_depth=4, min_samples_split=10).fit(X_train, y_train)
+rf   = RandomForestClassifier(n_estimators=100, max_depth=8).fit(X_train, y_train)
+xgb  = XGBClassifier(n_estimators=500, learning_rate=0.1,
+                     early_stopping_rounds=10)
+xgb.fit(X_train, y_train, eval_set=[(X_val, y_val)])</code></pre>
+
+<h2>Cây quyết định hay mạng nơ-ron?</h2>
+<table>
+  <tr><th></th><th>Cây / ensemble cây</th><th>Mạng nơ-ron</th></tr>
+  <tr><td>Dữ liệu dạng bảng (structured)</td><td>✅ Rất tốt</td><td>Tốt</td></tr>
+  <tr><td>Ảnh, âm thanh, văn bản (unstructured)</td><td>❌ Kém</td><td>✅ Rất tốt</td></tr>
+  <tr><td>Tốc độ huấn luyện</td><td>Nhanh</td><td>Có thể chậm</td></tr>
+  <tr><td>Khả năng giải thích</td><td>Cây nhỏ: rất dễ</td><td>Khó</td></tr>
+  <tr><td>Cần feature scaling</td><td>Không</td><td>Có</td></tr>
+  <tr><td>Transfer learning, ghép nhiều mô hình</td><td>Khó</td><td>Dễ (cùng huấn luyện bằng gradient descent)</td></tr>
+</table>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: Gini, feature importance và LightGBM</span>
+<ul>
+  <li><strong>Gini impurity</strong> \(1 - \sum_k p_k^2\) là thước đo thay thế cho entropy, mặc định trong scikit-learn (<code>criterion="gini"</code>). Hai cái cho kết quả gần như nhau, Gini tính nhanh hơn một chút.</li>
+  <li><strong>Feature importance</strong>: tổng information gain mà mỗi đặc trưng đóng góp trên mọi cây — <code>rf.feature_importances_</code>. Để giải thích chi tiết hơn từng dự đoán, dùng <strong>SHAP</strong>.</li>
+  <li><strong>LightGBM</strong> và <strong>CatBoost</strong>: các thư viện gradient boosting cạnh tranh với XGBoost; CatBoost xử lý biến phân loại rất tốt mà không cần one-hot.</li>
+  <li><strong>Pruning (tỉa cây)</strong>: xây cây đầy đủ rồi cắt bớt nhánh không cải thiện lỗi trên tập CV — một cách regularize cây.</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c2_w4_prac/Files/home/jovyan/work/C2_W4_Decision_Tree_with_Markdown.ipynb">C2_W4 Practice Lab — Decision Trees</a> (graded: <code>compute_entropy</code>, <code>split_dataset</code>, <code>compute_information_gain</code>, <code>get_best_split</code>)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Entropy \(H(p_1)\) đo độ lẫn lộn: 0 khi thuần, 1 khi 50/50.</li>
+  <li>Chọn đặc trưng chia có information gain lớn nhất; lặp đệ quy tới khi dừng.</li>
+  <li>Random forest (bagging + đặc trưng ngẫu nhiên) và XGBoost (boosting) mạnh hơn nhiều so với một cây.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Nút có 10 ví dụ, 5 lớp 1. Chia thành trái 4/4 lớp 1 và phải 1/6 lớp 1. Tính IG.</summary><p>\(H_{node} = H(0.5) = 1\). \(H_{left} = H(1) = 0\). \(H_{right} = H(1/6) \approx 0.65\). IG \(= 1 - (0.4\cdot 0 + 0.6 \cdot 0.65) \approx 0.61\).</p></details>
+<details class="quiz"><summary>Vì sao lấy mẫu có hoàn lại lại giúp random forest?</summary><p>Mỗi cây thấy một phiên bản hơi khác của dữ liệu → các cây khác nhau → lỗi của chúng không hoàn toàn trùng nhau → trung bình bỏ phiếu giảm variance.</p></details>
+</article>
+</body>
+</html>
