@@ -114,6 +114,27 @@ def my_sequential(x, W1, b1, W2, b2, W3, b3):
   <li><a data-nb="c2_w1_prac/Files/home/jovyan/work/C2_W1_Assignment.ipynb">C2_W1 Practice Lab — Handwritten Digit Recognition, Binary</a> (graded: Sequential model, <code>my_dense</code>, <code>my_dense_v</code>)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Lab01 — một nơ-ron tuyến tính.</strong> Tạo <code>Dense(units=1, activation='linear')</code>, gán <code>set_weights([[[200]], [100]])</code>, rồi so đầu ra TensorFlow với <code>np.dot(x, w) + b</code>: cả hai cho 300 khi x = 1.</li>
+  <li><strong>Một nơ-ron sigmoid.</strong> Mô hình <code>Sequential</code> một lớp, gán \(w = 2, b = -4.5\); đầu ra trùng với logistic regression tính bằng NumPy.</li>
+  <li><strong>Lab02 — dữ liệu rang cà phê.</strong> 200 ví dụ (nhiệt độ, thời gian). Chuẩn hoá bằng lớp <code>Normalization</code>, rồi nhân bản dữ liệu 1000 lần bằng <code>np.tile</code> để có 200.000 ví dụ.</li>
+  <li><strong>Xây mạng 2 → 3 → 1</strong> (sigmoid), <code>model.summary()</code> báo 9 + 4 = 13 tham số.</li>
+  <li><strong>Huấn luyện</strong> 10 epoch với <code>BinaryCrossentropy</code> và Adam (lr = 0.01).</li>
+  <li><strong>Dự đoán.</strong> (200°C, 13.9 phút) cho 0.963 → rang ngon; (200°C, 17 phút) cho 3e-08 → cháy.</li>
+  <li><strong>Lab03 — làm lại bằng NumPy.</strong> Viết <code>my_dense</code>, <code>my_sequential</code>, dùng trọng số đã huấn luyện, kết quả trùng với TensorFlow.</li>
+  <li><strong>Practice Lab — chữ số 0/1.</strong> 1000 ảnh 20×20 → mạng 400-25-15-1 → viết <code>my_dense</code> (vòng lặp) và <code>my_dense_v</code> (một phép nhân ma trận) → dự đoán đúng gần như toàn bộ.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: kiểm tra chất lượng trên dây chuyền</span>
+<p>Bài rang cà phê chính là một bài toán công nghiệp thu nhỏ. Một nhà máy đóng chai có cảm biến đo nhiệt độ, áp suất, tốc độ băng chuyền và độ đục của nước tại mỗi chai. Mạng nhỏ kiểu 4 → 8 → 1 (sigmoid) dự đoán xác suất chai bị lỗi; chai nào có xác suất &gt; 0.5 bị đẩy ra để kiểm tra lại. Lớp ẩn tự học các tổ hợp như “nhiệt cao <em>và</em> áp thấp”, những quy tắc mà kỹ sư khó viết tay hết được.</p>
+<pre><code class="language-python">model = Sequential([
+    tf.keras.Input(shape=(4,)),
+    Dense(8, activation="relu"),
+    Dense(1, activation="sigmoid"),
+])
+model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+model.fit(norm_l(X_sensor), y_defect, epochs=20)</code></pre></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Ghi chú của mình</span>
 <ul>

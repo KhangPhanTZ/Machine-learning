@@ -97,6 +97,32 @@ print(compute_model_output(x_train, w=200, b=100))   # [300. 500.]</code></pre>
   <li><a data-nb="c1_w2_prac/home/jovyan/work/C1_W2_Linear_Regression.ipynb">C1_W2 Practice Lab — Linear Regression</a> (bài graded: <code>compute_cost</code>, <code>compute_gradient</code>)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<p>Lab02 (Model Representation) và Lab03 (Cost Function) đi theo đúng mạch dưới đây:</p>
+<ol class="steps">
+  <li><strong>Nạp dữ liệu.</strong> <code>x_train = [1.0, 2.0]</code> (nghìn sqft), <code>y_train = [300, 500]</code> (nghìn đô). Số ví dụ <code>m = x_train.shape[0] = 2</code>.</li>
+  <li><strong>Lấy một ví dụ.</strong> <code>x_i, y_i = x_train[i], y_train[i]</code> chính là \((x^{(i)}, y^{(i)})\); với <code>i = 0</code> ta được (1.0, 300).</li>
+  <li><strong>Vẽ dữ liệu.</strong> <code>plt.scatter(x_train, y_train, marker='x', c='r')</code> để nhìn hình dạng trước khi chọn mô hình.</li>
+  <li><strong>Viết hàm mô hình.</strong> <code>compute_model_output(x, w, b)</code> trả về \(wx + b\) cho từng ví dụ.</li>
+  <li><strong>Dò tham số bằng tay.</strong> Thử <code>w = 100, b = 100</code>: đường thẳng đi dưới các điểm. Tăng lên <code>w = 200</code> thì khớp đúng cả hai điểm.</li>
+  <li><strong>Dự đoán.</strong> Nhà 1200 sqft: \(200 \times 1.2 + 100 = 340\) nghìn đô.</li>
+  <li><strong>Lab03: đo độ “tệ”.</strong> Viết <code>compute_cost</code> theo công thức \(J\). Công cụ <code>plt_intuition</code> giữ \(b = 100\) và cho kéo \(w\): chi phí nhỏ nhất đúng tại \(w = 200\).</li>
+  <li><strong>Nhìn mặt chi phí 3D.</strong> Với dữ liệu lớn hơn, \(J(w,b)\) là một “cái bát”. Ghi chú Notion của mình có hàm <code>soup_bowl</code> để vẽ đường đồng mức (xem cuối chương).</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: định giá căn hộ theo diện tích</span>
+<p>Giả sử một môi giới có ba căn hộ cùng khu (số liệu minh hoạ):</p>
+<table>
+  <tr><th>Diện tích (m²)</th><th>Giá (tỷ đồng)</th></tr>
+  <tr><td>50</td><td>2.5</td></tr>
+  <tr><td>70</td><td>3.4</td></tr>
+  <tr><td>90</td><td>4.3</td></tr>
+</table>
+<p>Ba điểm nằm đúng trên một đường thẳng với \(w = 0.045\) tỷ/m² (45 triệu mỗi m²) và \(b = 0.25\) tỷ, nên \(J = 0\). Căn 80 m² được định giá \(0.045 \times 80 + 0.25 = 3.85\) tỷ. Dữ liệu thật không bao giờ thẳng hàng như vậy, nên ta cần hàm chi phí để chọn đường “ít tệ nhất”, và cần thêm đặc trưng (tầng, hướng, tuổi nhà) ở chương 4.</p>
+<pre><code class="language-python">x = np.array([50, 70, 90]); y = np.array([2.5, 3.4, 4.3])
+w, b = 0.045, 0.25
+print(compute_cost(x, y, w, b))   # 0.0
+print(w * 80 + b)                 # 3.85</code></pre></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Vẽ “cái bát” của hàm chi phí</span>
 <p>Mục tiêu của hồi quy tuyến tính là cực tiểu \(J(w)\) (trường hợp đơn giản) hay \(J(w,b)\) (trường hợp tổng quát). Vì chi phí bình phương sai số nên mặt lỗi lồi như một cái bát súp, luôn có cực tiểu mà gradient đưa tới được. Đoạn code mình ghi lại để vẽ đường đồng mức với \(w\) và \(b\) đối xứng:</p>

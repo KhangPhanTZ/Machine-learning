@@ -71,6 +71,19 @@ print(pca95.n_components_)</code></pre>
   <li><strong>Embeddings</strong>: các vector đặc trưng \(\mathbf{v}_u, \mathbf{v}_m\) trong hệ gợi ý (chương 16) và word embeddings trong NLP cũng là biểu diễn chiều thấp học được.</li>
 </ul></div>
 
+<h2>Ví dụ thực tiễn</h2>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: so sánh 63 tỉnh thành trên một hình</span>
+<p>Mỗi tỉnh có 20 chỉ số: GRDP bình quân, tỉ lệ đô thị hoá, số doanh nghiệp, tỉ lệ hộ nghèo, số giường bệnh, điểm thi trung bình… Không thể vẽ 20 chiều, nhưng PCA nén về 2 chiều để vẽ scatter plot. Thường thành phần thứ nhất gần với “mức phát triển kinh tế – đô thị”, thành phần thứ hai gần với một trục khác như “nông nghiệp – công nghiệp”. Các tỉnh tương đồng nằm gần nhau, và những tỉnh nằm lạc khỏi nhóm đáng để xem kỹ.</p>
+<pre><code class="language-python">from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+Z = PCA(n_components=2).fit(StandardScaler().fit_transform(df[indicators]))
+coords = Z.transform(StandardScaler().fit_transform(df[indicators]))
+plt.scatter(coords[:, 0], coords[:, 1])
+for (x, y), name in zip(coords, df["province"]):
+    plt.annotate(name, (x, y), fontsize=7)
+print(Z.explained_variance_ratio_)   # % phương sai giữ lại của 2 trục</code></pre>
+<p>Lưu ý chuẩn hoá trước khi chạy PCA: nếu không, chỉ số có đơn vị lớn (GRDP tính bằng triệu đồng) sẽ chiếm trọn thành phần thứ nhất.</p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>PCA tìm các trục vuông góc giữ phương sai lớn nhất; phải căn giữa dữ liệu trước.</li>

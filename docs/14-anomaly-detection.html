@@ -89,6 +89,24 @@
   <li><a data-nb="c3_w3_prac/Files/home/jovyan/work/C3_W1_Anomaly_Detection.ipynb">C3 Practice Lab — Anomaly Detection</a> (graded: <code>estimate_gaussian</code>, <code>select_threshold</code>)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Nạp dữ liệu:</strong> <code>X_train</code> (307 × 2: độ trễ, thông lượng), tập CV <code>X_val</code>, <code>y_val</code> có nhãn bất thường.</li>
+  <li><strong><code>estimate_gaussian</code>:</strong> trung bình <code>[14.11, 15.00]</code>, phương sai <code>[1.83, 1.71]</code>.</li>
+  <li><strong>Tính xác suất</strong> bằng <code>multivariate_gaussian(X_train, mu, var)</code> và vẽ đường đồng mức quanh dữ liệu.</li>
+  <li><strong><code>select_threshold</code>:</strong> quét 1000 giá trị ε, tính precision/recall/F1 trên CV. Kết quả ε = 8.99e-05, F1 = 0.875.</li>
+  <li><strong>Đánh dấu ngoại lai</strong> trên tập train: các điểm có \(p(x) \lt \varepsilon\) được khoanh đỏ.</li>
+  <li><strong>Dữ liệu 11 chiều:</strong> lặp lại quy trình, được ε = 1.38e-18, F1 = 0.615, tìm ra 117 bất thường.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: cảnh báo sớm hỏng máy chủ</span>
+<p>Đây gần như chính là bài lab, áp dụng ở quy mô thật. Mỗi phút, mỗi máy chủ gửi về: % CPU, RAM, độ trễ trung bình, số lỗi 5xx. Đội vận hành:</p>
+<ol>
+  <li>Lấy dữ liệu 2 tuần “bình thường” để ước lượng \(\mu_j, \sigma_j^2\) (đặc trưng lệch như số lỗi thì dùng \(\log(1+x)\) trước, như trong ghi chú Notion).</li>
+  <li>Dùng vài sự cố cũ đã biết làm tập CV để chọn ε theo F1.</li>
+  <li>Mỗi phút tính \(p(\mathbf{x})\); nếu nhỏ hơn ε thì bắn cảnh báo lên kênh trực.</li>
+</ol>
+<p>Ưu điểm so với đặt ngưỡng cứng (“CPU &gt; 90%”): mô hình bắt được tổ hợp bất thường như CPU thấp nhưng độ trễ cao (dịch vụ bị treo), thứ mà từng ngưỡng riêng lẻ bỏ qua.</p></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Biến đặc trưng non-Gaussian thành Gaussian</span>
 <p>Ví dụ đặc trưng trong thực tế:</p>

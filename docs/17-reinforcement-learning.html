@@ -148,6 +148,28 @@ model = DQN("MlpPolicy", env, verbose=1).learn(total_timesteps=500_000)</code></
   <li><a data-nb="c3_w1_prac2/Files/home/jovyan/work/C3_W3_A1_Assignment.ipynb">C3 Practice Lab — Deep Q-Learning, Lunar Lander</a> (graded: Q-network, target network, <code>compute_loss</code>)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Đặt siêu tham số:</strong> bộ nhớ 100.000, γ = 0.995, α = 1e-3, học mỗi 4 bước.</li>
+  <li><strong>Tạo môi trường</strong> <code>gym.make('LunarLander-v2')</code>, đọc <code>state_size = 8</code>, <code>num_actions = 4</code>.</li>
+  <li><strong>Thử tương tác:</strong> <code>env.reset()</code> trả về trạng thái đầu; <code>env.step(0)</code> trả về <code>next_state, reward, done, info</code>.</li>
+  <li><strong>Xây Q-network và target network</strong> (8 → 64 → 64 → 4) cùng optimizer Adam.</li>
+  <li><strong>Bộ nhớ trải nghiệm:</strong> mỗi bước lưu một <code>namedtuple("Experience", ["state", "action", "reward", "next_state", "done"])</code> vào <code>deque(maxlen=MEMORY_SIZE)</code>.</li>
+  <li><strong>Viết <code>compute_loss</code>:</strong> nhãn \(y = R + \gamma\max_{a'}\hat Q(s', a')(1 - \text{done})\), lấy \(Q(s, a)\) của đúng hành động bằng <code>tf.gather_nd</code>, rồi tính MSE.</li>
+  <li><strong><code>agent_learn</code>:</strong> <code>GradientTape</code> → gradient → <code>apply_gradients</code> → soft update target network với τ = 1e-3.</li>
+  <li><strong>Vòng huấn luyện:</strong> tối đa 2000 episode × 1000 bước. Mỗi bước chọn hành động ε-greedy → <code>env.step</code> → lưu trải nghiệm. Cứ 4 bước, nếu bộ nhớ đủ 64 mẫu thì lấy mini-batch để học. Cuối mỗi episode giảm ε (× 0.995, tối thiểu 0.01).</li>
+  <li><strong>Dừng</strong> khi trung bình 100 episode gần nhất ≥ 200 điểm: lab của mình đạt ở episode 534 sau khoảng 12 phút, rồi lưu <code>lunar_lander_model.h5</code> và quay video tàu hạ cánh.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: điều khiển điều hoà toà nhà</span>
+<p>Một toà văn phòng muốn giảm tiền điện mà vẫn giữ nhiệt độ dễ chịu:</p>
+<table>
+  <tr><th>Thành phần RL</th><th>Trong bài toán</th></tr>
+  <tr><td>Trạng thái</td><td>nhiệt độ trong/ngoài, độ ẩm, số người (từ thẻ ra vào), giờ trong ngày, giá điện theo khung giờ</td></tr>
+  <tr><td>Hành động</td><td>tăng/giảm nhiệt độ đặt 1°C, bật/tắt từng dàn lạnh</td></tr>
+  <tr><td>Phần thưởng</td><td>−(tiền điện) − phạt khi nhiệt độ lệch khỏi 24–26°C</td></tr>
+</table>
+<p>Tác tử không được thử–sai trên toà nhà thật (khó chịu cho người làm việc), nên được huấn luyện trước trong <strong>mô phỏng</strong>, giống Lunar Lander là mô phỏng của tàu thật, rồi mới chạy thật với giới hạn an toàn. Đây là chỗ RL khó hơn học có giám sát: cần một môi trường mô phỏng đủ giống thực tế.</p></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Các thành phần của RL</span>
 <ol>

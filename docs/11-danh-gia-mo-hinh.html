@@ -195,6 +195,27 @@ $$</div>
   <li><a data-nb="c2_w3_prac/Files/home/jovyan/work/C2_W3_Assignment.ipynb">C2_W3 Practice Lab — Advice for Applying Machine Learning</a> (graded: <code>eval_mse</code>, <code>eval_cat_err</code>, 3 mô hình)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Lab01 — chia dữ liệu</strong> thành 60% train, 20% CV, 20% test bằng hai lần <code>train_test_split</code>.</li>
+  <li><strong>Mô hình tuyến tính cơ sở:</strong> <code>StandardScaler</code> fit trên train → <code>LinearRegression</code> → tính MSE/2 trên train và CV.</li>
+  <li><strong>Thêm đặc trưng đa thức</strong> bậc 1 đến 10, mỗi bậc có scaler riêng; vẽ MSE train và CV theo bậc rồi chọn bậc có MSE CV nhỏ nhất.</li>
+  <li><strong>Mạng nơ-ron:</strong> so 3 kiến trúc (25-15-1, 20-12-12-20-1, 32-16-8-4-12-1), chọn kiến trúc có lỗi CV thấp nhất, rồi mới báo cáo lỗi test.</li>
+  <li><strong>Lab02 — chẩn đoán.</strong> Đặt baseline, rồi thử từng “thuốc”: thêm đặc trưng đa thức, giảm/tăng λ, bớt đặc trưng, thêm dữ liệu. Mỗi lần đối chiếu J_train và J_cv để xem đang sửa bias hay variance.</li>
+  <li><strong>Practice Lab:</strong> viết <code>eval_mse</code> và <code>eval_cat_err</code>; thấy bậc 10 overfit; tìm bậc tối ưu; dò λ; dùng learning curve; cuối cùng so 3 mạng cho bài 6 lớp (Complex, Simple, Regularized).</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: phát hiện gian lận thẻ với dữ liệu lệch</span>
+<p>Trong 1 triệu giao dịch chỉ có 1.000 gian lận (0.1%). Mô hình “luôn nói không gian lận” đạt accuracy 99.9% nhưng vô dụng. Đánh giá đúng cách:</p>
+<table>
+  <tr><th></th><th>Thực tế gian lận</th><th>Thực tế bình thường</th></tr>
+  <tr><td><strong>Dự đoán gian lận</strong></td><td>TP = 700</td><td>FP = 300</td></tr>
+  <tr><td><strong>Dự đoán bình thường</strong></td><td>FN = 300</td><td>TN = 998.700</td></tr>
+</table>
+<p>Precision = 700/1000 = 0.70 (cứ 10 lần chặn thẻ thì 3 lần làm phiền khách vô tội); Recall = 700/1000 = 0.70 (lọt 30% vụ gian lận); F1 = 0.70. Ngân hàng chọn ngưỡng theo chi phí thật: mỗi vụ lọt có thể mất hàng chục triệu, mỗi lần chặn nhầm chỉ tốn một cuộc gọi xác minh, nên thường ưu tiên recall.</p>
+<pre><code class="language-python">from sklearn.metrics import precision_recall_curve
+p, r, thr = precision_recall_curve(y_cv, proba_cv)
+best = thr[(r[:-1] &gt;= 0.9).nonzero()[0][-1]]   # ngưỡng cao nhất còn giữ recall ≥ 90%</code></pre></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Regularization trong Keras</span>
 <p>Mô hình MNIST có và không có regularization. <code>L2(0.01)</code> nghĩa là λ = 0.01:</p>

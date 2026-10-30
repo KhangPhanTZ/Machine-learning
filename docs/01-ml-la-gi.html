@@ -79,6 +79,25 @@ print(f"w = {w}, b = {b}, dự đoán cho x=1.2: {w * 1.2 + b}")</code></pre>
   <li><a data-nb="c1_w1/home/jovyan/work/C1_W1_Lab01_Python_Jupyter_Soln.ipynb">C1_W1_Lab01 — Python &amp; Jupyter</a></li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<p>Lab đầu tiên chỉ để làm quen với Jupyter, nhưng ba thao tác này sẽ lặp lại trong mọi lab sau:</p>
+<ol class="steps">
+  <li><strong>Mở notebook và phân biệt hai loại ô.</strong> Ô <em>markdown</em> chứa chữ và công thức; ô <em>code</em> chứa Python. Nhấp đúp vào ô markdown để xem mã nguồn của nó.</li>
+  <li><strong>Chạy từng ô theo thứ tự từ trên xuống.</strong> <kbd>Shift</kbd>+<kbd>Enter</kbd> chạy ô hiện tại rồi nhảy xuống ô dưới. Biến tạo ở ô trên mới dùng được ở ô dưới, nên chạy lộn thứ tự là nguồn lỗi <code>NameError</code> phổ biến nhất.</li>
+  <li><strong>In kết quả bằng f-string.</strong> <code>print(f"{w:0.2f}")</code> định dạng số với 2 chữ số thập phân; các lab dùng cách này để in chi phí, tham số sau mỗi vòng lặp.</li>
+  <li><strong>Khi kết quả lạ:</strong> menu <em>Kernel → Restart &amp; Run All</em> chạy lại toàn bộ notebook từ đầu với trạng thái sạch.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: các loại bài toán quanh ta</span>
+<table>
+  <tr><th>Sản phẩm</th><th>Bài toán</th><th>Loại</th></tr>
+  <tr><td>Ứng dụng gọi xe dự đoán thời gian đến (ETA)</td><td>số phút → số thực</td><td>Hồi quy</td></tr>
+  <tr><td>Ngân hàng chặn giao dịch thẻ đáng ngờ</td><td>gian lận / không</td><td>Phân loại hoặc phát hiện bất thường</td></tr>
+  <tr><td>Sàn thương mại điện tử gợi ý “có thể bạn cũng thích”</td><td>xếp hạng sản phẩm cho từng người</td><td>Hệ gợi ý</td></tr>
+  <tr><td>Chuỗi cửa hàng chia khách thành nhóm để chạy khuyến mãi</td><td>không có nhãn sẵn</td><td>Phân cụm</td></tr>
+  <tr><td>Robot kho hàng tự học đường đi</td><td>chỉ có phần thưởng khi giao đúng</td><td>Học tăng cường</td></tr>
+</table>
+<p>Cách tự xếp loại một bài toán: hỏi “có đáp án đúng cho từng ví dụ không?” (có → supervised), rồi “đáp án là số hay là nhóm?” (số → hồi quy, nhóm → phân loại).</p></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Ghi chú của mình</span>
 <p>Bốn nhóm thuật toán chính của khoá: <strong>supervised learning</strong>, <strong>unsupervised learning</strong>, <strong>recommender system</strong> và <strong>reinforcement learning</strong>.</p>

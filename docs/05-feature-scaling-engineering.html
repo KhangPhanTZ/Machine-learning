@@ -109,6 +109,27 @@ linear_model.fit(X_train, y_train)</code></pre>
   <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab06_Sklearn_Normal_Soln.ipynb">C1_W2_Lab06 — Linear Regression, closed-form</a></li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Lab03 — nhìn dữ liệu.</strong> Vẽ giá theo từng đặc trưng (diện tích, phòng ngủ, tầng, tuổi): diện tích có ảnh hưởng rõ nhất.</li>
+  <li><strong>Thử ba learning rate trên dữ liệu thô.</strong> \(\alpha = 9.9\times10^{-7}\): chi phí dao động; \(9\times10^{-7}\): giảm nhưng chậm; \(1\times10^{-7}\): giảm đều nhưng rất chậm. Đồ thị cho thấy \(w_0\) (diện tích) dao động trong khi các \(w_j\) khác gần như đứng yên.</li>
+  <li><strong>Chuẩn hoá z-score.</strong> <code>zscore_normalize_features</code> trả về <code>X_norm, mu, sigma</code>; lab vẽ dữ liệu trước và sau để thấy mọi đặc trưng quanh 0.</li>
+  <li><strong>Chạy lại với</strong> \(\alpha = 0.1\), 1000 vòng: hội tụ nhanh, dự đoán sát giá thật.</li>
+  <li><strong>Dự đoán nhà mới</strong> (1200 sqft, 3 phòng ngủ, 1 tầng, 40 năm) sau khi chuẩn hoá bằng <code>mu</code>, <code>sigma</code> của tập train: khoảng <strong>318 709 đô</strong>.</li>
+  <li><strong>Lab04 — đặc trưng đa thức.</strong> Với \(y = 1 + x^2\), chỉ dùng \(x\) thì khớp kém; thêm \(x^2\) thì khớp tốt; thêm cả \(x, x^2, x^3\) thì gradient descent tự chọn \(x^2\).</li>
+  <li><strong>Lab05–06 — scikit-learn.</strong> <code>StandardScaler</code> + <code>SGDRegressor</code> (gradient descent), rồi <code>LinearRegression</code> (normal equation) cho cùng kết quả.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: dự đoán doanh số sản phẩm trên sàn</span>
+<p>Đặc trưng thô của một sản phẩm: giá (100.000 – 50.000.000 đồng), điểm đánh giá (1–5), số lượt xem (0 – 2 triệu). Thang đo lệch nhau cả triệu lần, nên phải chuẩn hoá trước khi chạy gradient descent. Feature engineering giúp nhiều hơn đổi thuật toán:</p>
+<ul>
+  <li>Từ thời điểm đăng bán, tạo “giờ trong ngày”, “cuối tuần?”, “ngày lễ / ngày sale (11.11, 12.12)?”.</li>
+  <li>Từ giá gốc và giá bán, tạo “% giảm giá”.</li>
+  <li>Lượt xem lệch phải rất mạnh nên dùng \(\log(1 + \text{lượt xem})\).</li>
+</ul>
+<pre><code class="language-python">df["discount_pct"] = 1 - df["sale_price"] / df["list_price"]
+df["is_weekend"] = df["posted_at"].dt.dayofweek &gt;= 5
+df["log_views"] = np.log1p(df["views"])</code></pre></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Ghi chú của mình</span>
 <ul>

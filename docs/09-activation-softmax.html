@@ -102,6 +102,20 @@ yhat = np.argmax(logits, axis=1)           # nếu chỉ cần lớp: argmax tr�
   <li><a data-nb="c2_w2_prac/Files/home/jovyan/work/C2_W2_Assignment.ipynb">C2_W2 Practice Lab — Handwritten Digit Recognition, Multiclass</a> (graded: <code>my_softmax</code>, model)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Lab ReLU.</strong> Mạng 1 → 3 (ReLU) → 1 (linear) xấp xỉ một hàm tuyến tính từng khúc. Lab cho bạn chỉnh trọng số từng nơ-ron: mỗi nơ-ron “bật” tại một điểm và thêm một đoạn dốc.</li>
+  <li><strong>Lab Softmax — tự viết.</strong> <code>my_softmax(z)</code> với <code>np.exp</code>; so với <code>tf.nn.softmax</code> để kiểm tra.</li>
+  <li><strong>Hai cách cài đặt.</strong> Cách “hiển nhiên” đặt softmax ở lớp cuối; cách khuyến nghị để lớp cuối <code>linear</code> và dùng <code>from_logits=True</code>. Đầu ra cách thứ hai là logits, nên phải gọi <code>tf.nn.softmax</code> nếu cần xác suất.</li>
+  <li><strong>Lab Multiclass.</strong> Dữ liệu 2 chiều 4 lớp, mạng 2 (ReLU) → 4 (linear). Lab vẽ từng nơ-ron lớp 1: mỗi nơ-ron học một đường chia mặt phẳng.</li>
+  <li><strong>Practice Lab — chữ số 0–9.</strong> 5000 ảnh → mạng 400-25-15-10 → <code>SparseCategoricalCrossentropy(from_logits=True)</code> → 40 epoch → <code>np.argmax</code> trên logits → 15 lỗi trên 5000 ảnh.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: tự động phân loại yêu cầu hỗ trợ</span>
+<p>Bộ phận chăm sóc khách hàng nhận hàng nghìn tin nhắn mỗi ngày, cần chuyển về 5 nhóm: <em>thanh toán, giao hàng, đổi trả, tài khoản, khác</em>. Mỗi tin nhắn được biến thành vector đặc trưng (ví dụ embedding 384 chiều từ một mô hình ngôn ngữ), rồi qua mạng 384 → 64 (ReLU) → 5 (linear) + softmax. Xác suất softmax còn dùng để định tuyến: nếu lớp cao nhất chỉ có 40%, chuyển cho nhân viên đọc tay thay vì tự động.</p>
+<pre><code class="language-python">probs = tf.nn.softmax(model(X_msg)).numpy()
+label = probs.argmax(axis=1)
+needs_human = probs.max(axis=1) &lt; 0.6</code></pre></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Lớp ẩn: ReLU. Lớp ra: sigmoid (nhị phân), linear (hồi quy), linear + <code>from_logits=True</code> (đa lớp).</li>
