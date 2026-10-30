@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>0. Lời mở đầu · Sổ tay Machine Learning</title>
+<title>0. Lời mở đầu · Sổ tay Machine Learning &amp; Deep Learning</title>
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/book.js"></script>
 </head>
@@ -12,7 +12,7 @@
 <header class="chapter-head">
   <div class="eyebrow">Chương 0</div>
   <h1>Lời mở đầu &amp; cách dùng sách</h1>
-  <p class="lede">Một cuốn sổ tay ghi lại hành trình học Machine Learning — từ những dòng NumPy đầu tiên đến một con tàu tự hạ cánh trên Mặt Trăng.</p>
+  <p class="lede">Một cuốn sổ tay ghi lại hành trình học Machine Learning và Deep Learning, từ những dòng NumPy đầu tiên, qua một con tàu tự hạ cánh trên Mặt Trăng, đến các mạng PyTorch nhận dạng ảnh. Sách viết cho người mới và kết thúc bằng hướng dẫn áp dụng vào từng lĩnh vực.</p>
   <div class="meta"><span>⏱ 5 phút đọc</span><span>📁 Repo: coursera/Machine_learning</span></div>
 </header>
 
@@ -23,7 +23,17 @@
   <tr><td><strong>C1</strong> · Supervised Machine Learning: Regression and Classification</td><td>Hồi quy tuyến tính, gradient descent, logistic regression, regularization</td><td><code>c1_w1</code> → <code>c1_w3_prac</code></td></tr>
   <tr><td><strong>C2</strong> · Advanced Learning Algorithms</td><td>Mạng nơ-ron, TensorFlow, softmax, đánh giá mô hình, cây quyết định</td><td><code>c2_w1</code> → <code>c2_w4_prac</code></td></tr>
   <tr><td><strong>C3</strong> · Unsupervised Learning, Recommenders, Reinforcement Learning</td><td>K-means, phát hiện bất thường, hệ gợi ý, Deep Q-Learning</td><td><code>c3_w1_prac1</code> → <code>c3_w3_prac</code></td></tr>
+  <tr><td><strong>PyTorch</strong> · PyTorch for Deep Learning (C1) — repo <a href="https://github.com/KhangPhanTZ/pytorch-for-deep-learning">pytorch-for-deep-learning</a></td><td>Tensor, vòng lặp huấn luyện, mạng nhiều lớp, phân loại ảnh, data pipeline</td><td><code>M1_tensors_and_nn</code> → <code>M3_data_pipeline</code></td></tr>
 </table>
+<p>Ba khoá đầu tạo nên Phần I–III. Khoá PyTorch là nền của <strong>Phần IV · Deep Learning với PyTorch</strong> (chương 18–26). Phần này bổ sung CNN, transfer learning, Transformer và một chương hướng dẫn áp dụng ML/DL vào y tế, tài chính, bán lẻ, sản xuất, nông nghiệp, logistics…</p>
+<div class="box tip"><span class="box-title">✅ Mới bắt đầu? Đọc theo lộ trình này</span>
+<ol>
+  <li><strong>Hiểu ML là gì</strong>: chương 1 → 2 → 3 (hồi quy, gradient descent).</li>
+  <li><strong>Phân loại &amp; tránh học vẹt</strong>: chương 6 → 7 → 11.</li>
+  <li><strong>Mạng nơ-ron</strong>: chương 8 → 9, rồi sang bản PyTorch: 18 → 19 → 20 → 22.</li>
+  <li><strong>Áp dụng vào công việc</strong>: chương 26, rồi quay lại các chương mà lĩnh vực của bạn được gợi ý.</li>
+</ol>
+<p>Gặp thuật ngữ lạ thì tra <a href="B-thuat-ngu.html">Phụ lục B</a>; quên công thức thì xem <a href="A-cong-thuc.html">Phụ lục A</a>.</p></div>
 <p>Notebook là nơi tuyệt vời để <em>thực hành</em>, nhưng khó để <em>ôn lại</em>. Cuốn sách này sắp xếp lại các notebook theo mạch kiến thức, viết lời giải thích bằng tiếng Việt, rút ra các công thức cốt lõi, giữ lại đoạn code mình tự viết trong các bài graded, và bổ sung thêm kiến thức ngoài khoá học ở những chỗ đáng biết.</p>
 
 <h2>Cách đọc</h2>
@@ -39,6 +49,8 @@
 
 <div class="box lab"><span class="box-title">🧪 Hộp “Từ lab”</span>
 <p>Hộp này liệt kê notebook gốc trong repo. Bấm vào để mở trên GitHub, hoặc mở bằng Jupyter trên máy để chạy lại.</p></div>
+<div class="box real"><span class="box-title">🏙️ Hộp “Ví dụ thực tiễn”</span>
+<p>Cùng kỹ thuật của chương, áp dụng vào một bài toán thật ở một lĩnh vực cụ thể.</p></div>
 <div class="box note"><span class="box-title">💡 Ghi chú</span><p>Giải thích thêm, trực giác, hoặc mẹo nhớ.</p></div>
 <div class="box warn"><span class="box-title">⚠️ Cẩn thận</span><p>Lỗi hay gặp, bẫy khi cài đặt.</p></div>
 <div class="box extra"><span class="box-title">📚 Mở rộng</span><p>Kiến thức nâng cao ngoài phạm vi khoá học.</p></div>
@@ -62,6 +74,7 @@
 <p>Chỉ số trên trong ngoặc tròn \((i)\) là <em>ví dụ thứ mấy</em>; chỉ số trên trong ngoặc vuông \([l]\) là <em>lớp thứ mấy</em>; chỉ số dưới \(j\) là <em>đặc trưng thứ mấy</em>. Python đánh chỉ số từ 0, nên \(x^{(1)}\) trong toán thường tương ứng <code>x[0]</code> trong code.</p>
 
 <h2>Chạy lại các notebook</h2>
+<h3>Lab ML (Phần I–III)</h3>
 <p>Các notebook được tải về từ môi trường Jupyter của Coursera (đường dẫn <code>home/jovyan/work</code>). Để chạy trên máy:</p>
 <pre><code class="language-bash">python -m venv .venv &amp;&amp; source .venv/bin/activate
 pip install numpy matplotlib scikit-learn tensorflow pandas jupyter ipywidgets
@@ -70,12 +83,18 @@ jupyter notebook</code></pre>
 <div class="box warn"><span class="box-title">⚠️ Lưu ý phiên bản</span>
 <p>Lab gốc chạy trên Python 3.7 và TensorFlow 2.x đời cũ. Một số hàm vẽ tương tác (<code>%matplotlib widget</code>) cần <code>ipympl</code>. Lab Lunar Lander (C3) cần thêm <code>gym</code> và <code>box2d</code>, khá kén phiên bản — dùng Google Colab sẽ đỡ mất công hơn.</p></div>
 
+<h3>Lab PyTorch (Phần IV)</h3>
+<pre><code class="language-bash">pip install torch torchvision pandas matplotlib tqdm jupyter
+git clone https://github.com/KhangPhanTZ/pytorch-for-deep-learning
+cd pytorch-for-deep-learning/C1_intro_to_pytorch &amp;&amp; jupyter notebook</code></pre>
+<p>Mọi lab Phần IV chạy được trên CPU; có GPU (hoặc Google Colab) thì nhanh hơn. Xem thêm chương 18.</p>
+
 <h2>Ghi chú Notion</h2>
 <p>Song song với các lab, mình có ghi chép trên <a href="https://app.notion.com/p/Machine-Learning-12f1ff87df828012b38fc41200db58a0">Notion</a>. Nội dung chữ và code trong các trang Notion đó đã được đưa vào sách: mỗi chương liên quan có mục <strong>“Từ ghi chú Notion”</strong> (hộp viền đậm 📝) kèm link về trang Notion gốc. Ảnh chụp slide trong Notion không được chép sang, vì sách đã dùng ảnh từ chính các notebook lab.</p>
 
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
-  <li>Sách đi theo 3 phần, bám sát 3 khoá C1 → C2 → C3, cộng phụ lục tra cứu.</li>
+  <li>Sách có 4 phần: ba phần đầu bám sát khoá ML C1 → C2 → C3, Phần IV là Deep Learning với PyTorch và áp dụng theo lĩnh vực, cộng phụ lục tra cứu.</li>
   <li>\((i)\) = ví dụ, \([l]\) = lớp, \(j\) = đặc trưng.</li>
   <li>Bấm <strong>◐</strong> ở góc phải để đổi giao diện sáng/tối; tiến độ đọc được lưu trong trình duyệt.</li>
 </ul></div>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phụ lục A. Bảng công thức · Sổ tay Machine Learning</title>
+<title>Phụ lục A. Bảng công thức · Sổ tay Machine Learning &amp; Deep Learning</title>
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/book.js"></script>
 </head>
@@ -99,6 +99,18 @@
   <tr><th>Chính sách</th><td>\(\pi(s) = \arg\max_a Q(s,a)\)</td></tr>
   <tr><th>Nhãn DQN</th><td>\(y = R + \gamma\max_{a'}\hat Q(s',a')\cdot(1 - \text{done})\)</td></tr>
   <tr><th>Soft update</th><td>\(\mathbf w_{\hat Q} \leftarrow \tau\mathbf w_Q + (1-\tau)\mathbf w_{\hat Q}\)</td></tr>
+</table>
+
+<h2>Deep Learning với PyTorch <small>(ch. 19–25)</small></h2>
+<table>
+  <tr><th>Vòng lặp 5 bước</th><td><code>zero_grad()</code> → <code>out = model(x)</code> → <code>loss = loss_fn(out, y)</code> → <code>loss.backward()</code> → <code>optimizer.step()</code></td></tr>
+  <tr><th>Chuẩn hoá</th><td>\(x' = (x - \mu_{\text{train}})/\sigma_{\text{train}}\)  ·  giải chuẩn hoá \(y = y'\sigma_y + \mu_y\)</td></tr>
+  <tr><th>Shape</th><td>bảng <code>[N, đặc_trưng]</code> · ảnh <code>[N, C, H, W]</code> · chuỗi <code>[N, độ_dài, d]</code></td></tr>
+  <tr><th>Tham số Linear</th><td>\(n_{\text{in}} \cdot n_{\text{out}} + n_{\text{out}}\)</td></tr>
+  <tr><th>Tham số Conv2d</th><td>\(C_{\text{out}} \cdot (C_{\text{in}} \cdot k^2) + C_{\text{out}}\)</td></tr>
+  <tr><th>Kích thước sau Conv</th><td>\(\lfloor (n + 2p - k)/s \rfloor + 1\)</td></tr>
+  <tr><th>Loss theo bài toán</th><td>hồi quy: <code>MSELoss</code> · nhị phân: <code>BCEWithLogitsLoss</code> (1 logit) · đa lớp: <code>CrossEntropyLoss</code> (logits + nhãn int)</td></tr>
+  <tr><th>Attention</th><td>\(\text{softmax}(QK^\top/\sqrt d)\,V\)</td></tr>
 </table>
 </article>
 </body>

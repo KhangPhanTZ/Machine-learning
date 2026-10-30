@@ -1,8 +1,9 @@
-/* Sổ tay Machine Learning — khung sách: mục lục, điều hướng, công thức, code. */
+/* Sổ tay Machine Learning & Deep Learning — khung sách: mục lục, điều hướng, công thức, code. */
 (function () {
   "use strict";
 
   var REPO = "https://github.com/KhangPhanTZ/Machine-learning/blob/main/coursera/Machine_learning/";
+  var REPO_PT = "https://github.com/KhangPhanTZ/pytorch-for-deep-learning/blob/main/C1_intro_to_pytorch/";
 
   var PARTS = [
     { title: "Mở đầu", chapters: [
@@ -30,6 +31,17 @@
       { file: "15-pca.html", n: "15", t: "Giảm chiều với PCA" },
       { file: "16-recommender.html", n: "16", t: "Hệ thống gợi ý" },
       { file: "17-reinforcement-learning.html", n: "17", t: "Học tăng cường & Deep Q-Learning" }
+    ]},
+    { title: "Phần IV · Deep Learning với PyTorch", chapters: [
+      { file: "18-deep-learning-la-gi.html", n: "18", t: "Deep Learning là gì & khi nào nên dùng" },
+      { file: "19-tensor.html", n: "19", t: "Tensor — ngôn ngữ dữ liệu của PyTorch" },
+      { file: "20-pytorch-mang-dau-tien.html", n: "20", t: "Mạng nơ-ron đầu tiên với PyTorch" },
+      { file: "21-mang-sau-feature.html", n: "21", t: "Mạng nhiều lớp & feature engineering" },
+      { file: "22-phan-loai-anh-mnist.html", n: "22", t: "Phân loại ảnh: nn.Module, DataLoader, GPU" },
+      { file: "23-data-pipeline.html", n: "23", t: "Data pipeline: Dataset, transforms, augmentation" },
+      { file: "24-cnn-transfer-learning.html", n: "24", t: "CNN & transfer learning" },
+      { file: "25-chuoi-transformer.html", n: "25", t: "Văn bản, chuỗi thời gian & Transformer" },
+      { file: "26-ap-dung-domain.html", n: "26", t: "Áp dụng ML & DL vào từng lĩnh vực" }
     ]},
     { title: "Phụ lục", chapters: [
       { file: "A-cong-thuc.html", n: "A", t: "Bảng công thức tóm tắt" },
@@ -81,7 +93,7 @@
     var top = el("header", { class: "topbar" });
     top.innerHTML =
       '<button class="icon-btn menu-btn" aria-label="Mở mục lục">☰</button>' +
-      '<a class="brand" href="index.html">Sổ tay <span>ML</span></a>' +
+      '<a class="brand" href="index.html">Sổ tay <span>ML·DL</span></a>' +
       '<span class="crumb">' + (cur ? cur.part + " — " + cur.t : "Mục lục") + "</span>" +
       '<span class="actions"><button class="icon-btn theme-btn" aria-label="Đổi giao diện sáng/tối" title="Sáng / tối"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button></span>' +
       '<div class="progress"></div>';
@@ -122,9 +134,9 @@
     });
     if (heads.length > 2) toc.innerHTML = th; else toc.remove();
 
-    // Liên kết tới notebook
-    article.querySelectorAll("[data-nb]").forEach(function (a) {
-      a.href = REPO + a.getAttribute("data-nb");
+    // Liên kết tới notebook (data-nb: repo ML, data-pt: repo PyTorch)
+    article.querySelectorAll("[data-nb], [data-pt]").forEach(function (a) {
+      a.href = a.hasAttribute("data-pt") ? REPO_PT + a.getAttribute("data-pt") : REPO + a.getAttribute("data-nb");
       a.target = "_blank"; a.rel = "noopener";
     });
 

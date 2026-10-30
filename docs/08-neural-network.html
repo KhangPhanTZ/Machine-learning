@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>8. Mạng nơ-ron · Sổ tay Machine Learning</title>
+<title>8. Mạng nơ-ron · Sổ tay Machine Learning &amp; Deep Learning</title>
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/book.js"></script>
 </head>
@@ -159,6 +159,9 @@ decisions   = [[1],
                [0]]
 Số tham số: layer1 = 2*3 + 3 = 9, layer2 = 3*1 + 1 = 4, tổng 13</code></pre>
 <p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/12f1ff87df8280478dd4c269d82d77bf" target="_blank" rel="noopener">Advance Learning Algorithm</a></p></div>
+
+<div class="box tip"><span class="box-title">➡️ Cùng ý tưởng, viết bằng PyTorch</span>
+<p>Mạng <code>Sequential</code> của chương này viết lại bằng PyTorch là <code>nn.Sequential(nn.Linear(400, 25), nn.ReLU(), …)</code>. Chương 20 xây mạng PyTorch đầu tiên từng bước, chương 22 làm bài nhận dạng chữ số với ảnh MNIST 28×28. Bảng đối chiếu Keras ↔ PyTorch nằm ở <a href="18-deep-learning-la-gi.html">chương 18</a>.</p></div>
 
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>

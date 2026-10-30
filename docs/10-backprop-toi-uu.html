@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>10. Backpropagation & tối ưu hoá · Sổ tay Machine Learning</title>
+<title>10. Backpropagation & tối ưu hoá · Sổ tay Machine Learning &amp; Deep Learning</title>
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/book.js"></script>
 </head>
@@ -137,6 +137,9 @@ w = torch.tensor(3.0, requires_grad=True)
 J = (2 + 3 * w) ** 2
 J.backward()
 print(w.grad)          # tensor(66.)</code></pre></div>
+
+<div class="box tip"><span class="box-title">➡️ Backprop trong PyTorch</span>
+<p>Mọi thứ của chương này nằm gọn trong hai dòng PyTorch: <code>loss.backward()</code> (autograd đi ngược đồ thị tính toán, áp dụng quy tắc chuỗi) và <code>optimizer.step()</code> (Adam hoặc SGD cập nhật tham số). Xem vòng lặp 5 bước ở <a href="20-pytorch-mang-dau-tien.html">chương 20</a> và mini-batch với <code>DataLoader</code> ở <a href="22-phan-loai-anh-mnist.html">chương 22</a>.</p></div>
 
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>

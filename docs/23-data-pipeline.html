@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>23. Data pipeline · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 23 · PyTorch C1, Module 3 — Assignment</div>
+  <h1>Data pipeline: Dataset, transforms, augmentation</h1>
+  <p class="lede">Dữ liệu thật không gọn gàng như MNIST: ảnh đủ kích cỡ, đủ chất lượng, nằm rải rác trong thư mục. Chương này xây một “dây chuyền” đưa 3 000 ảnh của 30 loại cây trồng vào mô hình. Đây là kỹ năng bạn sẽ dùng trong mọi dự án ảnh thực tế.</p>
+  <div class="meta"><span>⏱ 30 phút đọc</span><span>🧪 C1M3 Assignment — Building a Robust Data Pipeline</span></div>
+</header>
+
+<h2>Dữ liệu thật trông như thế nào?</h2>
+<p>Bộ <em>Plants Classification</em> (Kaggle) có 30 loại: lô hội, chuối, ngô, xoài, lúa, dứa, sắn, cà tím, dưa hấu… Lab dùng 3 000 ảnh, mỗi loại 100 ảnh.</p>
+<pre><code>plants_dataset/
+├── classname.txt        # 30 tên lớp, mỗi dòng một tên — dòng thứ i ứng với nhãn i
+├── df_labels.csv        # image:FILE, category  → "aloevera/aloevera700.jpg", 0
+├── aloevera/  *.jpg
+├── banana/    *.jpg
+└── …</code></pre>
+<figure><img src="images/pt_plants_grid.jpg" alt="Tám ảnh mẫu của bộ dữ liệu cây trồng với kích thước khác nhau" loading="lazy"><figcaption>Ảnh lấy từ repo. Kích thước mỗi ảnh một khác (từ 200×200 đến 800×800 và hơn). Có ảnh nền đen, có ảnh nền trắng, có ảnh chỉ là… chữ “rice paddy”, tức dữ liệu bị gán nhãn nhiễu.</figcaption></figure>
+<div class="box warn"><span class="box-title">⚠️ Bài học từ ảnh “paddy”</span>
+<p>Dữ liệu thu thập từ internet luôn có ảnh rác: logo, chữ, ảnh minh hoạ, watermark. Trước khi huấn luyện, hãy <strong>xem tận mắt</strong> vài chục ảnh mỗi lớp. Theo kinh nghiệm của Andrew Ng, dọn dữ liệu thường mang lại nhiều cải thiện hơn đổi mô hình (cách tiếp cận <em>data-centric AI</em>, chương 11).</p></div>
+
+<h2>1. Lớp Dataset tự viết</h2>
+<p>PyTorch chỉ yêu cầu một <code>Dataset</code> trả lời được hai câu hỏi: <em>có bao nhiêu mẫu?</em> (<code>__len__</code>) và <em>mẫu thứ i là gì?</em> (<code>__getitem__</code>). Ảnh chỉ được đọc từ đĩa khi cần, nhờ vậy 30 000 ảnh cũng không làm tràn bộ nhớ.</p>
+<pre><code class="language-python">from torch.utils.data import Dataset
+from PIL import Image
+import pandas as pd
+
+class PlantsDataset(Dataset):
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.df_info = pd.read_csv(root_dir + "/df_labels.csv")
+        self.labels = list(self.df_info["category"])
+        with open(root_dir + "/classname.txt") as f:
+            self.class_names = f.read().splitlines()
+
+    def __len__(self):
+        return len(self.labels)                       # 3000
+
+    def __getitem__(self, idx):
+        path = self.root_dir + "/" + self.df_info.iloc[idx]["image:FILE"]
+        with Image.open(path) as img:
+            image = img.convert("RGB")                # ép mọi ảnh về 3 kênh màu
+        if self.transform is not None:
+            image = self.transform(image)
+        return image, self.labels[idx]
+
+ds = PlantsDataset("./plants_dataset")
+img, label = ds[10]          # (ảnh PIL, 0)  → ds.class_names[0] == "aloevera"</code></pre>
+<div class="box note"><span class="box-title">💡 Vì sao convert("RGB")?</span>
+<p>Ảnh internet có thể là ảnh xám (1 kênh), RGBA (4 kênh, có nền trong suốt) hoặc ảnh có bảng màu. Mô hình cần mọi ảnh cùng 3 kênh, nếu không lô sẽ không ghép được.</p></div>
+
+<h2>2. Tính mean và std của chính bộ dữ liệu</h2>
+<p>MNIST có sẵn mean/std (0.1307, 0.3081). Với dữ liệu riêng, bạn tự tính cho từng kênh màu R, G, B:</p>
+<pre><code class="language-python">def get_mean_std(dataset):
+    pre = transforms.Compose([transforms.Resize((128, 128)), transforms.ToTensor()])
+    total, s = 0, torch.zeros(3)
+    for img, _ in dataset:                         # lượt 1: mean
+        px = pre(img).view(3, -1)                  # [3, 128·128]
+        s += px.sum(dim=1); total += px.size(1)
+    mean = s / total
+    sq = torch.zeros(3)
+    for img, _ in dataset:                         # lượt 2: std
+        px = pre(img).view(3, -1)
+        sq += ((px - mean.unsqueeze(1)) ** 2).sum(dim=1)
+    return mean, torch.sqrt(sq / total)</code></pre>
+<div class="box tip"><span class="box-title">✅ Mẹo khi dùng mô hình có sẵn</span>
+<p>Nếu dùng transfer learning (chương 24) với mô hình huấn luyện trên ImageNet, thường dùng luôn mean/std của ImageNet: <code>[0.485, 0.456, 0.406]</code>, <code>[0.229, 0.224, 0.225]</code>, vì mô hình đã quen với thang đó.</p></div>
+
+<h2>3. Transforms và data augmentation</h2>
+<pre><code class="language-python">def get_transformations(mean, std):
+    main_tfs = [
+        transforms.Resize((128, 128)),           # mọi ảnh về cùng kích thước
+        transforms.ToTensor(),                   # PIL → [3, 128, 128], 0…1
+        transforms.Normalize(mean=mean, std=std) # chuẩn hoá từng kênh
+    ]
+    augmentation_tfs = [
+        transforms.RandomVerticalFlip(p=0.5),    # 50% lật dọc
+        transforms.RandomRotation(degrees=15),   # xoay ngẫu nhiên ±15°
+    ]
+    main_transform = transforms.Compose(main_tfs)
+    transform_with_augmentation = transforms.Compose(augmentation_tfs + main_tfs)
+    return main_transform, transform_with_augmentation</code></pre>
+<figure class="medium"><img src="images/pt_augment.jpg" alt="Một ảnh xoài với các biến thể lật và xoay" loading="lazy"><figcaption>Data augmentation: mỗi epoch mô hình nhìn thấy một biến thể ngẫu nhiên khác của cùng một ảnh.</figcaption></figure>
+<p><strong>Data augmentation</strong> (tăng cường dữ liệu) tạo các biến thể hợp lý của ảnh mỗi lần nạp. Với 100 ảnh mỗi lớp, mô hình dễ học thuộc từng ảnh. Augmentation buộc nó học “xoài trông như thế nào” bất kể góc chụp. Đây là một cách chống overfitting (chương 7) mà không cần thu thêm dữ liệu.</p>
+<div class="box warn"><span class="box-title">⚠️ Augmentation phải hợp lý với lĩnh vực</span>
+<ul>
+  <li>Ảnh cây, lá, ảnh hiển vi tế bào, ảnh vệ tinh: lật, xoay thoải mái.</li>
+  <li>Chữ số và chữ viết: <strong>không</strong> lật (6 lật thành 9, “b” thành “d”).</li>
+  <li>X-quang ngực: không lật trái–phải (tim nằm bên trái là thông tin chẩn đoán).</li>
+  <li>Biển báo giao thông: không lật (rẽ trái thành rẽ phải).</li>
+</ul></div>
+
+<h2>4. Chia train / validation / test đúng cách</h2>
+<pre><code class="language-python">from torch.utils.data import random_split, DataLoader
+
+class SubsetWithTransform(Dataset):            # gắn transform RIÊNG cho từng phần
+    def __init__(self, subset, transform=None):
+        self.subset, self.transform = subset, transform
+    def __len__(self):
+        return len(self.subset)
+    def __getitem__(self, idx):
+        image, label = self.subset[idx]
+        return (self.transform(image) if self.transform else image), label
+
+def get_dataloaders(dataset, batch_size, val_fraction, test_fraction,
+                    main_transform, augmentation_transform):
+    n = len(dataset)
+    n_val, n_test = int(n * val_fraction), int(n * test_fraction)
+    n_train = n - n_val - n_test
+    train_ds, val_ds, test_ds = random_split(dataset, [n_train, n_val, n_test])
+
+    train_ds = SubsetWithTransform(train_ds, augmentation_transform)  # CÓ augmentation
+    val_ds   = SubsetWithTransform(val_ds, main_transform)            # KHÔNG augmentation
+    test_ds  = SubsetWithTransform(test_ds, main_transform)
+
+    return (DataLoader(train_ds, batch_size=batch_size, shuffle=True),
+            DataLoader(val_ds,   batch_size=batch_size, shuffle=False),
+            DataLoader(test_ds,  batch_size=batch_size, shuffle=False))
+
+# 3000 ảnh, val 15%, test 15% → 2100 / 450 / 450; batch 32 → mỗi lô ảnh [32, 3, 128, 128]</code></pre>
+<p>Vì sao cần <code>SubsetWithTransform</code>? <code>random_split</code> chỉ chia <em>chỉ số</em>, cả ba phần vẫn dùng chung Dataset gốc. Nếu gắn augmentation vào Dataset gốc thì tập validation/test cũng bị lật, xoay ngẫu nhiên, và kết quả đánh giá không ổn định, không phản ánh ảnh thật. Vì thế Dataset gốc để <code>transform=None</code>, rồi mỗi phần nhận transform riêng.</p>
+<table>
+  <tr><th>Tập</th><th>Vai trò (chương 11)</th><th>Augmentation</th><th>shuffle</th></tr>
+  <tr><td>Train</td><td>học tham số</td><td>✅ có</td><td>✅</td></tr>
+  <tr><td>Validation</td><td>chọn mô hình, siêu tham số, dừng sớm</td><td>❌</td><td>❌</td></tr>
+  <tr><td>Test</td><td>đo hiệu năng cuối cùng, dùng <strong>một lần</strong></td><td>❌</td><td>❌</td></tr>
+</table>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-pt="M3_data_pipeline/assignment/C1M3_Assignment.ipynb">C1M3 Assignment — Building a Robust Data Pipeline</a> (graded: <code>PlantsDataset</code>, <code>get_transformations</code>, <code>get_dataloaders</code>)</li>
+</ul></div>
+
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Khám phá thư mục</strong>: in cấu trúc, đọc <code>df_labels.csv</code> và <code>classname.txt</code>.</li>
+  <li><strong>Bài 1 — <code>PlantsDataset</code></strong>: hoàn thiện <code>__init__</code> (labels, class_names), <code>__len__</code>, <code>__getitem__</code> (đọc ảnh → transform → nhãn).</li>
+  <li><strong>Xem ảnh</strong>: lưới 2×4 ảnh ngẫu nhiên kèm tên lớp; để ý kích thước, nền và chất lượng khác nhau.</li>
+  <li><strong>Tính mean/std</strong> theo kênh trên ảnh đã resize 128×128 (hai lượt qua dữ liệu).</li>
+  <li><strong>Bài 2 — <code>get_transformations</code></strong>: pipeline chính (Resize → ToTensor → Normalize) và pipeline có augmentation (VerticalFlip + Rotation đặt <em>trước</em> pipeline chính).</li>
+  <li><strong>Bài 3 — <code>get_dataloaders</code></strong>: <code>random_split</code> 70/15/15 → <code>SubsetWithTransform</code> → 3 <code>DataLoader</code> (chỉ train xáo trộn).</li>
+  <li><strong>Kiểm tra</strong>: lấy một lô từ mỗi loader, xác nhận shape <code>[32, 3, 128, 128]</code> và nhãn <code>[32]</code>.</li>
+</ol>
+
+<div class="box real"><span class="box-title">🌾 Ví dụ thực tiễn: nhận diện bệnh lá lúa cho hợp tác xã</span>
+<p>Một hợp tác xã ở đồng bằng sông Cửu Long muốn nông dân chụp lá lúa bằng điện thoại để biết bệnh (đạo ôn, bạc lá, khô vằn hay khỏe).</p>
+<ol>
+  <li><strong>Thu thập</strong>: kỹ sư nông nghiệp chụp và gán nhãn khoảng 300–500 ảnh mỗi bệnh, ở nhiều ruộng, nhiều giờ trong ngày, nhiều loại điện thoại.</li>
+  <li><strong>Tổ chức</strong> đúng như bộ Plants: mỗi bệnh một thư mục + file CSV nhãn → dùng lại <code>PlantsDataset</code> gần như nguyên văn.</li>
+  <li><strong>Chia theo ruộng</strong>, không chia ngẫu nhiên từng ảnh: ảnh cùng một ruộng rất giống nhau; nếu vừa nằm trong train vừa nằm trong test thì accuracy sẽ ảo (rò rỉ dữ liệu, <em>data leakage</em>).</li>
+  <li><strong>Augmentation</strong>: lật, xoay, chỉnh độ sáng (<code>ColorJitter</code>) để mô phỏng nắng gắt và trời âm u.</li>
+  <li><strong>Mô hình</strong>: transfer learning (chương 24), cho accuracy tốt chỉ với vài trăm ảnh mỗi lớp.</li>
+</ol></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: tăng tốc DataLoader</span>
+<ul>
+  <li><code>num_workers=4</code>: đọc và biến đổi ảnh song song trên nhiều lõi CPU, để GPU không phải chờ.</li>
+  <li><code>pin_memory=True</code> khi dùng GPU NVIDIA: chép dữ liệu sang GPU nhanh hơn.</li>
+  <li><code>torchvision.datasets.ImageFolder("thư_mục")</code>: nếu ảnh đã chia sẵn mỗi lớp một thư mục thì có thể không cần tự viết Dataset.</li>
+  <li><code>random_split(..., generator=torch.Generator().manual_seed(42))</code> để lần chạy nào cũng chia giống nhau.</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li><code>Dataset</code> = <code>__len__</code> + <code>__getitem__</code>; đọc dữ liệu “khi cần”.</li>
+  <li>Transform chính: Resize → ToTensor → Normalize (mean/std theo kênh).</li>
+  <li>Augmentation chỉ dùng cho tập train, và phải hợp lý với lĩnh vực.</li>
+  <li>Chia train/val/test trước, gắn transform sau (<code>SubsetWithTransform</code>); cẩn thận rò rỉ dữ liệu.</li>
+  <li>Luôn xem tận mắt dữ liệu: dữ liệu thật có nhãn nhiễu.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Bạn huấn luyện mô hình phát hiện lỗi mối hàn từ ảnh camera nhà máy. Augmentation nào hợp lý?</summary><p>Xoay nhẹ, lật (mối hàn không có chiều trái/phải cố định), đổi độ sáng/độ tương phản (ánh sáng xưởng thay đổi), thêm nhiễu nhẹ. Tránh phép biến đổi làm mất vết lỗi, như crop quá mạnh.</p></details>
+<details class="quiz"><summary>Vì sao không tính mean/std trên toàn bộ 3000 ảnh mà chỉ nên tính trên tập train?</summary><p>Về nguyên tắc, mọi thứ “học” từ dữ liệu (kể cả mean/std) chỉ nên lấy từ tập train để test thật sự là dữ liệu chưa thấy. Trong lab tính trên toàn bộ cho đơn giản; ảnh hưởng ở đây nhỏ, nhưng với dữ liệu bảng thì có thể gây rò rỉ đáng kể.</p></details>
+<details class="quiz"><summary>Một lô từ <code>train_loader</code> có shape gì nếu batch_size=32 và ảnh resize 128×128?</summary><p>Ảnh: <code>[32, 3, 128, 128]</code>. Nhãn: <code>[32]</code>.</p></details>
+</article>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>20. Mạng nơ-ron đầu tiên với PyTorch · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 20 · PyTorch C1, Module 1</div>
+  <h1>Mạng nơ-ron đầu tiên với PyTorch</h1>
+  <p class="lede">Bạn là shipper xe đạp, nhận một đơn 7 dặm, công ty hứa giao dưới 30 phút. Có nên nhận không? Chương này huấn luyện một nơ-ron để trả lời, cho thấy nó thất bại khi dữ liệu “cong”, rồi sửa bằng ReLU.</p>
+  <div class="meta"><span>⏱ 30 phút đọc</span><span>🧪 C1_M1 Lab 1 Simple NN · Lab 2 Activation functions</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Vòng lặp huấn luyện 5 bước: trái tim của PyTorch</h2>
+<p>Ở chương 3 bạn tự viết gradient descent: tính dự đoán, tính chi phí, tính đạo hàm, cập nhật \(w, b\). PyTorch giữ nguyên ý tưởng đó, chỉ là máy làm hộ phần đạo hàm. Mọi mô hình PyTorch, từ một nơ-ron đến GPT, đều huấn luyện bằng đúng 5 dòng này:</p>
+<pre><code class="language-python">for epoch in range(500):
+    optimizer.zero_grad()                 # 1. xoá gradient của vòng trước
+    outputs = model(distances)            # 2. forward: dự đoán
+    loss = loss_function(outputs, times)  # 3. đo sai số
+    loss.backward()                       # 4. backward: tính gradient (backprop, chương 10)
+    optimizer.step()                      # 5. cập nhật tham số: w ← w − α·∂J/∂w</code></pre>
+<div class="diagram"><svg viewBox="0 0 720 150" role="img" aria-label="Vòng lặp: zero_grad, forward, loss, backward, step" style="width:100%;max-width:720px;display:block;margin:1em auto">
+  <defs><marker id="ar20" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+  <g font-size="13" text-anchor="middle" fill="currentColor">
+    <rect x="10" y="30" width="120" height="50" rx="10" fill="#457b9d" fill-opacity=".14" stroke="#457b9d"/><text x="70" y="52">1. zero_grad</text><text x="70" y="70" font-size="11" opacity=".75">xoá gradient cũ</text>
+    <rect x="152" y="30" width="120" height="50" rx="10" fill="#2a9d8f" fill-opacity=".14" stroke="#2a9d8f"/><text x="212" y="52">2. forward</text><text x="212" y="70" font-size="11" opacity=".75">ŷ = model(x)</text>
+    <rect x="294" y="30" width="120" height="50" rx="10" fill="#e9c46a" fill-opacity=".2" stroke="#c9a227"/><text x="354" y="52">3. loss</text><text x="354" y="70" font-size="11" opacity=".75">so ŷ với y</text>
+    <rect x="436" y="30" width="120" height="50" rx="10" fill="#e76f51" fill-opacity=".14" stroke="#e76f51"/><text x="496" y="52">4. backward</text><text x="496" y="70" font-size="11" opacity=".75">tính ∂loss/∂w</text>
+    <rect x="578" y="30" width="130" height="50" rx="10" fill="#6a4c93" fill-opacity=".14" stroke="#6a4c93"/><text x="643" y="52">5. step</text><text x="643" y="70" font-size="11" opacity=".75">cập nhật w, b</text>
+  </g>
+  <g stroke="currentColor" stroke-opacity=".6" fill="none" marker-end="url(#ar20)">
+    <path d="M130 55H150"/><path d="M272 55H292"/><path d="M414 55H434"/><path d="M556 55H576"/>
+    <path d="M643 82 V120 H70 V84"/>
+  </g>
+  <text x="356" y="138" font-size="12" text-anchor="middle" fill="currentColor" opacity=".75">lặp lại nhiều epoch cho tới khi loss đủ nhỏ</text>
+</svg></div>
+<div class="box warn"><span class="box-title">⚠️ Quên zero_grad()</span>
+<p>PyTorch <em>cộng dồn</em> gradient qua mỗi lần <code>backward()</code>. Nếu quên xoá, mỗi bước cập nhật sẽ dùng tổng gradient của mọi vòng trước, khiến mô hình nhảy lung tung hoặc phân kỳ. Đây là lỗi kinh điển của người mới.</p></div>
+
+<h2>Lab 1: một nơ-ron, một đường thẳng</h2>
+<h3>Chuẩn bị dữ liệu</h3>
+<pre><code class="language-python">import torch, torch.nn as nn, torch.optim as optim
+torch.manual_seed(42)   # để kết quả lặp lại được
+
+distances = torch.tensor([[1.0], [2.0], [3.0], [4.0]], dtype=torch.float32)   # dặm
+times     = torch.tensor([[6.96], [12.11], [16.77], [22.21]], dtype=torch.float32)  # phút</code></pre>
+<p>Để ý shape <code>[4, 1]</code>: 4 mẫu, mỗi mẫu 1 đặc trưng (chương 19).</p>
+<h3>Mô hình, loss, optimizer</h3>
+<pre><code class="language-python">model = nn.Sequential(nn.Linear(1, 1))            # 1 đầu vào → 1 nơ-ron: time = W·distance + B
+loss_function = nn.MSELoss()                      # trung bình bình phương sai số (chương 2)
+optimizer = optim.SGD(model.parameters(), lr=0.01)  # gradient descent, α = 0.01 (chương 3)</code></pre>
+<p><code>nn.Linear(1, 1)</code> chính là hồi quy tuyến tính \(f(x) = wx + b\) của chương 2, chỉ khác tên gọi. Sau 500 epoch, lab cho ra \(W \approx 5.02\), \(B \approx 1.98\):</p>
+<div class="math-box">$$ \text{thời gian} \approx 5.0 \times \text{quãng đường} + 2.0 $$</div>
+<p>Diễn giải theo nghiệp vụ: mỗi dặm thêm khoảng <strong>5 phút</strong>, cộng <strong>2 phút</strong> cố định để lấy hàng và lên xe. Mô hình học được tham số có ý nghĩa thực tế.</p>
+<h3>Dự đoán và ra quyết định</h3>
+<pre><code class="language-python">with torch.no_grad():                                  # chỉ dự đoán, không cần gradient
+    predicted = model(torch.tensor([[7.0]]))           # shape [1, 1]!
+    print(f"{predicted.item():.1f} phút")              # 37.1 phút
+    print("Không nhận" if predicted.item() > 30 else "Nhận đơn")</code></pre>
+<p>Dự đoán 37.1 phút, quá 30 phút, nên quyết định là <strong>không nhận đơn</strong>. Đây là một quyết định dựa trên dữ liệu.</p>
+
+<h2>Khi đường thẳng không đủ</h2>
+<p>Công ty mở rộng: đơn trên 3 dặm giao bằng ô tô. Dữ liệu mới gồm 39 chuyến từ 1 đến 20 dặm. Ô tô chậm trong phố rồi nhanh trên đường lớn, nên thời gian <em>tăng nhanh rồi chững lại</em>, tạo thành một đường cong. Đem mô hình cũ dự đoán dữ liệu mới thì loss nhảy lên <strong>179.26</strong>, trong khi lúc huấn luyện loss chỉ khoảng 0.03. Một đường thẳng không thể uốn theo đường cong.</p>
+<div class="box note"><span class="box-title">💡 Thêm nơ-ron tuyến tính có giúp được không?</span>
+<p>Không. Như chương 9 đã chứng minh, ghép nhiều lớp tuyến tính vẫn chỉ ra một hàm tuyến tính. Cần thêm một “khớp gập” phi tuyến, và đó là việc của hàm kích hoạt.</p></div>
+
+<h2>Lab 2: ReLU cho mô hình biết “bẻ cong”</h2>
+<h3>Bước mới: chuẩn hoá dữ liệu</h3>
+<p>Quãng đường 1–20, thời gian 7–93 phút. Chuẩn hoá z-score (chương 5) đưa cả hai về quanh 0 để gradient ổn định:</p>
+<pre><code class="language-python">d_mean, d_std = distances.mean(), distances.std()
+t_mean, t_std = times.mean(), times.std()
+distances_norm = (distances - d_mean) / d_std     # khoảng −1.7 … 1.7
+times_norm     = (times - t_mean) / t_std         # khoảng −2.0 … 1.0</code></pre>
+<h3>Mạng 1 → 3 (ReLU) → 1</h3>
+<pre><code class="language-python">torch.manual_seed(27)
+model = nn.Sequential(
+    nn.Linear(1, 3),   # lớp ẩn: 3 nơ-ron
+    nn.ReLU(),         # khớp gập phi tuyến: max(0, z)
+    nn.Linear(3, 1)    # ghép 3 đoạn gập thành đường cong
+)
+loss_function = nn.MSELoss()
+optimizer = optim.SGD(model.parameters(), lr=0.01)
+# … cùng vòng lặp 5 bước, 3000 epoch → loss cuối ≈ 0.003 (trên thang chuẩn hoá)</code></pre>
+<p>Mỗi nơ-ron ReLU “bật” tại một điểm và thêm một đoạn dốc. Ba nơ-ron tạo được một đường gấp khúc ba đoạn bám theo đường cong (xem lại hình ReLU ở chương 9). Thử ngay trong demo:</p>
+<div class="demo" data-demo="relufit"></div>
+<h3>Dự đoán phải “giải chuẩn hoá”</h3>
+<pre><code class="language-python">with torch.no_grad():
+    x = (torch.tensor([[5.1]]) - d_mean) / d_std   # 1. chuẩn hoá ĐẦU VÀO bằng mean/std của tập train
+    y_norm = model(x)                              # 2. dự đoán trên thang chuẩn hoá
+    minutes = y_norm * t_std + t_mean              # 3. đổi NGƯỢC về phút
+    print(f"{minutes.item():.1f} phút")            # 38.7 phút → dưới 45 phút, dùng ô tô</code></pre>
+<div class="box warn"><span class="box-title">⚠️ Lỗi hay gặp nhất khi triển khai</span>
+<p>Mô hình chỉ “hiểu” thang số đã chuẩn hoá. Khi đưa vào sản phẩm, bạn phải <strong>lưu lại mean/std của tập huấn luyện</strong> và dùng đúng chúng cho dữ liệu mới. Không được tính lại mean/std trên dữ liệu mới.</p></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-pt="M1_tensors_and_nn/C1_M1_Lab_1_simple_nn.ipynb">C1_M1 Lab 1 — Building a Simple Neural Network</a></li>
+  <li><a data-pt="M1_tensors_and_nn/C1_M1_Lab_2_activation_functions.ipynb">C1_M1 Lab 2 — Modeling Non-Linear Patterns with Activation Functions</a></li>
+</ul></div>
+
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Lab 1 — dữ liệu:</strong> 4 chuyến xe đạp, tensor <code>[4, 1]</code>.</li>
+  <li><strong>Lab 1 — mô hình:</strong> <code>nn.Sequential(nn.Linear(1, 1))</code>, <code>MSELoss</code>, <code>SGD(lr=0.01)</code>.</li>
+  <li><strong>Lab 1 — huấn luyện:</strong> 500 epoch theo vòng lặp 5 bước; in loss mỗi 50 epoch.</li>
+  <li><strong>Lab 1 — dự đoán:</strong> 7 dặm → 37.1 phút → không nhận đơn. Đọc tham số qua <code>model[0].weight</code>, <code>model[0].bias</code>.</li>
+  <li><strong>Lab 1 — thử thách:</strong> dữ liệu xe đạp + ô tô, loss 179.26, vẽ ra thấy đường thẳng lệch hẳn khỏi đường cong.</li>
+  <li><strong>Lab 2 — chuẩn hoá:</strong> z-score cho cả đầu vào lẫn đầu ra.</li>
+  <li><strong>Lab 2 — mô hình phi tuyến:</strong> 1 → 3 (ReLU) → 1, 3000 epoch, xem biểu đồ “sống” đường cong uốn dần theo dữ liệu.</li>
+  <li><strong>Lab 2 — dự đoán:</strong> chuẩn hoá đầu vào → mô hình → giải chuẩn hoá; 5.1 dặm → 38.7 phút → giao được trong 45 phút, dùng ô tô.</li>
+</ol>
+
+<div class="box real"><span class="box-title">🏙️ Áp dụng vào lĩnh vực khác: cùng một bộ khung</span>
+<table>
+  <tr><th>Lĩnh vực</th><th>Đầu vào x</th><th>Đầu ra y</th><th>Vì sao cần ReLU</th></tr>
+  <tr><td>Năng lượng</td><td>nhiệt độ ngoài trời</td><td>điện năng tiêu thụ</td><td>Trời lạnh dùng sưởi, trời nóng dùng điều hoà: đường cong hình chữ U</td></tr>
+  <tr><td>Nông nghiệp</td><td>lượng phân bón</td><td>năng suất</td><td>Tăng rồi bão hoà, bón quá nhiều còn giảm</td></tr>
+  <tr><td>Marketing</td><td>ngân sách quảng cáo</td><td>doanh thu</td><td>Hiệu quả giảm dần (diminishing returns)</td></tr>
+</table>
+<p>Code giữ nguyên, chỉ thay dữ liệu. Nhớ chuẩn hoá và giải chuẩn hoá.</p></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: autograd làm gì khi gọi loss.backward()?</span>
+<p>Mỗi phép toán trên tensor có <code>requires_grad=True</code> (tham số của <code>nn.Linear</code> mặc định đã bật) được PyTorch ghi lại thành <em>đồ thị tính toán</em>, đúng như hình ở chương 10. <code>backward()</code> đi ngược đồ thị, áp dụng quy tắc chuỗi và lưu đạo hàm vào <code>param.grad</code>. Sau đó <code>optimizer.step()</code> chỉ cần làm <code>param -= lr * param.grad</code>.</p>
+<pre><code class="language-python">w = torch.tensor(2.0, requires_grad=True)
+J = (w * 3 - 9) ** 2       # J(w) = (3w − 9)²
+J.backward()
+w.grad                     # tensor(-18.) = 2·(3w − 9)·3 tại w = 2</code></pre></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Vòng lặp 5 bước: <code>zero_grad → forward → loss → backward → step</code>.</li>
+  <li><code>nn.Linear(1,1)</code> = hồi quy tuyến tính; thêm <code>nn.ReLU()</code> giữa các lớp để học đường cong.</li>
+  <li>Dự đoán trong <code>torch.no_grad()</code>; đầu vào phải là lô (<code>[[7.0]]</code>).</li>
+  <li>Chuẩn hoá bằng mean/std của tập train, và nhớ giải chuẩn hoá đầu ra.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Lab 1 học được W ≈ 5, B ≈ 2. Đơn 10 dặm mất bao lâu?</summary><p>5·10 + 2 = 52 phút (nếu vẫn đi xe đạp và quan hệ vẫn tuyến tính, điều mà Lab 2 cho thấy là không còn đúng).</p></details>
+<details class="quiz"><summary>Nếu đổi <code>nn.ReLU()</code> thành không có gì (hai lớp Linear liền nhau), chuyện gì xảy ra?</summary><p>Mô hình lại chỉ vẽ được đường thẳng, vì tích hai hàm tuyến tính vẫn là tuyến tính, và loss sẽ cao như Lab 1.</p></details>
+<details class="quiz"><summary>Vì sao Lab 2 cần 3000 epoch, nhiều hơn Lab 1?</summary><p>Mô hình nhiều tham số hơn (10 thay vì 2) và hình dạng cần học phức tạp hơn, nên gradient descent cần nhiều bước hơn để hội tụ.</p></details>
+</article>
+</body>
+</html>

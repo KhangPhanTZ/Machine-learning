@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>19. Tensor · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 19 · PyTorch C1, Module 1</div>
+  <h1>Tensor: ngôn ngữ dữ liệu của PyTorch</h1>
+  <p class="lede">Trước khi xây mô hình, mọi dữ liệu (bảng Excel, ảnh, câu chữ) đều phải biến thành tensor. Phần lớn lỗi của người mới học PyTorch là lỗi <em>shape</em>, và chương này giúp bạn tránh chúng.</p>
+  <div class="meta"><span>⏱ 25 phút đọc</span><span>🧪 C1_M1 Lab 3 — Tensors</span></div>
+</header>
+
+<h2>Tensor là gì? Giải thích không cần toán</h2>
+<p>Tensor là một <strong>hộp chứa số có nhiều chiều</strong>, giống mảng NumPy (chương 4) nhưng có thêm hai “siêu năng lực”: chạy được trên GPU, và tự ghi nhớ phép tính để tính đạo hàm (autograd).</p>
+<table>
+  <tr><th>Số chiều</th><th>Tên gọi</th><th>Ví dụ đời thường</th><th>Shape</th></tr>
+  <tr><td>0</td><td>số vô hướng (scalar)</td><td>nhiệt độ hôm nay: 32</td><td><code>[]</code></td></tr>
+  <tr><td>1</td><td>vector</td><td>doanh số 4 tháng của một sản phẩm</td><td><code>[4]</code></td></tr>
+  <tr><td>2</td><td>ma trận</td><td>bảng Excel: 100 đơn hàng × 4 cột</td><td><code>[100, 4]</code></td></tr>
+  <tr><td>3</td><td>tensor 3 chiều</td><td>một ảnh màu: 3 kênh màu × cao × rộng</td><td><code>[3, 128, 128]</code></td></tr>
+  <tr><td>4</td><td>tensor 4 chiều</td><td>một <em>lô</em> 32 ảnh màu</td><td><code>[32, 3, 128, 128]</code></td></tr>
+</table>
+<div class="box note"><span class="box-title">💡 Quy ước vàng: chiều đầu tiên là “batch”</span>
+<p>Mô hình PyTorch luôn nhận <strong>một lô</strong> dữ liệu, kể cả khi bạn chỉ muốn dự đoán một mẫu. Vì vậy dữ liệu bảng có shape <code>[số_mẫu, số_đặc_trưng]</code>, còn ảnh có shape <code>[số_ảnh, kênh, cao, rộng]</code> (viết tắt <strong>N, C, H, W</strong>). Dự đoán cho <em>một</em> quãng đường 7 dặm phải viết <code>torch.tensor([[7.0]])</code>, tức shape <code>[1, 1]</code>, chứ không phải <code>7.0</code>.</p></div>
+
+<h2>1. Tạo tensor</h2>
+<h3>Từ dữ liệu có sẵn</h3>
+<pre><code class="language-python">import torch, numpy as np, pandas as pd
+
+x = torch.tensor([1, 2, 3])                 # từ list Python → dtype int64
+a = torch.from_numpy(np.array([[1, 2, 3],
+                               [4, 5, 6]]))  # từ NumPy (dùng chung bộ nhớ!)
+
+df = pd.read_csv("data.csv")                # từ bảng CSV
+t = torch.tensor(df.values, dtype=torch.float32)  # DataFrame → NumPy → tensor</code></pre>
+<p>Không có hàm chuyển DataFrame thẳng sang tensor. Cách chuẩn là lấy <code>df.values</code> (mảng NumPy) rồi đưa vào <code>torch.tensor</code>.</p>
+<h3>Với giá trị cho sẵn</h3>
+<pre><code class="language-python">torch.zeros(2, 3)               # toàn 0
+torch.ones(2, 3)                # toàn 1
+torch.rand(2, 3)                # ngẫu nhiên đều trong [0, 1)
+torch.arange(0, 10, step=1)     # 0, 1, …, 9 (không gồm 10)</code></pre>
+
+<h2>2. Đổi hình dạng (reshape): sửa lỗi shape</h2>
+<p>Khi gặp lỗi kiểu <code>mat1 and mat2 shapes cannot be multiplied</code>, việc đầu tiên luôn là <code>print(x.shape)</code>.</p>
+<table>
+  <tr><th>Thao tác</th><th>Ví dụ</th><th>Shape trước → sau</th><th>Dùng khi</th></tr>
+  <tr><td><code>unsqueeze(i)</code></td><td><code>x.unsqueeze(0)</code></td><td><code>[2, 3] → [1, 2, 3]</code></td><td>Thêm chiều batch cho một mẫu; biến vector thành cột (<code>unsqueeze(1)</code>)</td></tr>
+  <tr><td><code>squeeze()</code></td><td><code>y.squeeze()</code></td><td><code>[1, 2, 3] → [2, 3]</code></td><td>Bỏ các chiều kích thước 1 sau khi dự đoán</td></tr>
+  <tr><td><code>reshape(a, b)</code></td><td><code>x.reshape(3, 2)</code></td><td><code>[2, 3] → [3, 2]</code></td><td>Sắp xếp lại; <code>-1</code> = “tự tính chiều này”</td></tr>
+  <tr><td><code>transpose(i, j)</code></td><td><code>x.transpose(0, 1)</code></td><td><code>[2, 3] → [3, 2]</code></td><td>Hoán đổi hai chiều (ví dụ đổi ảnh NCHW ↔ NHWC)</td></tr>
+  <tr><td><code>torch.cat</code></td><td><code>torch.cat((a, b), dim=1)</code></td><td><code>[2,2]+[2,2] → [2, 4]</code></td><td>Ghép thêm cột đặc trưng mới, gộp nhiều lô</td></tr>
+</table>
+<div class="box warn"><span class="box-title">⚠️ reshape ≠ transpose</span>
+<p><code>reshape(3, 2)</code> đọc các số theo thứ tự hàng rồi xếp lại: <code>[[1,2],[3,4],[5,6]]</code>. <code>transpose(0, 1)</code> lật hàng thành cột: <code>[[1,4],[2,5],[3,6]]</code>. Cùng shape <code>[3, 2]</code> nhưng dữ liệu khác hẳn. Dùng nhầm thì mô hình vẫn chạy, không báo lỗi, nhưng học sai.</p></div>
+
+<h2>3. Lấy dữ liệu ra: indexing &amp; slicing</h2>
+<pre><code class="language-python">x = torch.tensor([[1, 2, 3, 4],
+                  [5, 6, 7, 8],
+                  [9, 10, 11, 12]])
+x[1, 2]        # 7           — một phần tử
+x[1]           # [5,6,7,8]   — cả hàng 1
+x[:, 2]        # [3,7,11]    — cả cột 2 (rất hay dùng để tách đặc trưng)
+x[0:2, 2:]     # [[3,4],[7,8]]
+x[:, -1]       # cột cuối    — thường là nhãn y
+x[x > 6]       # [7,8,9,10,11,12] — boolean mask (lọc theo điều kiện)
+x[1, 2].item() # 7 dạng số Python thường — dùng để in hoặc so sánh</code></pre>
+<p><strong>Boolean mask</strong> là công cụ cực mạnh để lọc dữ liệu và tạo đặc trưng mới. Kết hợp điều kiện bằng <code>&amp;</code> (và), <code>|</code> (hoặc), mỗi điều kiện đặt trong ngoặc.</p>
+
+<h2>4. Phép toán: nền móng của mạng nơ-ron</h2>
+<pre><code class="language-python">a = torch.tensor([1, 2, 3]); b = torch.tensor([4, 5, 6])
+a + b               # [5, 7, 9]   — từng phần tử
+a * b               # [4, 10, 18] — từng phần tử
+torch.matmul(a, b)  # 32 = 1·4 + 2·5 + 3·6 — tích vô hướng (chính là w·x ở chương 4)
+
+# Broadcasting: tensor nhỏ tự "dãn" cho khớp tensor lớn
+a + torch.tensor([[1], [2], [3]])   # [3] + [3,1] → [3,3]
+
+data = torch.tensor([10., 20., 30., 40., 50.])
+data.mean(), data.std()             # 30., 15.81 — dùng để chuẩn hoá (chương 5)
+data.int()                          # đổi kiểu float → int</code></pre>
+<p>Một lớp <code>nn.Linear</code> thực chất chỉ làm <code>X @ W.T + b</code>: nhân ma trận cộng broadcasting. Đây đúng là phép vectorization ở chương 4, chỉ khác là chạy trên tensor.</p>
+<div class="box warn"><span class="box-title">⚠️ Kiểu dữ liệu (dtype)</span>
+<p>Mạng nơ-ron tính bằng <code>float32</code>. <code>torch.tensor([1, 2, 3])</code> cho ra <code>int64</code>, đưa vào <code>nn.Linear</code> sẽ báo lỗi. Nên luôn ghi rõ <code>dtype=torch.float32</code> cho đặc trưng. Riêng nhãn phân loại dùng cho <code>CrossEntropyLoss</code> thì phải là số nguyên (<code>int64</code>).</p></div>
+
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Tạo tensor</strong> từ list, NumPy và file <code>data.csv</code> (qua pandas). Để ý dtype: số nguyên giữ là int, có dấu chấm thập phân thành float.</li>
+  <li><strong>Đổi hình dạng</strong>: <code>unsqueeze(0)</code> biến <code>[2,3]</code> thành <code>[1,2,3]</code>; <code>squeeze()</code> đảo ngược; <code>reshape</code>, <code>transpose</code>, <code>cat</code>.</li>
+  <li><strong>Indexing &amp; slicing</strong>: lấy phần tử, hàng, cột; boolean mask <code>x[x &gt; 6]</code>; fancy indexing <code>x[row_idx[:, None], col_idx]</code> để lấy các ô không liền nhau.</li>
+  <li><strong>Phép toán</strong>: cộng/nhân từng phần tử, <code>matmul</code>, broadcasting, so sánh và logic, <code>mean</code>/<code>std</code>, đổi dtype.</li>
+  <li><strong>Bốn bài tập tình huống</strong>: phân tích doanh số, đổi định dạng lô ảnh, gộp cảm biến có trọng số, tạo đặc trưng “chuyến dài giờ cao điểm” cho taxi. Xem lời giải bên dưới.</li>
+</ol>
+
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn 1 (bán lẻ): phân tích doanh số</span>
+<p>Hàng = sản phẩm A, B, C; cột = tháng 1–4.</p>
+<pre><code class="language-python">sales = torch.tensor([[100, 120, 130, 110],   # A
+                      [ 90,  95, 105, 125],   # B
+                      [140, 115, 120, 150]],  # C
+                     dtype=torch.float32)
+sales[1].sum()        # 415 — tổng doanh số sản phẩm B
+sales[2] > 130        # [True, False, False, True] — tháng nào C bán trên 130
+sales[:, 1:3]         # doanh số tháng 2 và 3 của mọi sản phẩm</code></pre></div>
+
+<div class="box real"><span class="box-title">🏭 Ví dụ thực tiễn 2 (IoT): gộp hai cảm biến có trọng số</span>
+<pre><code class="language-python">temperature = torch.tensor([22.5, 23.1, 21.9, 22.8, 23.5])
+humidity    = torch.tensor([55.2, 56.4, 54.8, 57.1, 56.8])
+combined = torch.cat([temperature.unsqueeze(0), humidity.unsqueeze(0)], dim=0)  # [2, 5]
+weights  = torch.tensor([0.6, 0.4])
+weighted = combined * weights.reshape(2, 1)     # broadcasting [2,5] * [2,1]
+weighted.sum(dim=0) / weights.sum()             # trung bình có trọng số theo từng thời điểm</code></pre>
+<p>Bí quyết: <code>weights</code> có shape <code>[2]</code> nên phải <code>reshape(2, 1)</code> để mỗi trọng số nhân với cả <em>hàng</em> tương ứng.</p></div>
+
+<div class="box real"><span class="box-title">🚕 Ví dụ thực tiễn 3 (giao thông): tạo đặc trưng bằng boolean mask</span>
+<pre><code class="language-python">trip = torch.tensor([[5.3, 7], [12.1, 9], [15.5, 13], [6.7, 18],
+                     [2.4, 20], [11.8, 17], [9.0, 9], [14.2, 8]])  # [km, giờ]
+dist, hour = trip[:, 0], trip[:, 1]
+is_long  = dist > 10
+is_rush  = ((hour >= 8) & (hour < 10)) | ((hour >= 17) & (hour < 19))
+feature  = (is_long & is_rush).reshape(-1, 1).float()   # cột 0/1
+trip_new = torch.cat((trip, feature), dim=1)            # [8, 3]</code></pre>
+<p>Đây chính là <em>feature engineering</em> (chương 5) viết bằng tensor. Chương 21 dùng đúng kỹ thuật này cho bài toán giao hàng.</p></div>
+
+<div class="box tip"><span class="box-title">✅ Bài tập ảnh: NCHW ↔ NHWC</span>
+<p>Lô 4 ảnh xám 3×2 có shape <code>[4, 3, 2]</code>. PyTorch muốn <code>[N, C, H, W]</code> nên thêm kênh: <code>unsqueeze(1)</code> → <code>[4, 1, 3, 2]</code>. Một số thư viện (TensorFlow, matplotlib) muốn <code>[N, H, W, C]</code>: <code>.transpose(1, 2).transpose(2, 3)</code> → <code>[4, 3, 2, 1]</code>. Cách gọn hơn: <code>.permute(0, 2, 3, 1)</code>.</p></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-pt="M1_tensors_and_nn/C1_M1_Lab_3_tensors.ipynb">C1_M1 Lab 3 — Tensors: The Core of PyTorch</a></li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Tensor = mảng nhiều chiều + GPU + autograd. Chiều đầu tiên luôn là batch.</li>
+  <li>Bảng: <code>[N, đặc_trưng]</code>. Ảnh: <code>[N, C, H, W]</code>.</li>
+  <li>Gặp lỗi thì <code>print(x.shape, x.dtype)</code> trước tiên.</li>
+  <li><code>unsqueeze</code>/<code>squeeze</code> thêm/bớt chiều; <code>reshape</code> sắp lại; <code>transpose</code>/<code>permute</code> hoán đổi chiều.</li>
+  <li>Đặc trưng dùng <code>float32</code>; nhãn phân loại dùng <code>int64</code>.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary><code>x</code> có shape <code>[100, 4]</code>. <code>x[:, 0]</code> có shape gì? Làm sao biến nó thành cột <code>[100, 1]</code>?</summary><p><code>[100]</code>. Dùng <code>x[:, 0].unsqueeze(1)</code>, hoặc <code>x[:, 0:1]</code> (slicing giữ nguyên số chiều).</p></details>
+<details class="quiz"><summary>Bạn có một ảnh RGB shape <code>[3, 224, 224]</code>. Đưa vào mô hình thế nào?</summary><p><code>img.unsqueeze(0)</code> → <code>[1, 3, 224, 224]</code>, tức một lô gồm 1 ảnh.</p></details>
+<details class="quiz"><summary><code>[3]</code> + <code>[3, 1]</code> cho ra shape gì?</summary><p><code>[3, 3]</code> nhờ broadcasting: hàng được nhân bản theo chiều dọc, cột được nhân bản theo chiều ngang.</p></details>
+</article>
+</body>
+</html>

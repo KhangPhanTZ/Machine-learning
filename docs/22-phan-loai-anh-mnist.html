@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>22. Phân loại ảnh MNIST · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 22 · PyTorch C1, Module 2</div>
+  <h1>Phân loại ảnh: nn.Module, DataLoader, GPU</h1>
+  <p class="lede">Bộ khung chuẩn để huấn luyện mọi mô hình phân loại trong PyTorch: chuẩn bị ảnh, chia lô, định nghĩa mạng bằng lớp Python, hàm <code>train_epoch</code> và <code>evaluate</code>. Kết quả: nhận dạng chữ số viết tay đúng 97.44% sau 5 epoch.</p>
+  <div class="meta"><span>⏱ 35 phút đọc</span><span>🧪 C1_M2 Lab 1 — MNIST classifier</span></div>
+</header>
+
+<h2>Nhắc lại: bài toán MNIST</h2>
+<p>MNIST là “hello world” của thị giác máy tính: 60 000 ảnh huấn luyện và 10 000 ảnh kiểm tra, mỗi ảnh xám 28×28 chứa một chữ số 0–9. Ở chương 9 bạn đã làm bản thu nhỏ (ảnh 20×20) bằng TensorFlow. Lần này làm bằng PyTorch với đầy đủ các thành phần của một dự án thật.</p>
+
+<h2>1. Chọn thiết bị: CPU hay GPU</h2>
+<pre><code class="language-python">if torch.cuda.is_available():
+    device = torch.device("cuda")         # GPU NVIDIA
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")          # GPU Apple Silicon (Mac M1/M2/…)
+else:
+    device = torch.device("cpu")</code></pre>
+<div class="box warn"><span class="box-title">⚠️ Mô hình và dữ liệu phải ở cùng thiết bị</span>
+<p>Lỗi <code>Expected all tensors to be on the same device</code> nghĩa là mô hình ở GPU còn dữ liệu ở CPU, hoặc ngược lại. Luôn gọi <code>model.to(device)</code> và <code>inputs.to(device)</code>, <code>targets.to(device)</code> cho mỗi lô.</p></div>
+
+<h2>2. Chuẩn bị ảnh: transforms</h2>
+<p>Ảnh gốc là đối tượng <strong>PIL Image</strong> 28×28 với điểm ảnh từ 0 (đen) đến 255 (trắng). Mạng nơ-ron học tốt nhất khi đầu vào nhỏ và quanh 0, nên ta biến đổi:</p>
+<pre><code class="language-python">import torchvision, torchvision.transforms as transforms
+transform = transforms.Compose([
+    transforms.ToTensor(),                      # PIL → tensor [1, 28, 28], giá trị 0…1
+    transforms.Normalize((0.1307,), (0.3081,))  # (x − mean) / std của MNIST → khoảng −0.42 … 2.82
+])
+train_dataset = torchvision.datasets.MNIST(root="./data", train=True,  download=True, transform=transform)
+test_dataset  = torchvision.datasets.MNIST(root="./data", train=False, download=True, transform=transform)
+
+image, label = train_dataset[0]   # image: tensor [1, 28, 28], label: 5</code></pre>
+<p>Shape <code>[1, 28, 28]</code> theo quy ước <code>[kênh, cao, rộng]</code>: ảnh xám chỉ có 1 kênh. Nhãn là <strong>số nguyên</strong> 0–9. Với các bộ dữ liệu khác, bạn tự giữ một danh sách <code>class_names = ['mèo', 'chó']</code> để đổi số về tên.</p>
+
+<h2>3. DataLoader: chia dữ liệu thành lô</h2>
+<pre><code class="language-python">from torch.utils.data import DataLoader
+train_loader = DataLoader(train_dataset, batch_size=64,   shuffle=True)   # 938 lô mỗi epoch
+test_loader  = DataLoader(test_dataset,  batch_size=1000, shuffle=False)</code></pre>
+<ul>
+  <li><strong>Batch</strong> (lô): thay vì đưa cả 60 000 ảnh một lúc (tốn bộ nhớ) hay từng ảnh (chậm, nhiễu), ta đưa 64 ảnh mỗi bước. Đây là <em>mini-batch gradient descent</em> ở chương 10.</li>
+  <li><strong>shuffle=True</strong> cho tập train: xáo trộn thứ tự mỗi epoch để mô hình không học thuộc thứ tự dữ liệu.</li>
+  <li>Tập test không cần xáo, và có thể dùng lô lớn hơn vì không phải lưu gradient.</li>
+</ul>
+<div class="box note"><span class="box-title">💡 Epoch, step, batch</span>
+<p><strong>Epoch</strong> = một lượt đi hết toàn bộ dữ liệu train. <strong>Step</strong> = một lần cập nhật tham số trên một lô. 60 000 ảnh ÷ 64 ảnh/lô ≈ 938 step mỗi epoch.</p></div>
+
+<h2>4. Định nghĩa mạng bằng nn.Module</h2>
+<p><code>nn.Sequential</code> đủ cho mạng đơn giản. Cách chuẩn, linh hoạt hơn, là viết một lớp kế thừa <code>nn.Module</code> với hai phần: <code>__init__</code> khai báo các lớp, <code>forward</code> mô tả dữ liệu chảy qua chúng thế nào.</p>
+<pre><code class="language-python">class SimpleMNISTDNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.flatten = nn.Flatten()              # [N, 1, 28, 28] → [N, 784]
+        self.layers = nn.Sequential(
+            nn.Linear(784, 128),
+            nn.ReLU(),
+            nn.Linear(128, 10)                   # 10 logits, một cho mỗi chữ số
+        )
+
+    def forward(self, x):
+        x = self.flatten(x)
+        return self.layers(x)</code></pre>
+<p>Lớp cuối trả về <strong>logits</strong> (chưa qua softmax), giống mẹo <code>from_logits=True</code> ở chương 9. Trong PyTorch, <code>nn.CrossEntropyLoss</code> <em>tự</em> áp dụng log-softmax bên trong, nên tuyệt đối đừng thêm <code>nn.Softmax</code> vào cuối mạng.</p>
+
+<h2>5. Loss, optimizer và hàm train_epoch</h2>
+<pre><code class="language-python">model = SimpleMNISTDNN()
+loss_function = nn.CrossEntropyLoss()                 # phân loại đa lớp
+optimizer = optim.Adam(model.parameters(), lr=0.001)  # Adam (chương 10)
+
+def train_epoch(model, loss_function, optimizer, train_loader, device):
+    model = model.to(device)
+    model.train()                                   # chế độ huấn luyện
+    epoch_loss = 0.0
+    for inputs, targets in train_loader:
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        outputs = model(inputs)                     # [64, 10]
+        loss = loss_function(outputs, targets)      # targets: [64] số nguyên
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item()
+    return model, epoch_loss / len(train_loader)</code></pre>
+<p>Vẫn là vòng lặp 5 bước của chương 20, chỉ thêm vòng <code>for</code> qua các lô và chuyển dữ liệu sang <code>device</code>.</p>
+
+<h2>6. Hàm evaluate</h2>
+<pre><code class="language-python">def evaluate(model, test_loader, device):
+    model.eval()                                    # chế độ đánh giá
+    correct, total = 0, 0
+    with torch.no_grad():                           # không tính gradient: nhanh, ít bộ nhớ
+        for inputs, targets in test_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
+            _, predicted = outputs.max(1)           # chỉ số logit lớn nhất = lớp dự đoán
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+    return 100 * correct / total</code></pre>
+<div class="box warn"><span class="box-title">⚠️ model.train() và model.eval()</span>
+<p>Một số lớp như <code>Dropout</code> và <code>BatchNorm</code> (chương 24) hành xử khác nhau khi huấn luyện và khi dự đoán. Quên <code>model.eval()</code> thì kết quả dự đoán sẽ ngẫu nhiên và kém. Tập thói quen: train thì <code>model.train()</code>, đánh giá/dự đoán thì <code>model.eval()</code> + <code>torch.no_grad()</code>.</p></div>
+
+<h2>7. Vòng lặp chính và kết quả</h2>
+<pre><code class="language-python">for epoch in range(5):
+    model, loss = train_epoch(model, loss_function, optimizer, train_loader, device)
+    acc = evaluate(model, test_loader, device)</code></pre>
+<table>
+  <tr><th>Epoch</th><th>Loss train</th><th>Accuracy train</th><th>Accuracy test</th></tr>
+  <tr><td>1</td><td>0.150</td><td>95.74%</td><td>96.18%</td></tr>
+  <tr><td>2</td><td>0.102</td><td>96.86%</td><td>96.97%</td></tr>
+  <tr><td>3</td><td>0.080</td><td>97.58%</td><td>97.24%</td></tr>
+  <tr><td>4</td><td>0.060</td><td>98.15%</td><td>97.27%</td></tr>
+  <tr><td>5</td><td>0.050</td><td>98.55%</td><td>97.44%</td></tr>
+</table>
+<p><em>(Loss/accuracy train là giá trị lab in ra ở cuối mỗi epoch.)</em> Cách đọc bảng theo chương 11:</p>
+<ul>
+  <li>Loss train giảm đều: mô hình đang học.</li>
+  <li>Accuracy test tăng rồi <strong>chững lại</strong> quanh 97.3–97.4%, trong khi accuracy train tiếp tục tăng. Khoảng cách train–test nới rộng là dấu hiệu sớm của overfitting. Thêm epoch không giúp nhiều nữa.</li>
+  <li>Muốn vượt 99% cần mô hình hiểu cấu trúc không gian của ảnh: đó là CNN ở chương 24.</li>
+</ul>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-pt="M2_training/C1_M2_Lab_1_mnist_classifier.ipynb">C1_M2 Lab 1 — Building Your First Image Classifier</a></li>
+</ul></div>
+
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Chọn device</strong>: CUDA → MPS → CPU.</li>
+  <li><strong>Tải MNIST không transform</strong>, xem một ảnh PIL 28×28 với lưới giá trị 0–255.</li>
+  <li><strong>Áp transform</strong> <code>ToTensor</code> + <code>Normalize</code>, xem lại cùng ảnh: tensor <code>[1, 28, 28]</code>, giá trị khoảng −0.42 đến 2.82.</li>
+  <li><strong>Tạo test set</strong> (<code>train=False</code>) và hai <code>DataLoader</code>.</li>
+  <li><strong>Định nghĩa <code>SimpleMNISTDNN</code></strong>: Flatten → 784 → 128 (ReLU) → 10.</li>
+  <li><strong>Viết <code>train_epoch</code></strong> (in loss/accuracy mỗi 134 step) và <strong><code>evaluate</code></strong>.</li>
+  <li><strong>Huấn luyện 5 epoch</strong>, lưu loss và accuracy từng epoch.</li>
+  <li><strong>Phân tích</strong>: xem dự đoán trên ảnh test ngẫu nhiên, vẽ đường loss và accuracy.</li>
+</ol>
+
+<div class="box real"><span class="box-title">🏦 Ví dụ thực tiễn: đọc số viết tay trên chứng từ</span>
+<p>Ngân hàng, bưu điện, cơ quan thuế vẫn nhận nhiều phiếu viết tay: số tài khoản, mã bưu chính, số tiền. Quy trình thực tế:</p>
+<ol>
+  <li>Quét phiếu → cắt vùng ô số theo mẫu phiếu cố định.</li>
+  <li>Tách từng chữ số → đưa về ảnh xám 28×28 giống MNIST.</li>
+  <li>Mô hình phân loại 10 lớp như chương này (thực tế dùng CNN, chương 24).</li>
+  <li><strong>Ngưỡng tin cậy</strong>: nếu xác suất softmax cao nhất &lt; 0.9 thì chuyển cho nhân viên kiểm tra.</li>
+</ol>
+<pre><code class="language-python">probs = torch.softmax(model(digits), dim=1)
+conf, pred = probs.max(dim=1)
+needs_review = conf &lt; 0.9</code></pre>
+<p>97% nghe cao, nhưng một số tài khoản 12 chữ số mà mỗi chữ đúng 97% thì xác suất đúng cả dãy chỉ còn \(0.97^{12} \approx 69\%\). Vì vậy bước con người kiểm tra lại là bắt buộc.</p></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: lưu và tải mô hình</span>
+<pre><code class="language-python">torch.save(model.state_dict(), "mnist_dnn.pt")     # chỉ lưu tham số
+
+model = SimpleMNISTDNN()
+model.load_state_dict(torch.load("mnist_dnn.pt"))
+model.eval()</code></pre>
+<p>Nhớ lưu kèm các thông số tiền xử lý (mean/std, danh sách tên lớp) để dự đoán đúng sau này.</p></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Bộ khung chuẩn: <code>Dataset</code> + <code>transform</code> → <code>DataLoader</code> → <code>nn.Module</code> → <code>train_epoch</code> / <code>evaluate</code>.</li>
+  <li>Phân loại đa lớp: lớp cuối ra logits, <code>nn.CrossEntropyLoss</code>, nhãn là số nguyên.</li>
+  <li><code>model.train()</code> khi học; <code>model.eval()</code> + <code>torch.no_grad()</code> khi đánh giá.</li>
+  <li>Mô hình và dữ liệu phải cùng <code>device</code>.</li>
+  <li>Theo dõi cả accuracy train và test để phát hiện overfitting.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Lô ảnh có shape <code>[64, 1, 28, 28]</code>. Sau <code>nn.Flatten()</code> có shape gì?</summary><p><code>[64, 784]</code>. Flatten giữ chiều batch và trải phẳng các chiều còn lại: 1·28·28 = 784.</p></details>
+<details class="quiz"><summary>Mô hình có bao nhiêu tham số?</summary><p>784·128 + 128 + 128·10 + 10 = 101 770.</p></details>
+<details class="quiz"><summary>Bạn lỡ thêm <code>nn.Softmax(dim=1)</code> vào cuối mạng và vẫn dùng <code>CrossEntropyLoss</code>. Chuyện gì xảy ra?</summary><p>Softmax bị áp dụng hai lần. Mô hình vẫn chạy nhưng học chậm và kém, vì gradient bị “ép” nhỏ. Bỏ Softmax đi; chỉ dùng <code>torch.softmax</code> khi cần in xác suất.</p></details>
+</article>
+</body>
+</html>

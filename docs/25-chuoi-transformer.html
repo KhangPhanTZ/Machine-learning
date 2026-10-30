@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>25. Văn bản, chuỗi thời gian & Transformer · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 25 · Mở rộng</div>
+  <h1>Văn bản, chuỗi thời gian &amp; Transformer</h1>
+  <p class="lede">Ảnh là dữ liệu dạng lưới; văn bản, giọng nói, doanh số theo ngày là dữ liệu dạng <em>chuỗi</em>, nơi thứ tự mang ý nghĩa. Chương này giải thích, ở mức người mới, cách Deep Learning đọc chuỗi: từ embedding đến Transformer, nền móng của ChatGPT và Claude.</p>
+  <div class="meta"><span>⏱ 30 phút đọc</span><span>📚 Ngoài lab — áp dụng cho NLP &amp; dự báo</span></div>
+</header>
+
+<h2>1. Biến chữ thành số: token và embedding</h2>
+<p>Mạng nơ-ron chỉ hiểu tensor. Với văn bản, qua hai bước:</p>
+<ol>
+  <li><strong>Tách token</strong> (tokenization): cắt câu thành các mảnh nhỏ (từ hoặc mảnh từ), mỗi mảnh có một mã số. “Giao hàng chậm quá” → <code>[1532, 887, 4410, 92]</code>.</li>
+  <li><strong>Embedding</strong>: mỗi mã số được tra ra một vector, ví dụ 384 chiều. Vector này là <em>tham số học được</em>, giống vector \(\mathbf{x}^{(i)}\) của phim ở chương 16.</li>
+</ol>
+<pre><code class="language-python">emb = nn.Embedding(num_embeddings=30000, embedding_dim=384)   # bảng tra 30 000 token × 384
+ids = torch.tensor([[1532, 887, 4410, 92]])                    # [batch=1, độ dài=4]
+vectors = emb(ids)                                             # [1, 4, 384]</code></pre>
+<p>Sau khi huấn luyện, các từ nghĩa gần nhau có vector gần nhau: “chậm” gần “trễ”, “tuyệt vời” gần “xuất sắc”. Đây là lý do embedding được dùng cho tìm kiếm ngữ nghĩa và gợi ý.</p>
+
+<h2>2. Đọc theo thứ tự: RNN và LSTM (ý tưởng)</h2>
+<p>Cách tự nhiên là đọc từng token một và giữ một “trí nhớ” (hidden state) tóm tắt những gì đã đọc. Đó là <strong>RNN</strong>; <strong>LSTM/GRU</strong> là phiên bản có “cổng” để nhớ lâu hơn.</p>
+<pre><code class="language-python">lstm = nn.LSTM(input_size=384, hidden_size=128, batch_first=True)
+out, (h, c) = lstm(vectors)        # h: [1, 1, 128] — tóm tắt cả câu
+logits = nn.Linear(128, 3)(h[-1])  # ví dụ: tiêu cực / trung tính / tích cực</code></pre>
+<p>Nhược điểm: phải đọc tuần tự (khó song song trên GPU) và vẫn hay “quên” thông tin ở đầu câu dài.</p>
+
+<h2>3. Attention và Transformer: nhìn tất cả cùng lúc</h2>
+<p>Ý tưởng của <strong>attention</strong>: khi hiểu một từ, hãy “nhìn” mọi từ khác trong câu và quyết định từ nào quan trọng. Trong câu “<em>Cái áo này đẹp nhưng <strong>nó</strong> giao trễ ba ngày</em>”, để hiểu “nó”, mô hình chú ý mạnh vào “áo” (hoặc đơn hàng) chứ không phải “đẹp”.</p>
+<div class="math-box">$$ \text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d}}\right) V $$</div>
+<p>Đọc công thức bằng lời, dùng lại những gì bạn đã biết:</p>
+<ul>
+  <li>Mỗi token tạo ra ba vector: <strong>Q</strong> (query, “tôi đang tìm gì”), <strong>K</strong> (key, “tôi chứa gì”), <strong>V</strong> (value, “nội dung tôi đóng góp”), mỗi cái bằng một <code>nn.Linear</code>.</li>
+  <li>\(QK^\top\): tích vô hướng giữa các cặp token, đo độ “hợp nhau” (giống \(\mathbf{v}_u \cdot \mathbf{v}_m\) ở chương 16).</li>
+  <li><strong>softmax</strong> (chương 9) biến điểm số thành trọng số chú ý có tổng bằng 1.</li>
+  <li>Nhân với \(V\): mỗi token nhận về trung bình có trọng số của nội dung các token khác.</li>
+</ul>
+<p><strong>Transformer</strong> = xếp chồng nhiều khối [attention → mạng Dense nhỏ], thêm thông tin vị trí của token. Mọi token được xử lý <em>song song</em>, rất hợp với GPU, nên mới huấn luyện được những mô hình khổng lồ.</p>
+<table>
+  <tr><th>Họ mô hình</th><th>Ví dụ</th><th>Giỏi việc gì</th></tr>
+  <tr><td>Encoder (đọc hiểu)</td><td>BERT, PhoBERT (tiếng Việt)</td><td>Phân loại văn bản, trích xuất thông tin, embedding</td></tr>
+  <tr><td>Decoder (sinh chữ)</td><td>GPT, Claude, Llama</td><td>Trả lời, tóm tắt, viết, lập trình: các mô hình ngôn ngữ lớn (LLM)</td></tr>
+  <tr><td>Encoder–decoder</td><td>T5, mô hình dịch máy</td><td>Dịch, tóm tắt</td></tr>
+</table>
+
+<h2>4. Trong thực tế: dùng mô hình có sẵn trước</h2>
+<p>Gần như không ai tự huấn luyện Transformer từ đầu cho một dự án doanh nghiệp. Thư viện <strong>Hugging Face Transformers</strong> (chạy trên PyTorch) cho phép dùng hàng nghìn mô hình chỉ với vài dòng:</p>
+<pre><code class="language-python">from transformers import pipeline
+clf = pipeline("sentiment-analysis",
+               model="nlptown/bert-base-multilingual-uncased-sentiment")   # đa ngôn ngữ, 1–5 sao
+clf("Shop giao hàng nhanh, đóng gói cẩn thận")   # [{'label': '5 stars', 'score': …}]
+
+from sentence_transformers import SentenceTransformer
+enc = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+E = enc.encode(["giao hàng trễ", "đơn hàng đến muộn", "hoàn tiền"])   # [3, 384]
+# cosine similarity giữa E[0] và E[1] cao: cùng ý nghĩa dù khác chữ</code></pre>
+<h3>Chọn cách dùng LLM cho bài toán của bạn</h3>
+<table>
+  <tr><th>Cách</th><th>Khi nào dùng</th><th>Chi phí</th></tr>
+  <tr><td><strong>Prompting</strong> (viết hướng dẫn tốt + vài ví dụ)</td><td>Thử nghiệm nhanh, ít dữ liệu, tác vụ chung (tóm tắt, phân loại, trích xuất)</td><td>Thấp nhất</td></tr>
+  <tr><td><strong>RAG</strong> (tìm tài liệu liên quan bằng embedding rồi đưa vào prompt)</td><td>Cần trả lời dựa trên tài liệu nội bộ: quy trình, hợp đồng, FAQ</td><td>Vừa</td></tr>
+  <tr><td><strong>Fine-tuning</strong> (LoRA…) mô hình nhỏ</td><td>Có hàng nghìn ví dụ gán nhãn, cần định dạng/văn phong riêng, cần chạy rẻ ở quy mô lớn</td><td>Cao hơn</td></tr>
+  <tr><td>Mô hình encoder nhỏ + lớp phân loại (như chương 22)</td><td>Phân loại khối lượng lớn, cần nhanh và rẻ, có dữ liệu gán nhãn</td><td>Thấp khi chạy</td></tr>
+</table>
+
+<h2>5. Chuỗi thời gian: dự báo bằng cửa sổ trượt</h2>
+<p>Doanh số, lượng điện, nhiệt độ máy theo thời gian. Biến chuỗi thành bài toán học có giám sát bằng <strong>cửa sổ trượt</strong>: dùng 28 ngày gần nhất để dự báo ngày tiếp theo.</p>
+<pre><code class="language-python">def make_windows(series, window=28):
+    X = torch.stack([series[i:i + window] for i in range(len(series) - window)])  # [N, 28]
+    y = series[window:].unsqueeze(1)                                               # [N, 1]
+    return X, y
+# X có thể đưa vào: (a) nn.Sequential Dense như chương 21, (b) LSTM với X.unsqueeze(-1) → [N, 28, 1]</code></pre>
+<div class="box warn"><span class="box-title">⚠️ Hai bẫy lớn với chuỗi thời gian</span>
+<ul>
+  <li><strong>Không chia ngẫu nhiên.</strong> Phải chia theo thời gian: train là quá khứ, validation/test là tương lai. Chia ngẫu nhiên là cho mô hình “nhìn trộm tương lai”.</li>
+  <li><strong>Luôn so với baseline ngây thơ</strong>: “ngày mai bằng hôm nay” hoặc “bằng cùng thứ tuần trước”. Một mô hình sâu không thắng được baseline này thì không đáng triển khai. Với dữ liệu bảng–thời gian, XGBoost + đặc trưng trễ (doanh số 7 ngày trước, ngày lễ, khuyến mãi) thường là lựa chọn mạnh nhất.</li>
+</ul></div>
+
+<div class="box real"><span class="box-title">💬 Ví dụ thực tiễn: hệ thống hỗ trợ khách hàng cho một sàn thương mại điện tử</span>
+<ol>
+  <li><strong>Định tuyến tin nhắn</strong>: embedding đa ngôn ngữ (384 chiều) + mạng 384 → 64 → 5 lớp (thanh toán, giao hàng, đổi trả, tài khoản, khác), y như ví dụ ở chương 9. Xác suất thấp thì chuyển nhân viên.</li>
+  <li><strong>Phân tích cảm xúc review</strong>: mô hình encoder tinh chỉnh trên review đã gán sao; theo dõi tỉ lệ review tiêu cực theo ngành hàng mỗi tuần.</li>
+  <li><strong>Trợ lý trả lời chính sách</strong>: RAG trên tài liệu chính sách đổi trả; LLM trả lời và trích dẫn đoạn nguồn để nhân viên kiểm tra.</li>
+  <li><strong>Dự báo số ticket</strong> theo giờ để xếp ca nhân viên: cửa sổ trượt + XGBoost, so với baseline “cùng giờ tuần trước”.</li>
+</ol></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Văn bản → token → embedding (vector học được) → mô hình.</li>
+  <li>RNN/LSTM đọc tuần tự; Transformer dùng attention nhìn mọi token song song: \(\text{softmax}(QK^\top/\sqrt d)V\).</li>
+  <li>Thực tế: dùng mô hình pretrained (Hugging Face) → prompting/RAG → fine-tune khi thật cần.</li>
+  <li>Chuỗi thời gian: cửa sổ trượt, chia theo thời gian, luôn có baseline ngây thơ.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Câu dài 50 token, embedding 384 chiều, batch 16. Tensor sau <code>nn.Embedding</code> có shape gì?</summary><p><code>[16, 50, 384]</code>.</p></details>
+<details class="quiz"><summary>Công ty muốn chatbot trả lời đúng theo sổ tay nhân sự 200 trang, sổ tay đổi mỗi quý. Prompting, RAG hay fine-tuning?</summary><p>RAG: tài liệu thay đổi thường xuyên thì chỉ cần cập nhật kho tài liệu, không phải huấn luyện lại, và câu trả lời trích dẫn được nguồn.</p></details>
+<details class="quiz"><summary>Vì sao attention chia cho \(\sqrt d\)?</summary><p>Tích vô hướng của các vector \(d\) chiều có độ lớn tăng theo \(\sqrt d\). Không chia thì softmax bị “bão hoà” (gần one-hot), gradient rất nhỏ, khó học.</p></details>
+</article>
+</body>
+</html>

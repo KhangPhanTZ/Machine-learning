@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>24. CNN & transfer learning · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 24 · Mở rộng sau Module 3</div>
+  <h1>CNN &amp; transfer learning</h1>
+  <p class="lede">Hai công cụ biến Deep Learning thành thứ áp dụng được ngay cho ảnh trong công việc: mạng tích chập (CNN) “nhìn” ảnh theo từng vùng nhỏ, và transfer learning cho phép mượn một mô hình đã học từ hàng triệu ảnh để giải bài toán của bạn chỉ với vài trăm ảnh.</p>
+  <div class="meta"><span>⏱ 35 phút đọc</span><span>📚 Ngoài lab — nối tiếp chương 22, 23</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Vì sao mạng Dense chưa đủ cho ảnh?</h2>
+<p>Ở chương 22, <code>nn.Flatten()</code> trải ảnh 28×28 thành 784 số rời rạc. Mạng không biết pixel nào nằm cạnh pixel nào. Hai vấn đề:</p>
+<ul>
+  <li><strong>Quá nhiều tham số</strong>: ảnh màu 224×224 có 150 528 giá trị. Chỉ một lớp Dense 1000 nơ-ron đã cần khoảng 150 triệu tham số.</li>
+  <li><strong>Không “dịch chuyển” được</strong>: con mèo ở góc trái và ở góc phải là hai mẫu hình hoàn toàn khác nhau với mạng Dense, nên nó phải học lại từ đầu.</li>
+</ul>
+<p>CNN giải quyết cả hai bằng một ý tưởng đơn giản: dùng <strong>một bộ lọc nhỏ</strong> (ví dụ 3×3) <strong>trượt khắp ảnh</strong>, cùng một bộ trọng số ở mọi vị trí.</p>
+
+<h2>Phép tích chập (convolution) bằng hình ảnh</h2>
+<p>Bộ lọc 3×3 đặt lên một vùng 3×3 của ảnh, nhân từng ô rồi cộng lại thành một số. Trượt sang phải một ô, làm lại. Kết quả là một <strong>feature map</strong>: bản đồ cho biết “mẫu hình của bộ lọc xuất hiện mạnh ở đâu”. Chọn bộ lọc trong demo để xem từng bộ lọc làm nổi bật điều gì:</p>
+<div class="demo" data-demo="conv"></div>
+<p>Trong CNN, bạn <strong>không</strong> tự chọn bộ lọc như trong demo. Các giá trị trong bộ lọc là tham số, được học bằng backprop giống hệt \(\mathbf{w}\) ở các chương trước. Lớp đầu thường tự học ra bộ dò cạnh, lớp sau học vân, góc, rồi đến các bộ phận như mắt, bánh xe, cuống lá.</p>
+<div class="math-box">$$ \text{kích thước ra} = \left\lfloor \frac{n + 2p - k}{s} \right\rfloor + 1 $$</div>
+<p>với \(n\) là kích thước vào, \(k\) kích thước bộ lọc, \(p\) padding (viền thêm), \(s\) stride (bước trượt). Ví dụ 128×128, \(k=3, p=1, s=1\) cho ra 128×128 (giữ nguyên).</p>
+
+<h3>Ba loại lớp của một CNN</h3>
+<table>
+  <tr><th>Lớp</th><th>PyTorch</th><th>Việc làm</th></tr>
+  <tr><td>Tích chập</td><td><code>nn.Conv2d(3, 16, kernel_size=3, padding=1)</code></td><td>16 bộ lọc 3×3×3, cho ra 16 feature map. Tham số: 16·(3·3·3) + 16 = 448</td></tr>
+  <tr><td>Gộp (pooling)</td><td><code>nn.MaxPool2d(2)</code></td><td>Lấy max trong mỗi ô 2×2, chiều cao và rộng giảm một nửa. Không có tham số.</td></tr>
+  <tr><td>Phân loại</td><td><code>nn.Flatten()</code> + <code>nn.Linear</code></td><td>Như chương 22, nhưng trên các đặc trưng đã được CNN trích xuất</td></tr>
+</table>
+
+<h2>Một CNN nhỏ cho bộ dữ liệu cây trồng</h2>
+<pre><code class="language-python">class PlantCNN(nn.Module):
+    def __init__(self, num_classes=30):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(), nn.MaxPool2d(2),   # → [32, 64, 64]
+            nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(), nn.MaxPool2d(2),  # → [64, 32, 32]
+            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(), nn.MaxPool2d(2),# → [128, 16, 16]
+        )
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),   # trung bình mỗi feature map → [128, 1, 1]
+            nn.Flatten(),              # → [128]
+            nn.Dropout(0.3),           # tắt ngẫu nhiên 30% nơ-ron khi train: chống overfitting
+            nn.Linear(128, num_classes)
+        )
+
+    def forward(self, x):              # x: [N, 3, 128, 128] từ DataLoader ở chương 23
+        return self.classifier(self.features(x))</code></pre>
+<p>Kiểu mẫu chung: càng đi sâu, ảnh càng <em>nhỏ</em> (128 → 64 → 32 → 16) nhưng càng nhiều <em>kênh</em> (3 → 32 → 64 → 128). Tức là ít thông tin về vị trí, nhiều thông tin về “có gì trong ảnh”.</p>
+<div class="box note"><span class="box-title">💡 BatchNorm và Dropout</span>
+<p><strong>BatchNorm</strong> chuẩn hoá đầu ra mỗi lớp theo lô (giống z-score ở chương 5 nhưng làm bên trong mạng), giúp học nhanh và ổn định hơn. <strong>Dropout</strong> là một dạng regularization (chương 7). Cả hai hành xử khác nhau giữa <code>model.train()</code> và <code>model.eval()</code>, đây là lý do bắt buộc phải gọi đúng chế độ (chương 22).</p></div>
+
+<h2>Transfer learning: đứng trên vai người khổng lồ</h2>
+<p>Huấn luyện CNN từ đầu cần rất nhiều ảnh. Nhưng các mô hình như <strong>ResNet</strong>, <strong>EfficientNet</strong> đã học trên ImageNet (1.2 triệu ảnh, 1000 lớp) và đã biết nhận ra cạnh, vân, hình khối, bộ phận. Những kiến thức đó dùng được cho hầu hết bài toán ảnh. Bạn chỉ cần:</p>
+<ol>
+  <li>Tải mô hình đã huấn luyện sẵn (pretrained).</li>
+  <li><strong>Thay lớp cuối</strong> (1000 lớp ImageNet) bằng lớp mới với số lớp của bạn.</li>
+  <li>Huấn luyện lớp mới (và có thể tinh chỉnh thêm vài lớp cuối) trên dữ liệu của bạn.</li>
+</ol>
+<pre><code class="language-python">import torchvision.models as models
+weights = models.ResNet18_Weights.DEFAULT
+model = models.resnet18(weights=weights)            # đã học trên ImageNet
+
+for p in model.parameters():                        # 1) ĐÓNG BĂNG phần trích xuất đặc trưng
+    p.requires_grad = False
+
+model.fc = nn.Linear(model.fc.in_features, 30)      # 2) lớp cuối mới: 512 → 30 loại cây (mặc định học được)
+optimizer = optim.Adam(model.fc.parameters(), lr=1e-3)
+
+preprocess = weights.transforms()                   # resize/crop 224 + Normalize theo ImageNet
+# … dùng lại DataLoader (chương 23) với preprocess, và train_epoch/evaluate (chương 22) …
+
+# 3) (tuỳ chọn) MỞ BĂNG khối cuối, tinh chỉnh với learning rate nhỏ
+for p in model.layer4.parameters():
+    p.requires_grad = True
+optimizer = optim.Adam([
+    {"params": model.layer4.parameters(), "lr": 1e-4},
+    {"params": model.fc.parameters(),     "lr": 1e-3},
+])</code></pre>
+<table>
+  <tr><th>Bạn có…</th><th>Chiến lược</th></tr>
+  <tr><td>Vài chục đến vài trăm ảnh mỗi lớp</td><td>Đóng băng toàn bộ, chỉ huấn luyện lớp cuối (<em>feature extraction</em>)</td></tr>
+  <tr><td>Vài nghìn ảnh mỗi lớp</td><td>Mở băng vài khối cuối, learning rate nhỏ (<em>fine-tuning</em>)</td></tr>
+  <tr><td>Hàng chục nghìn ảnh trở lên, ảnh rất khác ảnh thường (X-quang, vệ tinh đa phổ)</td><td>Tinh chỉnh toàn bộ, hoặc dùng mô hình pretrained của chính lĩnh vực đó</td></tr>
+</table>
+<div class="box warn"><span class="box-title">⚠️ Learning rate khi fine-tune</span>
+<p>Phần pretrained đã “biết nhiều”. Learning rate lớn (như 0.01) sẽ phá hỏng những gì nó đã học. Dùng LR nhỏ hơn 10–100 lần cho phần pretrained so với lớp mới.</p></div>
+
+<h2>Vòng lặp huấn luyện hoàn chỉnh: thêm validation và lưu mô hình tốt nhất</h2>
+<pre><code class="language-python">best_acc, patience, bad_epochs = 0, 3, 0
+for epoch in range(30):
+    model, train_loss = train_epoch(model, loss_function, optimizer, train_loader, device)
+    val_acc = evaluate(model, val_loader, device)          # chọn mô hình bằng VALIDATION
+    if val_acc > best_acc:
+        best_acc, bad_epochs = val_acc, 0
+        torch.save(model.state_dict(), "best.pt")          # giữ bản tốt nhất
+    else:
+        bad_epochs += 1
+        if bad_epochs >= patience:                         # dừng sớm (early stopping)
+            break
+model.load_state_dict(torch.load("best.pt"))
+test_acc = evaluate(model, test_loader, device)           # đo trên TEST đúng một lần</code></pre>
+
+<div class="box real"><span class="box-title">🏥 Ví dụ thực tiễn: các bài toán ảnh theo ngành</span>
+<table>
+  <tr><th>Ngành</th><th>Bài toán</th><th>Loại tác vụ</th><th>Lưu ý</th></tr>
+  <tr><td>Y tế</td><td>Sàng lọc X-quang phổi, ảnh võng mạc tiểu đường</td><td>Phân loại</td><td>Ưu tiên <strong>recall</strong> (không bỏ sót); bác sĩ quyết định cuối cùng</td></tr>
+  <tr><td>Nông nghiệp</td><td>Bệnh lá, đếm trái cây, phân loại nông sản</td><td>Phân loại / phát hiện vật thể</td><td>Ảnh chụp ngoài trời, ánh sáng thay đổi → augmentation độ sáng</td></tr>
+  <tr><td>Sản xuất</td><td>Lỗi bề mặt (vết xước, nứt) trên dây chuyền</td><td>Phân loại / phát hiện bất thường</td><td>Ảnh lỗi rất hiếm → học trên ảnh “tốt” rồi phát hiện bất thường (chương 14)</td></tr>
+  <tr><td>Bán lẻ</td><td>Nhận dạng sản phẩm trên kệ, tìm sản phẩm bằng ảnh</td><td>Phát hiện / embedding</td><td>Embedding ảnh + tìm láng giềng gần (giống chương 16)</td></tr>
+  <tr><td>Tài chính</td><td>Đọc CMND/CCCD, hoá đơn (OCR)</td><td>Phát hiện chữ + nhận dạng</td><td>Dữ liệu cá nhân → bảo mật, tuân thủ luật bảo vệ dữ liệu</td></tr>
+  <tr><td>Giao thông</td><td>Đếm xe, nhận dạng biển số</td><td>Phát hiện vật thể (YOLO)</td><td>Chạy thời gian thực → mô hình nhỏ, tối ưu tốc độ</td></tr>
+</table></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: ngoài phân loại</span>
+<ul>
+  <li><strong>Phát hiện vật thể</strong> (object detection): trả về <em>hộp bao</em> và nhãn cho từng vật (YOLO, Faster R-CNN trong <code>torchvision.models.detection</code>).</li>
+  <li><strong>Phân đoạn</strong> (segmentation): gán nhãn cho từng pixel (U-Net), dùng cho ảnh y tế, xe tự lái.</li>
+  <li><strong>Vision Transformer (ViT)</strong>: cắt ảnh thành các miếng và xử lý như chuỗi từ (chương 25).</li>
+  <li><strong>CLIP</strong>: mô hình hiểu cả ảnh lẫn chữ, cho phép phân loại “zero-shot” chỉ bằng mô tả, không cần huấn luyện.</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>CNN dùng bộ lọc nhỏ trượt khắp ảnh: ít tham số, nhận ra mẫu hình ở mọi vị trí.</li>
+  <li>Mẫu kiến trúc: [Conv → BatchNorm → ReLU → MaxPool] × k → Flatten/AvgPool → Linear.</li>
+  <li>Transfer learning: mô hình pretrained + lớp cuối mới; dữ liệu ít thì đóng băng, nhiều thì fine-tune với LR nhỏ.</li>
+  <li>Chọn mô hình bằng validation, đo test đúng một lần, lưu checkpoint tốt nhất, dừng sớm.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Ảnh vào 128×128, <code>Conv2d(k=3, padding=0, stride=1)</code> rồi <code>MaxPool2d(2)</code>. Kích thước ra?</summary><p>Conv: (128 − 3)/1 + 1 = 126. Pool: 126/2 = 63. Kết quả 63×63.</p></details>
+<details class="quiz"><summary><code>nn.Conv2d(64, 128, 3)</code> có bao nhiêu tham số?</summary><p>128 bộ lọc × (64·3·3) + 128 bias = 73 856.</p></details>
+<details class="quiz"><summary>Bạn có 200 ảnh mỗi loại sản phẩm lỗi. Nên huấn luyện CNN từ đầu hay transfer learning?</summary><p>Transfer learning, đóng băng phần trích xuất đặc trưng và chỉ huấn luyện lớp cuối, kèm augmentation. Từ đầu với 200 ảnh gần như chắc chắn overfit.</p></details>
+</article>
+</body>
+</html>
