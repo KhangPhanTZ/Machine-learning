@@ -148,6 +148,34 @@ model = DQN("MlpPolicy", env, verbose=1).learn(total_timesteps=500_000)</code></
   <li><a data-nb="c3_w1_prac2/Files/home/jovyan/work/C3_W3_A1_Assignment.ipynb">C3 Practice Lab — Deep Q-Learning, Lunar Lander</a> (graded: Q-network, target network, <code>compute_loss</code>)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Các thành phần của RL</span>
+<ol>
+  <li><strong>Agent</strong>: tác nhân đưa ra quyết định.</li>
+  <li><strong>Environment</strong>: môi trường mà agent tương tác.</li>
+  <li><strong>State (S)</strong>: trạng thái hiện tại.</li>
+  <li><strong>Action (A)</strong>: hành động có thể thực hiện.</li>
+  <li><strong>Reward (R)</strong>: phản hồi dạng số về “độ tốt” của hành động.</li>
+  <li><strong>Policy (π)</strong>: chiến lược chọn hành động theo trạng thái.</li>
+  <li><strong>Value function</strong>: đánh giá độ tốt của một trạng thái hoặc hành động.</li>
+  <li><strong>Model</strong> (tuỳ chọn): mô phỏng môi trường để dự đoán kết quả.</li>
+</ol>
+<p>Mục tiêu là cân bằng <strong>exploration</strong> (thử hành động mới) và <strong>exploitation</strong> (dùng hành động đã biết là tốt) để tối đa tổng phần thưởng. Ứng dụng: trò chơi (AlphaGo), robot và xe tự lái, quản lý tài nguyên mạng, giao dịch tự động, tối ưu phác đồ điều trị.</p>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1921ff87df8280eb85afd7c274b063cc" target="_blank" rel="noopener">def Reinforcement Learning</a></p></div>
+
+<div class="box notion"><span class="box-title">📝 Policy trong RL</span>
+<table>
+  <tr><th>Loại</th><th>Dạng</th><th>Ví dụ</th></tr>
+  <tr><td>Xác định (deterministic)</td><td>\(\pi: S \to A\)</td><td>ở \(S_1\) luôn làm \(A_2\)</td></tr>
+  <tr><td>Ngẫu nhiên (stochastic)</td><td>\(\pi(a \mid s)\)</td><td>ở \(S_1\): \(A_1\) với xác suất 0.7, \(A_2\) với 0.3</td></tr>
+</table>
+<ul>
+  <li>Biểu diễn: <strong>dạng bảng</strong> khi không gian trạng thái/hành động nhỏ; <strong>dạng tham số hoá</strong> (mạng nơ-ron) khi lớn hoặc liên tục, như Deep Q-Learning.</li>
+  <li>Ba hướng tối ưu: <strong>value-based</strong> (học Q rồi suy ra policy, ví dụ ε-greedy trong Q-learning), <strong>policy-based</strong> (policy gradient), và <strong>actor-critic</strong> (actor cập nhật policy, critic đánh giá hành động).</li>
+  <li>Các policy hay gặp: greedy (luôn chọn Q lớn nhất), ε-greedy, softmax (chọn theo phân phối xác suất từ các giá trị Q).</li>
+</ul>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1921ff87df82804d8f3ee4eecfef3a62" target="_blank" rel="noopener">Policies in reinforcement learning</a> · <a href="https://app.notion.com/p/1921ff87df8280808839e8e313e4f74f" target="_blank" rel="noopener">Reinforcement Learning</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>RL: trạng thái, hành động, phần thưởng, chính sách; tối đa hoá return có chiết khấu \(\gamma\).</li>

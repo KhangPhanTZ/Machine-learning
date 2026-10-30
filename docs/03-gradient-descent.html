@@ -129,6 +129,24 @@ print(abs(num - ana))   # nên rất nhỏ, cỡ 1e-7</code></pre>
   <li><a data-nb="c1_w2_prac/home/jovyan/work/C1_W2_Linear_Regression.ipynb">C1_W2 Practice Lab</a> — kết quả: \(w \approx 1.166\), \(b \approx -3.63\); dự đoán lợi nhuận cho thành phố 35.000 dân ≈ 4.519$, 70.000 dân ≈ 45.342$.</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Ghi chú của mình</span>
+<ul>
+  <li>Lặp đến khi <strong>hội tụ</strong>; cập nhật \(w\) và \(b\) <strong>cùng lúc</strong>.</li>
+  <li>Khi \(J\) tới cực tiểu cục bộ, đạo hàm bằng 0 nên gradient descent giữ nguyên tham số.</li>
+  <li><strong>Hàm lồi</strong> chỉ có một cực tiểu, vừa là cực tiểu cục bộ vừa là toàn cục. Hàm chi phí bình phương của hồi quy tuyến tính là hàm lồi.</li>
+  <li><strong>“Batch” gradient descent</strong>: mỗi bước dùng toàn bộ ví dụ huấn luyện.</li>
+</ul>
+<p>Trong bản ghi của mình, hàm <code>gradient_descent</code> còn lưu lịch sử tham số <code>p_history</code> để vẽ đường đi trên đồ thị đồng mức, và in thêm \(\partial J/\partial w\), \(\partial J/\partial b\) mỗi 10% số vòng lặp:</p>
+<pre><code class="language-python">if i &lt; 100000:                     # tránh tràn bộ nhớ
+    J_history.append(cost_function(x, y, w, b))
+    p_history.append([w, b])
+if i % math.ceil(num_iters / 10) == 0:
+    print(f"Iteration {i:4}: Cost {J_history[-1]:0.2e} ",
+          f"dj_dw: {dj_dw: 0.3e}, dj_db: {dj_db: 0.3e}  ",
+          f"w: {w: 0.3e}, b:{b: 0.5e}")</code></pre>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1181ff87df82807085e4e0a26db7d470" target="_blank" rel="noopener">Regression and Classification</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>\(w := w - \alpha\,\partial J/\partial w\), \(b := b - \alpha\,\partial J/\partial b\), cập nhật đồng thời.</li>

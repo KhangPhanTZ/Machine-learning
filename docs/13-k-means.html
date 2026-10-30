@@ -111,6 +111,39 @@ X_recovered = km.cluster_centers_[km.labels_]</code></pre></div>
   <li><a data-nb="c3_w1_prac1/home/jovyan/work/C3_W1_KMeans_Assignment.ipynb">C3_W1 Practice Lab — K-means Clustering</a> (graded: <code>find_closest_centroids</code>, <code>compute_centroids</code>)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Ví dụ tính tay: 6 điểm, K = 2</span>
+<p>Dữ liệu \(\{(1,1),(2,1),(4,3),(5,4),(3,2),(6,6)\}\), khởi tạo \(C_1 = (1,1)\), \(C_2 = (6,6)\).</p>
+<table>
+  <tr><th>Điểm</th><th>Khoảng cách tới C₁</th><th>Khoảng cách tới C₂</th><th>Cụm</th></tr>
+  <tr><td>(1,1)</td><td>0</td><td>7.07</td><td>C₁</td></tr>
+  <tr><td>(2,1)</td><td>1.00</td><td>6.40</td><td>C₁</td></tr>
+  <tr><td>(4,3)</td><td>3.61</td><td>3.61</td><td>C₁ (hoà, chọn tâm đầu tiên)</td></tr>
+  <tr><td>(5,4)</td><td>5.00</td><td>2.24</td><td>C₂</td></tr>
+  <tr><td>(3,2)</td><td>2.24</td><td>5.00</td><td>C₁</td></tr>
+  <tr><td>(6,6)</td><td>7.07</td><td>0</td><td>C₂</td></tr>
+</table>
+<p>Dời tâm: \(C_1 = \left(\frac{1+2+4+3}{4}, \frac{1+1+3+2}{4}\right) = (2.5, 1.75)\), \(C_2 = (5.5, 5)\). Gán lại: (4,3) cách \(C_1\) 1.95 và cách \(C_2\) 2.50 nên vẫn thuộc \(C_1\). Không điểm nào đổi cụm, thuật toán <strong>hội tụ</strong> với \(C_1 = \{(1,1),(2,1),(3,2),(4,3)\}\) và \(C_2 = \{(5,4),(6,6)\}\).</p>
+<div class="box warn" style="margin:.6em 0"><span class="box-title">⚠️ Đính chính so với bản Notion</span><p>Bản ghi gốc liệt kê cụm cuối là \(\{(1,1),(2,1),(3,2)\}\) và \(\{(4,3),(5,4),(6,6)\}\), và ghi khoảng cách (3,2)→C₂ là 5.39. Chạy lại phép tính cho thấy khoảng cách đúng là 5.00 và (4,3) ở lại cụm 1 như trên.</p></div>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1661ff87df82806ca379c6d5b87ebb5e" target="_blank" rel="noopener">K-means</a></p></div>
+
+<div class="box notion"><span class="box-title">📝 Elbow method và WCSS</span>
+<p><strong>WCSS</strong> (Within-Cluster Sum of Squares) là tổng bình phương khoảng cách từ mỗi điểm tới tâm cụm của nó, chính là distortion nhân \(m\). Trong scikit-learn, WCSS nằm ở <code>kmeans.inertia_</code>. WCSS luôn giảm khi K tăng (K = số điểm thì WCSS = 0), nên ta tìm “điểm gập” nơi WCSS bắt đầu giảm chậm. Nếu không có điểm gập rõ, kết hợp Silhouette Score hoặc Gap Statistic.</p>
+<pre><code class="language-python">from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+
+X, _ = make_blobs(n_samples=300, centers=4, cluster_std=1.0, random_state=42)
+wcss = []
+for k in range(1, 11):
+    kmeans = KMeans(n_clusters=k, random_state=0).fit(X)
+    wcss.append(kmeans.inertia_)
+
+plt.plot(range(1, 11), wcss, marker='o')
+plt.xlabel('Number of Clusters (k)'); plt.ylabel('WCSS'); plt.title('Elbow Method')
+plt.show()     # điểm gập ở k = 4</code></pre>
+<p>Ứng dụng phân cụm mình ghi: nhóm tin tức tương tự, phân khúc thị trường, phân tích DNA, phân tích dữ liệu thiên văn, phân đoạn ảnh. Các thuật toán khác: Hierarchical (agglomerative / divisive) và DBSCAN (theo mật độ, chịu được nhiễu).</p>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1661ff87df82809bb5d6e02adcde1eab" target="_blank" rel="noopener">CLUSTERING</a> · <a href="https://app.notion.com/p/1661ff87df82806ca379c6d5b87ebb5e" target="_blank" rel="noopener">K-means</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>K-means lặp hai bước: gán điểm về tâm gần nhất → dời tâm về trung bình cụm.</li>

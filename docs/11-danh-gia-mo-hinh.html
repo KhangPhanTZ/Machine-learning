@@ -195,6 +195,34 @@ $$</div>
   <li><a data-nb="c2_w3_prac/Files/home/jovyan/work/C2_W3_Assignment.ipynb">C2_W3 Practice Lab — Advice for Applying Machine Learning</a> (graded: <code>eval_mse</code>, <code>eval_cat_err</code>, 3 mô hình)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Regularization trong Keras</span>
+<p>Mô hình MNIST có và không có regularization. <code>L2(0.01)</code> nghĩa là λ = 0.01:</p>
+<pre><code class="language-python">from tensorflow.keras.regularizers import L2
+
+# không regularization
+model = Sequential([
+    Dense(units=25, activation="relu"),
+    Dense(units=15, activation="relu"),
+    Dense(units=1,  activation="sigmoid"),
+])
+
+# có regularization
+model = Sequential([
+    Dense(units=25, activation="relu",    kernel_regularizer=L2(0.01)),
+    Dense(units=15, activation="relu",    kernel_regularizer=L2(0.01)),
+    Dense(units=1,  activation="sigmoid", kernel_regularizer=L2(0.01)),
+])</code></pre>
+</div>
+<div class="box notion"><span class="box-title">📝 Dữ liệu và triển khai</span>
+<ul>
+  <li><strong>Data augmentation</strong>: áp dụng các phép biến đổi lên dữ liệu hiện có để tạo mẫu mới nhưng vẫn giữ nguyên ý nghĩa ban đầu. Cách làm phụ thuộc loại dữ liệu (ảnh, văn bản, âm thanh, số).</li>
+  <li><strong>Data synthesis</strong>: tạo dữ liệu nhân tạo từ tập gốc hoặc từ một mô hình thống kê mà không làm mất đặc điểm quan trọng của dữ liệu ban đầu.</li>
+  <li><strong>Transfer learning</strong>: tận dụng mô hình đã huấn luyện cho một bài toán để áp dụng vào bài toán khác có liên quan. Tải tham số đã huấn luyện trên tập lớn <em>cùng loại đầu vào</em>, rồi fine-tune trên dữ liệu của mình.</li>
+  <li><strong>Triển khai (deployment)</strong> cần kỹ năng phần mềm, tức <strong>MLOps</strong>: đảm bảo dự đoán ổn định và hiệu quả, mở rộng quy mô (scaling), ghi log, giám sát hệ thống, cập nhật mô hình.</li>
+</ul>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/12f1ff87df8280478dd4c269d82d77bf" target="_blank" rel="noopener">Advance Learning Algorithm</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Train để học tham số, CV để chọn mô hình/siêu tham số, test để báo cáo.</li>
