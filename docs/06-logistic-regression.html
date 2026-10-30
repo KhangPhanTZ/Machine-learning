@@ -120,6 +120,26 @@ proba = lr_model.predict_proba(X)[:, 1]   # xác suất lớp 1</code></pre>
   <li><a data-nb="c1_w3_prac/home/jovyan/work/C1_W3_Logistic_Regression.ipynb">C1_W3 Practice Lab — Logistic Regression</a> (graded: <code>sigmoid</code>, <code>compute_cost</code>, <code>compute_gradient</code>, <code>predict</code>, bản regularized)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Vẽ ranh giới quyết định x₀ + x₁ = 3</span>
+<p>Đoạn code mình ghi lại từ lab Decision Boundary, tô vùng dự đoán \(y = 0\) bên dưới đường thẳng:</p>
+<pre><code class="language-python">x0 = np.arange(0, 6)
+x1 = 3 - x0                       # w0 = w1 = 1, b = -3  =&gt;  x1 = 3 - x0
+fig, ax = plt.subplots(1, 1, figsize=(5, 4))
+ax.plot(x0, x1, c="b")
+ax.axis([0, 4, 0, 3.5])
+ax.fill_between(x0, x1, alpha=0.2) # vùng z &lt; 0
+plot_data(X, y, ax)
+ax.set_ylabel(r'$x_1$'); ax.set_xlabel(r'$x_0$')
+plt.show()</code></pre>
+<p>Và ví dụ scikit-learn trên 6 điểm:</p>
+<pre><code class="language-python">X = np.array([[0.5, 1.5], [1, 1], [1.5, 0.5], [3, 0.5], [2, 2], [1, 2.5]])
+y = np.array([0, 0, 0, 1, 1, 1])
+lr_model = LogisticRegression().fit(X, y)
+print("Prediction on training set:", lr_model.predict(X))
+print("Accuracy on training set:", lr_model.score(X, y))</code></pre>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1181ff87df82807085e4e0a26db7d470" target="_blank" rel="noopener">Regression and Classification</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>\(f = g(\mathbf{w}\cdot\mathbf{x}+b)\), \(g\) là sigmoid; \(f\) là xác suất \(y = 1\).</li>

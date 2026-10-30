@@ -146,6 +146,77 @@ xgb.fit(X_train, y_train, eval_set=[(X_val, y_val)])</code></pre>
   <li><a data-nb="c2_w4_prac/Files/home/jovyan/work/C2_W4_Decision_Tree_with_Markdown.ipynb">C2_W4 Practice Lab — Decision Trees</a> (graded: <code>compute_entropy</code>, <code>split_dataset</code>, <code>compute_information_gain</code>, <code>get_best_split</code>)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Cấu trúc, ưu và nhược điểm của cây quyết định</span>
+<ul>
+  <li><strong>Root node</strong> đại diện toàn bộ dữ liệu; <strong>internal node</strong> chứa điều kiện kiểm tra trên một thuộc tính; <strong>leaf node</strong> là quyết định cuối cùng; <strong>branch</strong> là kết quả của điều kiện.</li>
+  <li>Tiêu chí chia: entropy &amp; information gain hoặc Gini (phân loại), MSE (hồi quy).</li>
+  <li><strong>Ưu điểm</strong>: dễ hiểu và giải thích; dùng được cho cả phân loại lẫn hồi quy; không cần chuẩn hoá dữ liệu.</li>
+  <li><strong>Nhược điểm</strong>: dễ overfit; không ổn định (dữ liệu đổi một chút là cây đổi hẳn); cồng kềnh khi dữ liệu lớn.</li>
+  <li><strong>Khắc phục</strong>: cắt tỉa (pruning), giới hạn <code>max_depth</code>, dùng ensemble (Random Forest, Gradient Boosting).</li>
+</ul>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1591ff87df828002a355dd2f2b29dcdd" target="_blank" rel="noopener">Decision tree</a></p></div>
+
+<div class="box notion"><span class="box-title">📝 Cây hồi quy: ví dụ tính tay</span>
+<p>Cây hồi quy dự đoán số thực. Mỗi lá dự đoán <strong>trung bình</strong> của các \(y\) rơi vào nó, và điểm chia được chọn để giảm MSE / phương sai nhiều nhất.</p>
+<table>
+  <tr><th>X</th><td>1</td><td>2</td><td>3</td><td>6</td><td>7</td></tr>
+  <tr><th>Y</th><td>5</td><td>7</td><td>6</td><td>10</td><td>12</td></tr>
+</table>
+<p>Chia tại \(X = 4\): nhánh trái \(\{(1,5),(2,7),(3,6)\}\) dự đoán \((5+7+6)/3 = 6\); nhánh phải \(\{(6,10),(7,12)\}\) dự đoán \((10+12)/2 = 11\). Vậy với \(X = 2\) cây trả về 6, với \(X = 6\) trả về 11. Hạn chế: mỗi vùng chỉ có một giá trị hằng nên đường dự đoán có dạng bậc thang.</p>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1591ff87df828079a564f0a9db875d2a" target="_blank" rel="noopener">Regression Trees</a></p></div>
+
+<div class="box notion"><span class="box-title">📝 Code lab Decision Trees (ví dụ phân loại mèo)</span>
+<pre><code class="language-python">def entropy(p):
+    if p == 0 or p == 1:
+        return 0
+    return -p * np.log2(p) - (1 - p) * np.log2(1 - p)
+
+def split_indices(X, index_feature):
+    """index 0 = hình tai, 1 = hình mặt, 2 = ria mép"""
+    left_indices, right_indices = [], []
+    for i, x in enumerate(X):
+        (left_indices if x[index_feature] == 1 else right_indices).append(i)
+    return left_indices, right_indices
+
+def weighted_entropy(X, y, left_indices, right_indices):
+    w_left = len(left_indices) / len(X)
+    w_right = len(right_indices) / len(X)
+    p_left = sum(y[left_indices]) / len(left_indices)
+    p_right = sum(y[right_indices]) / len(right_indices)
+    return w_left * entropy(p_left) + w_right * entropy(p_right)
+
+def information_gain(X, y, left_indices, right_indices):
+    h_node = entropy(sum(y) / len(y))
+    return h_node - weighted_entropy(X, y, left_indices, right_indices)</code></pre>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/12f1ff87df8280478dd4c269d82d77bf" target="_blank" rel="noopener">Advance Learning Algorithm</a></p></div>
+
+<div class="box notion"><span class="box-title">📝 Random forest &amp; XGBoost</span>
+<p><strong>Random forest</strong> kết hợp ba ý: nhiều cây; mỗi cây học trên một tập <em>bootstrap</em> (lấy mẫu có hoàn lại, cùng kích thước với tập gốc, có thể lặp mẫu); và tại mỗi nút chỉ xét một tập con ngẫu nhiên các đặc trưng. Ví dụ: 5 cây dự đoán “Có”, 3 cây dự đoán “Không” thì rừng chọn “Có”.</p>
+<p><strong>Boosting</strong> bắt đầu từ một dự đoán đơn giản (ví dụ trung bình). Mỗi vòng, nó tính phần sai số còn lại (residual), huấn luyện một cây nhỏ để học residual đó, rồi cộng cây mới vào mô hình với một learning rate. Khác với bagging (các cây độc lập, song song), boosting là <em>tuần tự</em>: cây sau sửa lỗi cây trước. Các biến thể: AdaBoost, Gradient Boosting, XGBoost.</p>
+<table>
+  <tr><th>Siêu tham số XGBoost</th><th>Ý nghĩa</th></tr>
+  <tr><td><code>learning_rate</code> (eta)</td><td>mức ảnh hưởng của mỗi cây mới</td></tr>
+  <tr><td><code>max_depth</code></td><td>độ sâu tối đa mỗi cây</td></tr>
+  <tr><td><code>min_child_weight</code></td><td>trọng số tối thiểu để chia một nút</td></tr>
+  <tr><td><code>subsample</code></td><td>tỉ lệ dữ liệu dùng cho mỗi cây</td></tr>
+  <tr><td><code>colsample_bytree</code></td><td>tỉ lệ đặc trưng dùng cho mỗi cây</td></tr>
+  <tr><td><code>reg_lambda</code> / <code>reg_alpha</code></td><td>regularization L2 / L1</td></tr>
+</table>
+<p>XGBoost còn tự xử lý giá trị thiếu, chạy được trên GPU và cho biết độ quan trọng của từng đặc trưng.</p>
+<pre><code class="language-python">import xgboost as xgb
+from xgboost import XGBRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = xgb.XGBClassifier(n_estimators=100, max_depth=3, learning_rate=0.1)
+model.fit(X_train, y_train)
+print("Accuracy:", accuracy_score(y_test, model.predict(X_test)))
+
+reg = XGBRegressor().fit(X_train, y_train)    # bài toán hồi quy</code></pre>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/15a1ff87df828026b007ffd2d703eef6" target="_blank" rel="noopener">Random forest — Note</a> · <a href="https://app.notion.com/p/15a1ff87df82808aa915dc9dc817ab7f" target="_blank" rel="noopener">XGBoost</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Entropy \(H(p_1)\) đo độ lẫn lộn: 0 khi thuần, 1 khi 50/50.</li>

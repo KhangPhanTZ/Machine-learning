@@ -16,6 +16,7 @@ Khóa học này cung cấp nền tảng rộng lớn về Machine Learning, Dat
 Thư mục [`docs/`](docs/) chứa một cuốn sách web tiếng Việt được viết lại từ các bài lab trong repo:
 18 chương + 3 phụ lục, có công thức (KaTeX), code từ các bài graded, 7 demo tương tác,
 chế độ sáng/tối, tìm chương, đánh dấu tiến độ đọc và giao diện cho điện thoại.
+Các chương còn có mục **“Từ ghi chú Notion”** tổng hợp phần chữ và code từ [ghi chú Notion của khoá học](https://app.notion.com/p/Machine-Learning-12f1ff87df828012b38fc41200db58a0).
 
 | Phần | Chương |
 |---|---|

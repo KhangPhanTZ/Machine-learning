@@ -97,6 +97,33 @@ print(compute_model_output(x_train, w=200, b=100))   # [300. 500.]</code></pre>
   <li><a data-nb="c1_w2_prac/home/jovyan/work/C1_W2_Linear_Regression.ipynb">C1_W2 Practice Lab — Linear Regression</a> (bài graded: <code>compute_cost</code>, <code>compute_gradient</code>)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Vẽ “cái bát” của hàm chi phí</span>
+<p>Mục tiêu của hồi quy tuyến tính là cực tiểu \(J(w)\) (trường hợp đơn giản) hay \(J(w,b)\) (trường hợp tổng quát). Vì chi phí bình phương sai số nên mặt lỗi lồi như một cái bát súp, luôn có cực tiểu mà gradient đưa tới được. Đoạn code mình ghi lại để vẽ đường đồng mức với \(w\) và \(b\) đối xứng:</p>
+<pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+def compute_cost(x, y, w, b):
+    m = x.shape[0]
+    return (1 / (2 * m)) * np.sum((w * x + b - y) ** 2)
+
+def soup_bowl(x_train, y_train):
+    fig, ax = plt.subplots()
+    w = np.linspace(-10, 10, 100)
+    b = np.linspace(-10, 10, 100)
+    W, B = np.meshgrid(w, b)
+    Z = np.zeros_like(W)
+    for i in range(W.shape[0]):
+        for j in range(W.shape[1]):
+            Z[i, j] = compute_cost(x_train, y_train, W[i, j], B[i, j])
+    ax.contour(W, B, Z, levels=np.logspace(-2, 3, 20))
+    ax.set_xlabel('w'); ax.set_ylabel('b')
+    ax.set_title('Cost Function Contour Plot')
+    plt.show()
+
+soup_bowl(np.array([1, 2, 3, 4, 5]), np.array([1, 2, 3, 4, 5]))</code></pre>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1181ff87df82807085e4e0a26db7d470" target="_blank" rel="noopener">Regression and Classification</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Mô hình: \(f_{w,b}(x) = wx + b\).</li>

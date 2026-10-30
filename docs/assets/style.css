@@ -62,7 +62,7 @@ img { max-width: 100%; height: auto; }
 
 /* ---------- Thanh trên ---------- */
 .topbar {
-  position: sticky; top: 0; z-index: 30; height: 56px;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; height: 56px;
   display: flex; align-items: center; gap: 12px; padding: 0 16px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule);
@@ -250,3 +250,10 @@ details.quiz > :last-child { margin-bottom: 4px; }
   .layout, main { display: block; padding: 0; }
   body { background: #fff; color: #000; }
 }
+
+/* ---------- Ghi chú Notion ---------- */
+.box.notion { background: var(--bg-elev); border-color: var(--rule); border-left: 3px solid var(--ink); }
+.box.notion .box-title { color: var(--ink); }
+.box.notion table { font-size: 14.5px; }
+.notion-src { font-family: var(--font-ui); font-size: 13px; color: var(--ink-faint); margin: 10px 0 0 !important; }
+.notion-src a { color: var(--ink-soft); }

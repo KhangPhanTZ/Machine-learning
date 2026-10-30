@@ -109,6 +109,16 @@ linear_model.fit(X_train, y_train)</code></pre>
   <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab06_Sklearn_Normal_Soln.ipynb">C1_W2_Lab06 — Linear Regression, closed-form</a></li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Ghi chú của mình</span>
+<ul>
+  <li><strong>Feature scaling</strong>: hướng tới khoảng giá trị “chấp nhận được” cho mỗi đặc trưng \(x_j\) (cỡ −1 đến 1); hai cách chuẩn hoá đã ghi là <em>mean normalization</em> và <em>z-score normalization</em>.</li>
+  <li><strong>Kiểm tra hội tụ</strong>: số vòng lặp cần thiết thay đổi rất nhiều theo bài toán: 30, 1.000, 10.000… nên luôn vẽ learning curve.</li>
+  <li><strong>Normal equation</strong>: chỉ dùng cho hồi quy tuyến tính; giải \(w, b\) không cần lặp; nhược điểm là không tổng quát cho thuật toán khác và chậm khi số đặc trưng lớn (&gt; 10.000).</li>
+  <li><strong>Feature engineering</strong>: dùng trực giác để thiết kế đặc trưng mới bằng cách <em>biến đổi</em> hoặc <em>kết hợp</em> đặc trưng gốc.</li>
+</ul>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1181ff87df82807085e4e0a26db7d470" target="_blank" rel="noopener">Regression and Classification</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Chuẩn hoá z-score giúp gradient descent hội tụ nhanh hơn nhiều; luôn dùng μ, σ của tập train.</li>

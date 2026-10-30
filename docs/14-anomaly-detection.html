@@ -89,6 +89,25 @@
   <li><a data-nb="c3_w3_prac/Files/home/jovyan/work/C3_W1_Anomaly_Detection.ipynb">C3 Practice Lab — Anomaly Detection</a> (graded: <code>estimate_gaussian</code>, <code>select_threshold</code>)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Biến đặc trưng non-Gaussian thành Gaussian</span>
+<p>Ví dụ đặc trưng trong thực tế:</p>
+<ul>
+  <li><strong>Giao dịch tài chính</strong>: tần suất giao dịch giờ cao điểm thường gần chuẩn; số tiền giao dịch lệch phải nên dùng log; khoảng cách giữa các giao dịch có đuôi dài nên dùng Box-Cox.</li>
+  <li><strong>Lưu lượng mạng</strong>: tốc độ truyền trung bình gần chuẩn; số kết nối mỗi giây có nhiều đỉnh (multimodal), cần phương pháp phi tuyến hoặc mô hình khác.</li>
+</ul>
+<pre><code class="language-python">import numpy as np
+from scipy.stats import boxcox, rankdata, norm
+from sklearn.preprocessing import PowerTransformer
+
+data_log  = np.log(data + 1)                 # log-transform
+data_sqrt = np.sqrt(data)                    # căn bậc hai
+data_boxcox, lambda_optimal = boxcox(data)   # Box-Cox (data &gt; 0)
+data_yj = PowerTransformer(method='yeo-johnson').fit_transform(data.reshape(-1, 1))
+ranks = rankdata(data)                       # rank → phân phối chuẩn
+data_rank_norm = norm.ppf((ranks - 0.5) / len(data))</code></pre>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1671ff87df828067b9a6cc218f59a824" target="_blank" rel="noopener">Anomaly detection</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Ước lượng \(\mu_j, \sigma_j^2\) cho mỗi đặc trưng; \(p(\mathbf{x}) = \prod_j p(x_j)\).</li>

@@ -131,6 +131,30 @@ model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.01),
   <li><a data-nb="c3_w2_prac1/Files/home/jovyan/work/C3_W2_RecSysNN_Assignment.ipynb">C3_W2 Practice Lab — Content-based Filtering với mạng nơ-ron</a> (graded: <code>user_NN</code>/<code>item_NN</code>, <code>sq_dist</code>)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Deep learning với embedding</span>
+<p>Một biến thể mình ghi lại: thay vì đặc trưng thủ công, mỗi user và mỗi phim có một vector <strong>embedding</strong> học được, ghép lại rồi đưa qua các lớp Dense để dự đoán rating.</p>
+<pre><code class="language-python">from tensorflow.keras.layers import Input, Embedding, Flatten, Dense, Concatenate
+
+num_users, num_movies, embedding_dim = 1000, 2000, 50
+
+user_input  = Input(shape=(1,))
+movie_input = Input(shape=(1,))
+user_vec  = Flatten()(Embedding(num_users,  embedding_dim)(user_input))
+movie_vec = Flatten()(Embedding(num_movies, embedding_dim)(movie_input))
+
+x = Concatenate()([user_vec, movie_vec])
+x = Dense(128, activation='relu')(x)
+x = Dense(64,  activation='relu')(x)
+x = Dense(32,  activation='relu')(x)
+output = Dense(1, activation='linear')(x)        # rating dự đoán
+
+model = keras.Model(inputs=[user_input, movie_input], outputs=output)
+model.compile(loss='mse', optimizer='adam')
+model.fit([user_ids, movie_ids], ratings, epochs=10, batch_size=32, validation_split=0.2)</code></pre>
+<p>Các chủ đề khác trong ghi chú: nhãn nhị phân (thích/không, click/không), mean normalization, custom training loop với <code>GradientTape</code>, tìm phim liên quan và gợi ý cho danh mục lớn (retrieval rồi ranking).</p>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/1841ff87df8280dcbfcfcfd27cede158" target="_blank" rel="noopener">Recommendation system</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Collaborative filtering học đồng thời đặc trưng phim \(\mathbf{x}\) và tham số người dùng \(\mathbf{w}, b\), chỉ tính lỗi trên ô có \(r(i,j)=1\).</li>

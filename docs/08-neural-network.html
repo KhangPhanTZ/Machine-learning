@@ -114,6 +114,31 @@ def my_sequential(x, W1, b1, W2, b2, W3, b3):
   <li><a data-nb="c2_w1_prac/Files/home/jovyan/work/C2_W1_Assignment.ipynb">C2_W1 Practice Lab — Handwritten Digit Recognition, Binary</a> (graded: Sequential model, <code>my_dense</code>, <code>my_dense_v</code>)</li>
 </ul></div>
 
+<h2>Từ ghi chú Notion</h2>
+<div class="box notion"><span class="box-title">📝 Ghi chú của mình</span>
+<ul>
+  <li><strong>Inference</strong> = đưa ra dự đoán, tức là forward propagation.</li>
+  <li>Số nơ-ron ở các lớp ẩn thường <strong>giảm dần</strong> khi càng gần lớp đầu ra (ví dụ 25 → 15 → 1).</li>
+  <li>Quy ước: chữ <strong>in hoa</strong> (W, X, A) là ma trận; chữ <strong>thường</strong> (w, x, a, b) là vector hoặc số.</li>
+  <li>TensorFlow lưu dữ liệu dạng ma trận 2 chiều: <code>x = np.array([[200.0, 17.0]])</code> có shape <code>(1, 2)</code>; kết quả là <code>tf.Tensor</code> kiểu <code>float32</code>, đổi về NumPy bằng <code>.numpy()</code>.</li>
+</ul>
+<p>Inference bằng tay cho bài rang cà phê (200°C, 17 phút):</p>
+<pre><code class="language-python">x = np.array([[200.0, 17.0]])
+layer_1 = Dense(units=3, activation='sigmoid')
+a1 = layer_1(x)
+layer_2 = Dense(units=1, activation='sigmoid')
+a2 = layer_2(a1)
+yhat = 1 if a2 &gt;= 0.5 else 0</code></pre>
+<p>Kết quả mình ghi lại sau khi huấn luyện (dùng bộ trọng số mẫu của lab):</p>
+<pre><code class="language-plaintext">X_test = [[200, 13.9],   # ví dụ dương
+          [200, 17  ]]   # ví dụ âm
+predictions = [[9.63e-01],
+               [3.03e-08]]
+decisions   = [[1],
+               [0]]
+Số tham số: layer1 = 2*3 + 3 = 9, layer2 = 3*1 + 1 = 4, tổng 13</code></pre>
+<p class="notion-src">Nguồn Notion: <a href="https://app.notion.com/p/12f1ff87df8280478dd4c269d82d77bf" target="_blank" rel="noopener">Advance Learning Algorithm</a></p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Một nơ-ron = \(g(\mathbf{w}\cdot\mathbf{a}+b)\); một lớp = nhiều nơ-ron; mạng = nhiều lớp nối tiếp.</li>
