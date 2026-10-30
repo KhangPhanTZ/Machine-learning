@@ -120,6 +120,27 @@ proba = lr_model.predict_proba(X)[:, 1]   # xác suất lớp 1</code></pre>
   <li><a data-nb="c1_w3_prac/home/jovyan/work/C1_W3_Logistic_Regression.ipynb">C1_W3 Practice Lab — Logistic Regression</a> (graded: <code>sigmoid</code>, <code>compute_cost</code>, <code>compute_gradient</code>, <code>predict</code>, bản regularized)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Lab01 — vì sao không dùng hồi quy tuyến tính.</strong> Thêm một khối u rất lớn vào dữ liệu: đường thẳng nghiêng đi và ngưỡng 0.5 phân loại sai các điểm cũ.</li>
+  <li><strong>Lab02 — sigmoid.</strong> <code>g = 1/(1+np.exp(-z))</code>; in bảng \(z\) từ −10 đến 10 để thấy \(g\) đi từ ≈0 đến ≈1 và bằng 0.5 tại \(z = 0\).</li>
+  <li><strong>Lab03 — ranh giới quyết định.</strong> Với \(w = [1, 1], b = -3\), mô hình dự đoán 1 khi \(x_0 + x_1 \ge 3\); lab tô vùng đó trên đồ thị (code trong ghi chú Notion).</li>
+  <li><strong>Lab04 — so hai hàm mất mát.</strong> Sai số bình phương + sigmoid cho mặt chi phí gồ ghề; log loss cho mặt lồi trơn.</li>
+  <li><strong>Lab05 — tính chi phí.</strong> Trên 6 điểm của lab, \(w = [1, 1], b = -3\) cho \(J = 0.367\); đổi sang \(b = -4\) thì \(J = 0.504\): ranh giới tệ hơn nên chi phí cao hơn.</li>
+  <li><strong>Lab06 — gradient descent.</strong> \(\alpha = 0.1\), 10.000 vòng, từ \(w = [0, 0], b = 0\) tới \(w = [5.28, 5.08], b = -14.22\).</li>
+  <li><strong>Lab07 — scikit-learn.</strong> <code>LogisticRegression().fit(X, y)</code>, độ chính xác trên tập train là 1.0.</li>
+  <li><strong>Practice Lab.</strong> Nạp điểm hai kỳ thi → viết <code>sigmoid</code> → <code>compute_cost</code> (bằng 0.693 khi \(w = b = 0\), đúng bằng \(\ln 2\)) → <code>compute_gradient</code> → huấn luyện 10.000 vòng → <code>predict</code> → độ chính xác train <strong>92%</strong>.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: dự đoán khách hàng rời bỏ (churn)</span>
+<p>Một nhà mạng muốn biết thuê bao nào sắp chuyển mạng. Đặc trưng: số tháng sử dụng, số lần gọi tổng đài tháng này, cước trung bình, có dùng gói data không. Nhãn: đã rời đi trong 30 ngày (1) hay không (0).</p>
+<ul>
+  <li>Đầu ra \(f\) là <em>xác suất</em> rời bỏ, nên có thể xếp hạng khách từ nguy cơ cao xuống thấp.</li>
+  <li>Ngưỡng phụ thuộc chi phí: nếu gọi điện giữ chân rẻ mà mất khách đắt, hạ ngưỡng xuống 0.3 để bắt được nhiều người hơn.</li>
+  <li>Trọng số dễ đọc: \(w_{\text{gọi tổng đài}} \gt 0\) nghĩa là càng phàn nàn nhiều càng dễ rời đi.</li>
+</ul>
+<pre><code class="language-python">proba = model.predict_proba(X_customers)[:, 1]
+call_list = customers[proba &gt;= 0.3].sort_values("monthly_fee", ascending=False)</code></pre></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Vẽ ranh giới quyết định x₀ + x₁ = 3</span>
 <p>Đoạn code mình ghi lại từ lab Decision Boundary, tô vùng dự đoán \(y = 0\) bên dưới đường thẳng:</p>

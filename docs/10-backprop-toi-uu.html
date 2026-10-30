@@ -122,6 +122,22 @@ $$</div>
   <li><a data-nb="c2_w2_optional/Files/home/jovyan/work/C2_W2_Backprop.ipynb">C2_W2 Optional — Back propagation using a computation graph</a></li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Lab Derivatives — tính bằng số.</strong> \(J = w^2\) tại \(w = 3\); tăng \(w\) thêm \(\varepsilon = 0.001\) thì \(J\) tăng ≈ 6.001ε, nên \(\partial J/\partial w \approx 6\).</li>
+  <li><strong>Tính bằng ký hiệu với SymPy.</strong> <code>diff(w**2, w)</code> trả về <code>2*w</code>; lặp lại với \(2w\), \(w^3\), \(1/w\), \(1/w^2\) và so với kết quả số.</li>
+  <li><strong>Lab Backprop — đồ thị nhỏ.</strong> \(J = (2 + 3w)^2\) tại \(w = 3\): \(a = 11\), \(J = 121\). Đi ngược: \(\partial J/\partial a = 22\), \(\partial a/\partial w = 3\), nhân lại được 66.</li>
+  <li><strong>Mạng một nơ-ron.</strong> Với \(x = 2, w = -2, b = 8, y = 1\): forward ra \(c = -4, a = 4, d = 3, J = 4.5\). Backward ra \(\partial J/\partial b = 3\), \(\partial J/\partial w = 6\).</li>
+  <li><strong>Điền ô tương tác.</strong> Lab có đồ thị cho điền giá trị vào ô: xanh lam cho forward (trái sang phải), xanh lá cho backward (phải sang trái).</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: autodiff trong các framework</span>
+<p>Không ai tự viết backprop cho mô hình thật. Khi huấn luyện một mô hình ngôn ngữ hàng tỉ tham số, PyTorch/TensorFlow ghi lại đồ thị tính toán ở lượt forward, rồi một lệnh <code>loss.backward()</code> (hoặc <code>tape.gradient</code>) tính toàn bộ đạo hàm. Kỹ năng lab này dạy vẫn rất hữu ích khi gỡ lỗi: nếu tự viết một lớp mới, hãy so gradient tự động với sai phân số như chương 3 để chắc chắn đúng.</p>
+<pre><code class="language-python">import torch
+w = torch.tensor(3.0, requires_grad=True)
+J = (2 + 3 * w) ** 2
+J.backward()
+print(w.grad)          # tensor(66.)</code></pre></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>Backprop = quy tắc chuỗi áp dụng có hệ thống trên đồ thị tính toán, từ đầu ra về đầu vào.</li>

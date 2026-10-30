@@ -257,3 +257,17 @@ details.quiz > :last-child { margin-bottom: 4px; }
 .box.notion table { font-size: 14.5px; }
 .notion-src { font-family: var(--font-ui); font-size: 13px; color: var(--ink-faint); margin: 10px 0 0 !important; }
 .notion-src a { color: var(--ink-soft); }
+
+/* ---------- Từng bước qua lab & ví dụ thực tiễn ---------- */
+ol.steps { list-style: none; counter-reset: step; padding-left: 0; margin: 1.2em 0 1.6em; }
+ol.steps > li { counter-increment: step; position: relative; padding: 2px 0 14px 46px; margin: 0; border-left: 2px solid var(--rule); margin-left: 15px; padding-left: 30px; }
+ol.steps > li:last-child { border-left-color: transparent; }
+ol.steps > li::before {
+  content: counter(step); position: absolute; left: -16px; top: 0;
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--bg); font-family: var(--font-ui); font-size: 14px; font-weight: 700;
+}
+ol.steps pre { margin: .6em 0 0; }
+.box.real { background: var(--bg-elev); border-color: var(--rule); border-top: 3px solid var(--warn); box-shadow: var(--shadow); }
+.box.real .box-title { color: var(--warn); }
+.box.real table, .box.real pre { margin: .8em 0; }

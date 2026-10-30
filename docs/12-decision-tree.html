@@ -146,6 +146,31 @@ xgb.fit(X_train, y_train, eval_set=[(X_val, y_val)])</code></pre>
   <li><a data-nb="c2_w4_prac/Files/home/jovyan/work/C2_W4_Decision_Tree_with_Markdown.ipynb">C2_W4 Practice Lab — Decision Trees</a> (graded: <code>compute_entropy</code>, <code>split_dataset</code>, <code>compute_information_gain</code>, <code>get_best_split</code>)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Đọc dữ liệu:</strong> <code>X_train</code> shape (10, 3) (đã one-hot), <code>y_train</code> shape (10,), có 5 nấm ăn được và 5 nấm độc.</li>
+  <li><strong>Entropy tại gốc:</strong> \(p_1 = 0.5\) nên <code>compute_entropy(y_train) = 1.0</code>.</li>
+  <li><strong>Chia thử:</strong> <code>split_dataset(X_train, root_indices, feature=0)</code> tách theo “mũ nâu” thành nhánh trái/phải.</li>
+  <li><strong>Information gain từng đặc trưng tại gốc:</strong> mũ nâu 0.035, thân thon 0.125, đơn độc <strong>0.278</strong>.</li>
+  <li><strong><code>get_best_split</code></strong> chọn đặc trưng 2 (đơn độc).</li>
+  <li><strong>Xây cây đệ quy</strong> với <code>build_tree_recursive(..., max_depth=2)</code>: in ra cách chia ở từng tầng và các nút lá.</li>
+  <li><strong>Lab tuỳ chọn (ví dụ mèo)</strong> dùng các hàm <code>entropy</code>, <code>split_indices</code>, <code>weighted_entropy</code>, <code>information_gain</code> trong ghi chú Notion.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: duyệt vay tiêu dùng và dữ liệu dạng bảng</span>
+<p>Một cây quyết định nông là bộ quy tắc mà nhân viên tín dụng đọc hiểu được:</p>
+<pre><code class="language-plaintext">Thu nhập ≥ 15 triệu/tháng?
+├─ Có → Nợ quá hạn trong 12 tháng?
+│        ├─ Có → TỪ CHỐI
+│        └─ Không → DUYỆT
+└─ Không → Có người bảo lãnh?
+         ├─ Có → DUYỆT hạn mức thấp
+         └─ Không → TỪ CHỐI</code></pre>
+<p>Khi cần độ chính xác cao hơn (dự đoán khả năng trả nợ, churn, giá xe cũ…), các đội dữ liệu gần như luôn thử XGBoost/LightGBM trước mạng nơ-ron, vì dữ liệu dạng bảng là sở trường của ensemble cây, không cần chuẩn hoá và huấn luyện trong vài giây.</p>
+<pre><code class="language-python">from xgboost import XGBClassifier
+model = XGBClassifier(n_estimators=300, max_depth=4, learning_rate=0.05, subsample=0.8)
+model.fit(X_train, y_train, eval_set=[(X_cv, y_cv)], verbose=False)
+importance = sorted(zip(model.feature_importances_, feature_names), reverse=True)[:5]</code></pre></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Cấu trúc, ưu và nhược điểm của cây quyết định</span>
 <ul>

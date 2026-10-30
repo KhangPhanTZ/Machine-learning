@@ -129,6 +129,29 @@ print(abs(num - ana))   # nên rất nhỏ, cỡ 1e-7</code></pre>
   <li><a data-nb="c1_w2_prac/home/jovyan/work/C1_W2_Linear_Regression.ipynb">C1_W2 Practice Lab</a> — kết quả: \(w \approx 1.166\), \(b \approx -3.63\); dự đoán lợi nhuận cho thành phố 35.000 dân ≈ 4.519$, 70.000 dân ≈ 45.342$.</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Viết <code>compute_gradient</code>.</strong> Với mỗi ví dụ tính sai số \(f - y\); cộng dồn sai số (cho \(b\)) và sai số × \(x\) (cho \(w\)); cuối cùng chia cho \(m\).</li>
+  <li><strong>Nhìn độ dốc.</strong> <code>plt_gradients</code> vẽ tiếp tuyến của \(J\) tại nhiều điểm: bên trái cực tiểu dốc âm, bên phải dốc dương.</li>
+  <li><strong>Viết vòng lặp <code>gradient_descent</code>.</strong> Mỗi vòng: tính gradient → cập nhật đồng thời \(w, b\) → lưu \(J\) vào <code>J_history</code> → in mỗi 10% số vòng.</li>
+  <li><strong>Chạy với</strong> \(w = b = 0\), \(\alpha = 0.01\), 10.000 vòng. Kết quả \((w, b) \approx (199.99, 100.01)\).</li>
+  <li><strong>Vẽ chi phí theo số vòng.</strong> Lab vẽ hai đồ thị: 100 vòng đầu (giảm rất nhanh) và phần cuối (giảm rất chậm), vì bước càng nhỏ dần khi gần cực tiểu.</li>
+  <li><strong>Dự đoán:</strong> 1000 sqft → 300 nghìn đô, 1200 sqft → 340, 2000 sqft → 500.</li>
+  <li><strong>Thử α quá lớn</strong> (\(\alpha = 0.8\)): \(w, b\) nhảy qua lại và \(J\) tăng vọt, đúng như hình trong chương.</li>
+  <li><strong>Practice Lab:</strong> lặp lại toàn bộ với dữ liệu dân số → lợi nhuận nhà hàng, thu được \(w = 1.1664\), \(b = -3.6303\).</li>
+</ol>
+<div class="box note"><span class="box-title">🔢 Tự tính 3 bước đầu bằng tay</span>
+<p>Dữ liệu \(x = [1, 2]\), \(y = [300, 500]\), bắt đầu \(w = b = 0\), \(\alpha = 0.1\):</p>
+<table>
+  <tr><th>Vòng</th><th>\(\partial J/\partial w\)</th><th>\(\partial J/\partial b\)</th><th>\(w\) mới</th><th>\(b\) mới</th><th>\(J\)</th></tr>
+  <tr><td>1</td><td>−650</td><td>−400</td><td>65.0</td><td>40.0</td><td>36 731</td></tr>
+  <tr><td>2</td><td>−427.5</td><td>−262.5</td><td>107.75</td><td>66.25</td><td>15 877</td></tr>
+  <tr><td>3</td><td>−281.25</td><td>−172.13</td><td>135.88</td><td>83.46</td><td>6 868</td></tr>
+</table>
+<p>Ví dụ vòng 1: dự đoán bằng 0 nên sai số là −300 và −500. \(\partial J/\partial w = \frac{(-300)(1) + (-500)(2)}{2} = -650\), nên \(w := 0 - 0.1 \times (-650) = 65\). Chi phí giảm mạnh ở mỗi vòng, và gradient nhỏ dần khi tới gần \((200, 100)\).</p></div>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: huấn luyện trên dữ liệu thật</span>
+<p>Một công ty giao hàng muốn dự đoán thời gian giao theo quãng đường, với 5 triệu đơn mỗi tháng. Batch gradient descent phải đọc cả 5 triệu dòng cho <em>mỗi</em> bước cập nhật. Thực tế người ta dùng <strong>mini-batch</strong> (ví dụ 512 đơn mỗi bước), theo dõi đường cong chi phí trên một dashboard, và giảm α khi chi phí đi ngang. Đó cũng là cách TensorFlow huấn luyện ở chương 8 (<code>batch_size=32</code> mặc định).</p></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Ghi chú của mình</span>
 <ul>

@@ -111,6 +111,32 @@ X_recovered = km.cluster_centers_[km.labels_]</code></pre></div>
   <li><a data-nb="c3_w1_prac1/home/jovyan/work/C3_W1_KMeans_Assignment.ipynb">C3_W1 Practice Lab — K-means Clustering</a> (graded: <code>find_closest_centroids</code>, <code>compute_centroids</code>)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Viết <code>find_closest_centroids</code>.</strong> Với 3 tâm ban đầu <code>[[3,3],[6,2],[8,5]]</code>, ba điểm đầu tiên được gán vào cụm <code>[0, 2, 1]</code>.</li>
+  <li><strong>Viết <code>compute_centroids</code>.</strong> Sau một lần gán, tâm mới là <code>[[2.428, 3.158], [5.814, 2.634], [7.119, 3.617]]</code>.</li>
+  <li><strong>Chạy <code>run_kMeans</code></strong> 10 vòng trên 300 điểm 2D; lab vẽ quỹ đạo các tâm (hình đầu chương).</li>
+  <li><strong>Khởi tạo ngẫu nhiên</strong> bằng <code>kMeans_init_centroids</code>: chọn K điểm dữ liệu sau khi xáo trộn. Chạy vài lần sẽ thấy kết quả có thể khác nhau.</li>
+  <li><strong>Nén ảnh:</strong> đọc <code>bird_small.png</code> (128×128×3) → <code>reshape</code> thành 16.384 × 3 → K = 16, 10 vòng.</li>
+  <li><strong>Tái tạo ảnh:</strong> <code>X_recovered = centroids[idx, :]</code> rồi <code>reshape</code> về 128×128×3; so ảnh gốc và ảnh 16 màu cạnh nhau.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: phân khúc khách hàng cho chuỗi cà phê</span>
+<p>Mỗi khách thành viên có 3 đặc trưng trong 90 ngày: số lần ghé, chi tiêu trung bình mỗi lần, tỉ lệ đơn mua qua app. Sau khi chuẩn hoá và chạy K-means với K = 4, đội marketing đặt tên cho từng tâm cụm:</p>
+<table>
+  <tr><th>Cụm</th><th>Đặc điểm của tâm</th><th>Hành động</th></tr>
+  <tr><td>“Khách quen buổi sáng”</td><td>ghé nhiều, chi ít mỗi lần</td><td>combo bữa sáng</td></tr>
+  <tr><td>“Nhóm văn phòng”</td><td>ít lần, đơn lớn, qua app</td><td>miễn phí giao hàng đơn nhóm</td></tr>
+  <tr><td>“Khách thỉnh thoảng”</td><td>ít lần, đơn nhỏ</td><td>voucher quay lại</td></tr>
+  <tr><td>“Khách mới”</td><td>1–2 lần</td><td>chương trình chào mừng</td></tr>
+</table>
+<p>K = 4 được chọn vì phòng marketing chạy được 4 chiến dịch song song, đúng tinh thần “chọn K theo mục đích sử dụng” của Andrew Ng; đồ thị elbow chỉ dùng để kiểm tra K = 4 không quá vô lý.</p>
+<pre><code class="language-python">from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+Z = StandardScaler().fit_transform(df[["visits", "avg_spend", "app_ratio"]])
+km = KMeans(n_clusters=4, n_init=20, random_state=0).fit(Z)
+df["segment"] = km.labels_
+df.groupby("segment")[["visits", "avg_spend", "app_ratio"]].mean()</code></pre></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Ví dụ tính tay: 6 điểm, K = 2</span>
 <p>Dữ liệu \(\{(1,1),(2,1),(4,3),(5,4),(3,2),(6,6)\}\), khởi tạo \(C_1 = (1,1)\), \(C_2 = (6,6)\).</p>

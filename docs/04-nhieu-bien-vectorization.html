@@ -120,6 +120,20 @@ def compute_gradient(X, y, w, b):
   <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab02_Multiple_Variable_Soln.ipynb">C1_W2_Lab02 — Multiple Variable Linear Regression</a></li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Lab01 — tạo vector.</strong> <code>np.zeros</code>, <code>np.arange</code>, <code>np.random.random_sample</code>, <code>np.array</code>; kiểm tra <code>a.shape</code> và <code>a.dtype</code>.</li>
+  <li><strong>Chỉ số và cắt.</strong> <code>a[2]</code>, <code>a[-1]</code>, <code>a[2:7:1]</code>, <code>a[3:]</code>; truy cập ngoài phạm vi sẽ báo <code>IndexError</code>.</li>
+  <li><strong>Phép toán trên vector.</strong> <code>-a</code>, <code>np.sum(a)</code>, <code>np.mean(a)</code>, <code>a**2</code>, <code>a + b</code> (cùng kích thước), <code>5 * a</code>.</li>
+  <li><strong>So tốc độ.</strong> Tích vô hướng của hai vector 10 triệu phần tử: bản <code>np.dot</code> trong lab của mình chạy khoảng 169 ms; bản vòng <code>for</code> chậm hơn rõ rệt (notebook của mình không lưu lại số đo của bản này).</li>
+  <li><strong>Lab02 — dữ liệu nhà 4 đặc trưng.</strong> <code>X_train</code> có shape (3, 4); <code>w_init</code> và <code>b_init</code> được cho sẵn gần nghiệm tối ưu.</li>
+  <li><strong>Dự đoán một ví dụ</strong> theo hai cách (vòng lặp từng phần tử và <code>np.dot</code>) để thấy kết quả giống nhau.</li>
+  <li><strong>Viết <code>compute_cost</code> và <code>compute_gradient</code></strong> cho nhiều biến (vòng lặp ngoài qua ví dụ, vòng trong qua đặc trưng).</li>
+  <li><strong>Chạy gradient descent</strong> 1000 vòng với \(\alpha = 5\times10^{-7}\). Kết quả dự đoán: 426.19 (thật 460), 286.17 (thật 232), 171.47 (thật 178), vẫn lệch vì các đặc trưng chưa được chuẩn hoá.</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: định giá nhà nhiều đặc trưng</span>
+<p>Một mô hình định giá nhà thực tế dùng hàng chục đặc trưng: diện tích, số phòng ngủ, số tầng, tuổi nhà, khoảng cách tới trung tâm, mặt tiền hay trong hẻm… Mỗi đặc trưng có một trọng số \(w_j\) mang ý nghĩa đọc được, ví dụ \(w_{\text{khoảng cách}} \lt 0\): càng xa trung tâm càng rẻ. Với 1 triệu căn nhà và 50 đặc trưng, <code>X @ w</code> là phép nhân ma trận (1.000.000 × 50) · (50,) mà NumPy làm trong vài mili-giây; viết bằng hai vòng <code>for</code> lồng nhau sẽ mất nhiều phút.</p></div>
+
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>
   <li>\(f_{\mathbf{w},b}(\mathbf{x}) = \mathbf{w}\cdot\mathbf{x} + b\); cả tập: <code>X @ w + b</code>.</li>

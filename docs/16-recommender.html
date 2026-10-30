@@ -131,6 +131,33 @@ model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.01),
   <li><a data-nb="c3_w2_prac1/Files/home/jovyan/work/C3_W2_RecSysNN_Assignment.ipynb">C3_W2 Practice Lab — Content-based Filtering với mạng nơ-ron</a> (graded: <code>user_NN</code>/<code>item_NN</code>, <code>sq_dist</code>)</li>
 </ul></div>
 
+<h2>Đi từng bước qua lab</h2>
+<h3>Collaborative filtering</h3>
+<ol class="steps">
+  <li><strong>Nạp dữ liệu:</strong> \(\mathbf{Y}\) và \(\mathbf{R}\) shape (4778, 443); \(\mathbf{X}, \mathbf{W}, \mathbf{b}\) đã huấn luyện sẵn để kiểm tra hàm chi phí.</li>
+  <li><strong>Viết <code>cofi_cost_func</code></strong> (hai vòng lặp, chỉ cộng khi <code>R[i, j] == 1</code>). Trên bộ dữ liệu thu nhỏ (4 user, 5 phim, 3 đặc trưng): chi phí 13.67 khi λ = 0 và 28.09 khi λ = 1.5.</li>
+  <li><strong>Thêm điểm của chính mình</strong> vào <code>my_ratings</code> (ví dụ Toy Story 3 = 5, Shrek = 5…), rồi ghép vào \(\mathbf{Y}, \mathbf{R}\).</li>
+  <li><strong>Mean normalization</strong> bằng <code>normalizeRatings(Y, R)</code> → <code>Ynorm, Ymean</code>.</li>
+  <li><strong>Huấn luyện</strong> bằng vòng lặp tuỳ chỉnh với <code>GradientTape</code>, Adam (lr = 0.1), λ = 1, 200 vòng; chi phí in ra mỗi 20 vòng.</li>
+  <li><strong>Dự đoán</strong> \(\mathbf{X}\mathbf{W}^\top + \mathbf{b} + \mu\), sắp xếp và in 17 phim có điểm dự đoán cao nhất cho mình, cạnh điểm thật của những phim mình đã chấm.</li>
+</ol>
+<h3>Content-based filtering</h3>
+<ol class="steps">
+  <li><strong>Chuẩn bị dữ liệu:</strong> đặc trưng user (điểm trung bình theo thể loại), đặc trưng phim (năm, điểm trung bình, thể loại one-hot); chuẩn hoá bằng <code>StandardScaler</code>, nhãn đưa về [−1, 1] bằng <code>MinMaxScaler</code>.</li>
+  <li><strong>Chia 80/20</strong> bằng <code>train_test_split</code> với cùng <code>random_state</code> cho user, item và y để các dòng khớp nhau.</li>
+  <li><strong>Hai tháp</strong> 256 → 128 → 32, chuẩn hoá L2 đầu ra, ghép bằng <code>Dot</code>; huấn luyện 30 epoch với MSE.</li>
+  <li><strong>Dự đoán cho user mới</strong> chỉ từ sở thích thể loại khai báo, và cho user cũ đã có trong dữ liệu.</li>
+  <li><strong>Tìm phim tương tự:</strong> tính \(\mathbf{v}_m\) cho mọi phim, ma trận khoảng cách bằng <code>sq_dist</code>, lấy phim gần nhất (bỏ chính nó).</li>
+</ol>
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: gợi ý sản phẩm trên sàn thương mại điện tử</span>
+<p>Một sàn có 10 triệu người dùng và 5 triệu sản phẩm. Họ kết hợp cả hai kỹ thuật trong chương:</p>
+<ol>
+  <li><strong>Retrieval:</strong> tháp sản phẩm tính sẵn \(\mathbf{v}_m\) cho mọi sản phẩm mỗi đêm; khi user mở app, tháp user tính \(\mathbf{v}_u\) và một chỉ mục vector (ANN) lấy ra ~500 sản phẩm gần nhất trong vài mili-giây.</li>
+  <li><strong>Ranking:</strong> một mô hình nặng hơn (thêm giá, khuyến mãi, lịch sử click gần đây) xếp hạng 500 ứng viên đó.</li>
+  <li><strong>Cold start:</strong> sản phẩm mới chưa có lượt mua vẫn có \(\mathbf{v}_m\) nhờ đặc trưng nội dung (danh mục, mô tả, ảnh), nên vẫn được gợi ý ngay ngày đầu.</li>
+</ol>
+<p>Nhãn thường là phản hồi ngầm (click, thêm vào giỏ, mua) thay vì điểm sao, nên bài toán trở thành phân loại nhị phân như ghi chú Notion “Binary label”.</p></div>
+
 <h2>Từ ghi chú Notion</h2>
 <div class="box notion"><span class="box-title">📝 Deep learning với embedding</span>
 <p>Một biến thể mình ghi lại: thay vì đặc trưng thủ công, mỗi user và mỗi phim có một vector <strong>embedding</strong> học được, ghép lại rồi đưa qua các lớp Dense để dự đoán rating.</p>
