@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sổ tay Machine Learning</title>
-<meta name="description" content="Sách Machine Learning tiếng Việt, xây dựng từ các bài lab khoá Machine Learning Specialization (Andrew Ng) — có công thức, code lab và demo tương tác.">
+<title>Sổ tay Machine Learning &amp; Deep Learning</title>
+<meta name="description" content="Sách Machine Learning &amp; Deep Learning tiếng Việt cho người mới, xây dựng từ các bài lab khoá Machine Learning Specialization (Andrew Ng) và PyTorch for Deep Learning — có công thức, code lab, demo tương tác và hướng dẫn áp dụng theo lĩnh vực.">
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/book.js"></script>
 </head>
@@ -12,21 +12,24 @@
 <article>
   <section class="cover">
     <div class="eyebrow">Sách điện tử · Tiếng Việt</div>
-    <h1>Sổ tay Machine Learning</h1>
-    <p class="lede">Từ hồi quy tuyến tính tới Deep Q-Learning. Cuốn sách này được viết lại từ chính các bài lab của mình trong khoá <em>Machine Learning Specialization</em> (Andrew Ng, Stanford &amp; DeepLearning.AI), bổ sung giải thích, công thức, phần đi từng bước qua từng lab, ví dụ thực tiễn và ghi chú Notion của mình.</p>
+    <h1>Sổ tay Machine Learning &amp; Deep Learning</h1>
+    <p class="lede">Từ hồi quy tuyến tính tới Deep Q-Learning, rồi sang Deep Learning với PyTorch: tensor, mạng nhiều lớp, phân loại ảnh, CNN, Transformer. Cuốn sách được viết lại từ chính các bài lab của mình trong khoá <em>Machine Learning Specialization</em> (Andrew Ng, Stanford &amp; DeepLearning.AI) và khoá <em>PyTorch for Deep Learning</em>, giải thích cho người mới bắt đầu, có phần đi từng bước qua từng lab, ví dụ thực tiễn và một chương riêng hướng dẫn áp dụng vào từng lĩnh vực: y tế, tài chính, bán lẻ, sản xuất, nông nghiệp, logistics…</p>
     <div class="cta">
       <a class="primary" href="00-loi-mo-dau.html">Bắt đầu đọc →</a>
       <a href="#" data-resume hidden>Đọc tiếp</a>
+      <a href="18-deep-learning-la-gi.html">Phần IV · Deep Learning</a>
+      <a href="26-ap-dung-domain.html">Áp dụng theo lĩnh vực</a>
       <a href="A-cong-thuc.html">Bảng công thức</a>
-      <a href="https://github.com/KhangPhanTZ/Machine-learning" target="_blank" rel="noopener">Mã nguồn &amp; lab trên GitHub</a>
+      <a href="https://github.com/KhangPhanTZ/Machine-learning" target="_blank" rel="noopener">Lab ML trên GitHub</a>
+      <a href="https://github.com/KhangPhanTZ/pytorch-for-deep-learning" target="_blank" rel="noopener">Lab PyTorch trên GitHub</a>
     </div>
   </section>
 
   <div class="stats">
-    <div><b>18</b><span>chương + 3 phụ lục</span></div>
-    <div><b>40</b><span>notebook lab được tham chiếu</span></div>
-    <div><b>7</b><span>demo tương tác</span></div>
-    <div><b>3</b><span>khoá học: C1 · C2 · C3</span></div>
+    <div><b>27</b><span>chương + 3 phụ lục</span></div>
+    <div><b>46</b><span>notebook lab được tham chiếu</span></div>
+    <div><b>10</b><span>demo tương tác</span></div>
+    <div><b>4</b><span>khoá học: ML C1 · C2 · C3 + PyTorch</span></div>
   </div>
 
   <h2>Mục lục</h2>
@@ -52,9 +55,18 @@
     <span data-desc data-for="15-pca.html">Giảm chiều, phương sai, trực quan hoá dữ liệu nhiều chiều.</span>
     <span data-desc data-for="16-recommender.html">Collaborative filtering, content-based filtering với mạng hai tháp.</span>
     <span data-desc data-for="17-reinforcement-learning.html">Trạng thái, hành động, phần thưởng, phương trình Bellman, DQN Lunar Lander.</span>
+    <span data-desc data-for="18-deep-learning-la-gi.html">ML cổ điển hay Deep Learning? Bảng chọn theo loại dữ liệu, quy trình dự án, PyTorch vs Keras.</span>
+    <span data-desc data-for="19-tensor.html">Shape, batch, reshape, slicing, broadcasting — và cách tránh lỗi shape.</span>
+    <span data-desc data-for="20-pytorch-mang-dau-tien.html">Vòng lặp huấn luyện 5 bước, bài toán giao hàng, ReLU, chuẩn hoá — kèm demo.</span>
+    <span data-desc data-for="21-mang-sau-feature.html">Nhiều đặc trưng, đặc trưng giờ cao điểm, mạng 4-64-32-1.</span>
+    <span data-desc data-for="22-phan-loai-anh-mnist.html">Transforms, DataLoader, nn.Module, train/eval, GPU; 97.4% trên MNIST.</span>
+    <span data-desc data-for="23-data-pipeline.html">Dataset tự viết, mean/std, augmentation, chia train/val/test cho 30 loại cây.</span>
+    <span data-desc data-for="24-cnn-transfer-learning.html">Tích chập, pooling, CNN, mô hình pretrained, fine-tuning — kèm demo bộ lọc.</span>
+    <span data-desc data-for="25-chuoi-transformer.html">Embedding, LSTM, attention, Transformer, LLM, dự báo chuỗi thời gian.</span>
+    <span data-desc data-for="26-ap-dung-domain.html">Quy trình 7 bước, bản đồ bài toán cho 10 lĩnh vực, ví dụ churn trọn vẹn.</span>
     <span data-desc data-for="A-cong-thuc.html">Mọi công thức quan trọng trên một trang.</span>
     <span data-desc data-for="B-thuat-ngu.html">Tra cứu nhanh thuật ngữ ML Anh – Việt.</span>
-    <span data-desc data-for="C-lo-trinh.html">Đi tiếp đâu sau khoá học: deep learning, MLOps, LLM…</span>
+    <span data-desc data-for="C-lo-trinh.html">Đi tiếp đâu sau sách: toán, deep learning nâng cao, MLOps, LLM…</span>
   </template>
 </article>
 </body>

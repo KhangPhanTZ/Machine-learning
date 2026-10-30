@@ -1,6 +1,6 @@
 # Machine Learning Coursera (Stanford)
 
-> 📖 **Đọc sách: [Sổ tay Machine Learning](https://khangphantz.github.io/Machine-learning/)**: sách web tiếng Việt viết từ các bài lab trong repo này và ghi chú Notion, có giải thích từng bước cho từng lab, ví dụ thực tiễn và demo tương tác.
+> 📖 **Đọc sách: [Sổ tay Machine Learning & Deep Learning](https://khangphantz.github.io/Machine-learning/)**: sách web tiếng Việt cho người mới, viết từ các bài lab trong repo này, ghi chú Notion và các lab của repo [pytorch-for-deep-learning](https://github.com/KhangPhanTZ/pytorch-for-deep-learning). Sách có giải thích từng bước cho từng lab, ví dụ thực tiễn, demo tương tác và một chương hướng dẫn áp dụng ML/DL vào từng lĩnh vực.
 >
 > [![Đọc sách](https://img.shields.io/badge/%C4%90%E1%BB%8Dc%20s%C3%A1ch-S%E1%BB%95%20tay%20Machine%20Learning-1f6f78?style=for-the-badge)](https://khangphantz.github.io/Machine-learning/)
 
@@ -15,11 +15,12 @@ Khóa học này cung cấp nền tảng rộng lớn về Machine Learning, Dat
 - Các kỹ thuật đánh giá và tối ưu mô hình
 - Ứng dụng thực tế và case studies
 
-## 📖 Sổ tay Machine Learning (web dạng sách)
+## 📖 Sổ tay Machine Learning & Deep Learning (web dạng sách)
 
-Thư mục [`docs/`](docs/) chứa một cuốn sách web tiếng Việt được viết lại từ các bài lab trong repo:
-18 chương + 3 phụ lục, có công thức (KaTeX), code từ các bài graded, phần **“Đi từng bước qua lab”**
-và **“Ví dụ thực tiễn”** ở mỗi chương, 7 demo tương tác,
+Thư mục [`docs/`](docs/) chứa một cuốn sách web tiếng Việt được viết lại từ các bài lab trong repo này
+và repo [pytorch-for-deep-learning](https://github.com/KhangPhanTZ/pytorch-for-deep-learning):
+27 chương + 3 phụ lục, có công thức (KaTeX), code từ các bài graded, phần **“Đi từng bước qua lab”**
+và **“Ví dụ thực tiễn”** ở mỗi chương, 10 demo tương tác,
 chế độ sáng/tối, tìm chương, đánh dấu tiến độ đọc và giao diện cho điện thoại.
 Các chương còn có mục **“Từ ghi chú Notion”** tổng hợp phần chữ và code từ [ghi chú Notion của khoá học](https://app.notion.com/p/Machine-Learning-12f1ff87df828012b38fc41200db58a0).
 
@@ -29,6 +30,7 @@ Các chương còn có mục **“Từ ghi chú Notion”** tổng hợp phần 
 | I · Hồi quy & Phân loại (C1) | 2. Hồi quy tuyến tính · 3. Gradient Descent · 4. Nhiều biến & vectorization · 5. Feature scaling & engineering · 6. Logistic Regression · 7. Overfitting & Regularization |
 | II · Thuật toán nâng cao (C2) | 8. Mạng nơ-ron · 9. Activation & Softmax · 10. Backprop & Adam · 11. Đánh giá mô hình · 12. Cây quyết định & ensemble |
 | III · Không giám sát, gợi ý, RL (C3) | 13. K-means · 14. Phát hiện bất thường · 15. PCA · 16. Hệ gợi ý · 17. Deep Q-Learning |
+| IV · Deep Learning với PyTorch | 18. Deep Learning là gì & khi nào nên dùng · 19. Tensor · 20. Mạng nơ-ron đầu tiên với PyTorch · 21. Mạng nhiều lớp & feature engineering · 22. Phân loại ảnh MNIST · 23. Data pipeline · 24. CNN & transfer learning · 25. Văn bản, chuỗi thời gian & Transformer · 26. Áp dụng ML & DL vào từng lĩnh vực |
 | Phụ lục | A. Bảng công thức · B. Thuật ngữ Anh–Việt · C. Lộ trình học tiếp |
 
 **Đọc trên máy:** mở `docs/index.html` bằng trình duyệt, hoặc chạy

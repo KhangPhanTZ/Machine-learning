@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>18. Deep Learning là gì · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 18 · Mở đầu Phần IV</div>
+  <h1>Deep Learning là gì &amp; khi nào nên dùng</h1>
+  <p class="lede">Phần I–III đã dạy bạn Machine Learning “cổ điển” và những mạng nơ-ron đầu tiên. Phần IV đi sâu vào Deep Learning bằng PyTorch, viết cho người mới, và kết thúc bằng cách áp dụng vào từng lĩnh vực cụ thể.</p>
+  <div class="meta"><span>⏱ 20 phút đọc</span><span>🧪 Khoá PyTorch for Deep Learning (C1)</span><span>🎛 có công cụ chọn phương pháp</span></div>
+</header>
+
+<h2>Giải thích bằng một câu chuyện</h2>
+<p>Hãy tưởng tượng bạn dạy một người mới vào nghề phân loại xoài: loại 1, loại 2, hàng hỏng.</p>
+<ul>
+  <li><strong>Cách lập trình truyền thống</strong>: bạn viết sẵn luật, kiểu “vỏ có trên 3 đốm đen thì là hàng hỏng”. Luật nào bạn không nghĩ ra thì máy cũng chịu.</li>
+  <li><strong>Machine Learning cổ điển</strong> (chương 2–17): bạn tự đo vài <em>đặc trưng</em> như cân nặng, độ dài, số đốm, độ vàng, rồi đưa bảng số cho mô hình (hồi quy logistic, cây quyết định…) để <em>nó tự tìm luật</em>. Chất lượng phụ thuộc rất nhiều vào chuyện bạn chọn đặc trưng có tốt không.</li>
+  <li><strong>Deep Learning</strong>: bạn đưa thẳng <em>ảnh chụp</em> quả xoài. Mạng nơ-ron nhiều lớp tự học các đặc trưng: lớp đầu nhận ra cạnh và màu, lớp giữa nhận ra đốm và vết dập, lớp sau ghép lại thành “quả này hỏng”. Bạn không còn phải tự thiết kế đặc trưng nữa.</li>
+</ul>
+<div class="box note"><span class="box-title">💡 Định nghĩa ngắn</span>
+<p><strong>Deep Learning</strong> (học sâu) là nhánh của Machine Learning dùng <strong>mạng nơ-ron nhiều lớp</strong>. Mạng tự học cách biểu diễn dữ liệu thô (pixel, chữ, âm thanh, tín hiệu) thành những đặc trưng ngày càng trừu tượng. “Sâu” chỉ có nghĩa là có nhiều lớp.</p></div>
+
+<div class="diagram"><svg viewBox="0 0 720 210" role="img" aria-label="AI chứa Machine Learning, Machine Learning chứa Deep Learning" style="width:100%;max-width:720px;display:block;margin:1.2em auto">
+  <rect x="10" y="10" width="700" height="190" rx="18" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+  <text x="30" y="40" fill="currentColor" font-size="15" font-weight="700">Trí tuệ nhân tạo (AI)</text>
+  <text x="30" y="60" fill="currentColor" font-size="12" opacity=".7">máy làm việc “thông minh”: luật if-else, tìm kiếm, ML…</text>
+  <rect x="190" y="75" width="505" height="115" rx="14" fill="none" stroke="#2a9d8f" stroke-width="2"/>
+  <text x="208" y="100" fill="#2a9d8f" font-size="15" font-weight="700">Machine Learning (ch. 1–17)</text>
+  <text x="208" y="118" fill="currentColor" font-size="12" opacity=".7">học luật từ dữ liệu: hồi quy, cây, K-means…</text>
+  <rect x="420" y="125" width="260" height="55" rx="12" fill="#e76f51" fill-opacity=".12" stroke="#e76f51" stroke-width="2"/>
+  <text x="436" y="150" fill="#e76f51" font-size="15" font-weight="700">Deep Learning (ch. 8–10, 18–26)</text>
+  <text x="436" y="168" fill="currentColor" font-size="12" opacity=".7">mạng nơ-ron nhiều lớp</text>
+</svg></div>
+
+<h2>Vì sao bây giờ ai cũng nói về Deep Learning?</h2>
+<p>Ý tưởng mạng nơ-ron có từ thập niên 1950–1980, nhưng chỉ bùng nổ sau khoảng năm 2012 nhờ ba thứ đến cùng lúc:</p>
+<ol>
+  <li><strong>Dữ liệu lớn</strong>: điện thoại, camera, mạng xã hội, cảm biến tạo ra hàng tỷ ảnh, câu chữ, bản ghi.</li>
+  <li><strong>GPU</strong>: card đồ hoạ nhân ma trận song song nhanh gấp hàng chục, hàng trăm lần CPU. Mạng nơ-ron gần như chỉ toàn nhân ma trận (chương 4, 8).</li>
+  <li><strong>Framework</strong>: PyTorch, TensorFlow tự tính đạo hàm (autograd), nên bạn không phải viết backprop bằng tay (chương 10).</li>
+</ol>
+<p>Andrew Ng hay vẽ một biểu đồ: khi dữ liệu ít, ML cổ điển và mạng nơ-ron ngang ngửa nhau. Khi dữ liệu càng nhiều, mạng càng lớn thì hiệu năng càng tăng, còn ML cổ điển chững lại sớm.</p>
+<div class="diagram"><svg viewBox="0 0 640 260" role="img" aria-label="Hiệu năng theo lượng dữ liệu: mạng lớn tiếp tục tăng, ML cổ điển chững lại" style="width:100%;max-width:640px;display:block;margin:1em auto">
+  <line x1="60" y1="220" x2="620" y2="220" stroke="currentColor" stroke-opacity=".5"/>
+  <line x1="60" y1="220" x2="60" y2="20" stroke="currentColor" stroke-opacity=".5"/>
+  <text x="620" y="245" text-anchor="end" fill="currentColor" font-size="12">lượng dữ liệu →</text>
+  <text x="20" y="30" fill="currentColor" font-size="12" transform="rotate(-90 20 120)">hiệu năng →</text>
+  <path d="M60 200 C 160 120, 240 120, 620 115" fill="none" stroke="#457b9d" stroke-width="2.5"/>
+  <path d="M60 205 C 180 130, 300 95, 620 80" fill="none" stroke="#e9c46a" stroke-width="2.5"/>
+  <path d="M60 210 C 200 140, 340 70, 620 35" fill="none" stroke="#e76f51" stroke-width="3"/>
+  <text x="615" y="132" text-anchor="end" fill="#457b9d" font-size="12">ML cổ điển (hồi quy, cây…)</text>
+  <text x="615" y="97" text-anchor="end" fill="#b8932a" font-size="12">mạng nơ-ron nhỏ</text>
+  <text x="615" y="28" text-anchor="end" fill="#e76f51" font-size="12" font-weight="700">mạng nơ-ron lớn (deep learning)</text>
+</svg></div>
+
+<h2>ML cổ điển hay Deep Learning? Bảng chọn nhanh</h2>
+<p>Đây là câu hỏi quan trọng nhất khi áp dụng vào thực tế. Câu trả lời phụ thuộc chủ yếu vào <strong>loại dữ liệu</strong> bạn có.</p>
+<table>
+  <tr><th>Loại dữ liệu</th><th>Ví dụ</th><th>Nên bắt đầu bằng</th><th>Chương</th></tr>
+  <tr><td><strong>Bảng</strong> (cột số, cột phân loại)</td><td>hồ sơ vay vốn, đơn hàng, chỉ số máy</td><td>Cây quyết định / XGBoost; mạng nơ-ron chỉ khi rất nhiều dữ liệu</td><td>5, 11, 12, 21</td></tr>
+  <tr><td><strong>Ảnh</strong></td><td>X-quang, lá cây bị bệnh, lỗi bề mặt sản phẩm</td><td>CNN + transfer learning</td><td>22–24</td></tr>
+  <tr><td><strong>Văn bản</strong></td><td>tin nhắn khách hàng, hợp đồng, review</td><td>Mô hình ngôn ngữ đã huấn luyện sẵn (Transformer)</td><td>25</td></tr>
+  <tr><td><strong>Chuỗi thời gian</strong></td><td>doanh số theo ngày, điện năng, cảm biến rung</td><td>Đặc trưng trễ + XGBoost; LSTM/Transformer khi chuỗi dài, nhiều</td><td>12, 25</td></tr>
+  <tr><td><strong>Âm thanh</strong></td><td>cuộc gọi tổng đài, tiếng máy kêu bất thường</td><td>Đổi sang phổ (spectrogram) + CNN, hoặc mô hình giọng nói có sẵn</td><td>24, 25</td></tr>
+  <tr><td><strong>Tương tác người dùng–sản phẩm</strong></td><td>lượt xem, mua, chấm sao</td><td>Collaborative filtering, mạng hai tháp</td><td>16</td></tr>
+  <tr><td><strong>Không có nhãn</strong></td><td>giao dịch chưa ai gắn “gian lận”</td><td>K-means, phát hiện bất thường, autoencoder</td><td>13–15</td></tr>
+</table>
+<div class="box warn"><span class="box-title">⚠️ Đừng dùng Deep Learning chỉ vì nó “xịn”</span>
+<p>Với dữ liệu bảng vài nghìn dòng, một XGBoost (chương 12) thường thắng mạng nơ-ron, huấn luyện trong vài giây, và dễ giải thích cho sếp hơn. Deep Learning thật sự đáng tiền khi dữ liệu là <em>ảnh, chữ, âm thanh</em>, hoặc khi bạn có rất nhiều dữ liệu.</p></div>
+
+<div class="demo" data-demo="chooser"></div>
+
+<h2>Quy trình một dự án Deep Learning</h2>
+<p>Khoá PyTorch mô tả quy trình ML (ML pipeline) thành các giai đoạn. Đây cũng là bộ khung cho mọi chương sau:</p>
+<ol class="steps">
+  <li><strong>Thu thập dữ liệu</strong> (data ingestion): lấy log, ảnh, văn bản từ hệ thống.</li>
+  <li><strong>Chuẩn bị dữ liệu</strong> (data preparation): làm sạch, chuẩn hoá, chia train/validation/test, chuyển thành <em>tensor</em> (chương 19, 23).</li>
+  <li><strong>Xây mô hình</strong> (model building): chọn kiến trúc gồm số lớp, số nơ-ron, hàm kích hoạt (chương 20–22, 24).</li>
+  <li><strong>Huấn luyện</strong> (training): chọn loss, optimizer, chạy vòng lặp huấn luyện (chương 20).</li>
+  <li><strong>Đánh giá</strong> (evaluation): đo trên dữ liệu mô hình chưa từng thấy (chương 11, 22).</li>
+  <li><strong>Triển khai &amp; giám sát</strong> (deployment, monitoring): đưa vào sản phẩm, theo dõi khi dữ liệu thay đổi (chương 26).</li>
+</ol>
+<p>Thực tế đây là một vòng lặp: đánh giá thấy kém thì quay lại thu thêm dữ liệu hoặc đổi mô hình.</p>
+
+<h2>PyTorch và TensorFlow: bạn đã biết nhiều hơn bạn nghĩ</h2>
+<p>Các chương 8–10 dùng TensorFlow/Keras. Phần IV dùng <strong>PyTorch</strong>, framework phổ biến nhất trong nghiên cứu và ngày càng phổ biến trong công nghiệp. Khái niệm giống hệt nhau, chỉ khác tên:</p>
+<table>
+  <tr><th>Khái niệm</th><th>TensorFlow / Keras (ch. 8–10)</th><th>PyTorch (ch. 19–26)</th></tr>
+  <tr><td>Mảng dữ liệu</td><td><code>tf.Tensor</code> / NumPy</td><td><code>torch.Tensor</code></td></tr>
+  <tr><td>Lớp dense</td><td><code>Dense(25, activation='relu')</code></td><td><code>nn.Linear(in, 25)</code> + <code>nn.ReLU()</code></td></tr>
+  <tr><td>Ghép lớp</td><td><code>Sequential([...])</code></td><td><code>nn.Sequential(...)</code> hoặc lớp con của <code>nn.Module</code></td></tr>
+  <tr><td>Loss đa lớp</td><td><code>SparseCategoricalCrossentropy(from_logits=True)</code></td><td><code>nn.CrossEntropyLoss()</code> (luôn nhận logits)</td></tr>
+  <tr><td>Optimizer</td><td><code>tf.keras.optimizers.Adam</code></td><td><code>torch.optim.Adam</code></td></tr>
+  <tr><td>Huấn luyện</td><td><code>model.fit(X, y, epochs=…)</code></td><td><strong>Tự viết</strong> vòng lặp 5 bước (chương 20)</td></tr>
+  <tr><td>Dự đoán</td><td><code>model.predict(X)</code></td><td><code>model.eval()</code> + <code>with torch.no_grad(): model(X)</code></td></tr>
+</table>
+<p>Khác biệt lớn nhất: Keras giấu vòng lặp huấn luyện trong <code>fit()</code>, còn PyTorch bắt bạn tự viết. Lúc đầu thấy dài hơn, nhưng nhờ vậy bạn <em>nhìn thấy</em> từng bước gradient descent đã học ở chương 3 và 10.</p>
+
+<h2>Cài đặt để chạy các lab</h2>
+<pre><code class="language-bash">python -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install torch torchvision pandas matplotlib tqdm jupyter
+git clone https://github.com/KhangPhanTZ/pytorch-for-deep-learning
+cd pytorch-for-deep-learning/C1_intro_to_pytorch && jupyter notebook</code></pre>
+<div class="box tip"><span class="box-title">✅ Không có GPU?</span>
+<p>Mọi lab ở Phần IV chạy được trên CPU (MNIST mất vài phút). Nếu muốn nhanh hơn, dùng Google Colab (Runtime → Change runtime type → GPU) miễn phí.</p></div>
+
+<div class="box lab"><span class="box-title">🧪 Lab trong repo PyTorch</span><ul>
+  <li><a data-pt="M1_tensors_and_nn/C1_M1_Lab_1_simple_nn.ipynb">M1 Lab 1 — Mạng nơ-ron đơn giản</a> → chương 20</li>
+  <li><a data-pt="M1_tensors_and_nn/C1_M1_Lab_2_activation_functions.ipynb">M1 Lab 2 — Hàm kích hoạt</a> → chương 20</li>
+  <li><a data-pt="M1_tensors_and_nn/C1_M1_Lab_3_tensors.ipynb">M1 Lab 3 — Tensors</a> → chương 19</li>
+  <li><a data-pt="M1_tensors_and_nn/assignment/C1M1_Assignment.ipynb">M1 Assignment — Deeper Regression, Smarter Features</a> → chương 21</li>
+  <li><a data-pt="M2_training/C1_M2_Lab_1_mnist_classifier.ipynb">M2 Lab — Phân loại chữ số MNIST</a> → chương 22</li>
+  <li><a data-pt="M3_data_pipeline/assignment/C1M3_Assignment.ipynb">M3 Assignment — Building a Robust Data Pipeline</a> → chương 23</li>
+</ul></div>
+
+<h2>Lộ trình đọc Phần IV</h2>
+<table>
+  <tr><th>Bạn là…</th><th>Đọc theo thứ tự</th></tr>
+  <tr><td>Mới hoàn toàn, chưa đọc Phần I–III</td><td>Ch. 1 → 2 → 3 → 6 → 8 → 18 → 19 → 20 → 22 → 26</td></tr>
+  <tr><td>Đã học ML, muốn biết PyTorch</td><td>18 → 19 → 20 → 21 → 22 → 23</td></tr>
+  <tr><td>Muốn áp dụng ngay vào công việc</td><td>18 → 26 (chọn lĩnh vực của bạn) → quay lại chương được gợi ý</td></tr>
+</table>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Deep Learning = Machine Learning dùng mạng nơ-ron nhiều lớp, <strong>tự học đặc trưng</strong> từ dữ liệu thô.</li>
+  <li>Mạnh nhất với ảnh, văn bản, âm thanh và khi có nhiều dữ liệu. Với dữ liệu bảng nhỏ, thử cây/XGBoost trước.</li>
+  <li>Quy trình: thu thập → chuẩn bị → xây mô hình → huấn luyện → đánh giá → triển khai, rồi lặp lại.</li>
+  <li>PyTorch và Keras cùng khái niệm; PyTorch cho bạn tự viết vòng lặp huấn luyện.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Ngân hàng có 5.000 hồ sơ vay (tuổi, thu nhập, số khoản nợ…) cần dự đoán khả năng trả nợ. Nên bắt đầu bằng mô hình gì?</summary><p>Dữ liệu bảng, kích thước nhỏ: bắt đầu bằng logistic regression làm baseline, rồi thử cây quyết định / XGBoost (chương 6, 12). Ngành tài chính còn cần giải thích được quyết định, nên mô hình đơn giản càng có lợi.</p></details>
+<details class="quiz"><summary>Vì sao Deep Learning cần GPU?</summary><p>Phần lớn phép tính là nhân ma trận lớn, và GPU có hàng nghìn lõi tính song song. Không có GPU vẫn chạy được, chỉ chậm hơn.</p></details>
+<details class="quiz"><summary>“Sâu” trong Deep Learning nghĩa là gì?</summary><p>Mạng có nhiều lớp ẩn. Mỗi lớp biến đổi đầu ra của lớp trước thành biểu diễn trừu tượng hơn.</p></details>
+</article>
+</body>
+</html>

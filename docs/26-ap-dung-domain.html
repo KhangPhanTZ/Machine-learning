@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>26. Áp dụng ML & DL vào từng lĩnh vực · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 26 · Tổng kết toàn sách</div>
+  <h1>Áp dụng ML &amp; DL vào từng lĩnh vực</h1>
+  <p class="lede">Bạn đã có đủ công cụ, từ hồi quy tuyến tính đến CNN và Transformer. Chương này là “sổ tay hành nghề”: quy trình 7 bước biến một câu hỏi nghiệp vụ thành mô hình chạy được, và bản đồ bài toán cho 10 lĩnh vực, mỗi bài trỏ về đúng chương cần đọc.</p>
+  <div class="meta"><span>⏱ 40 phút đọc</span><span>🧭 Dùng như tài liệu tra cứu</span><span>🎛 có công cụ chọn phương pháp</span></div>
+</header>
+
+<h2>Quy trình 7 bước cho mọi dự án</h2>
+<ol class="steps">
+  <li><strong>Bắt đầu từ quyết định, không phải từ dữ liệu.</strong> Hỏi: <em>“Có dự đoán này rồi thì ai sẽ làm gì khác đi?”</em> “Dự đoán khách rời bỏ” chỉ có giá trị nếu bộ phận CSKH sẽ gọi điện giữ chân những người có điểm cao. Không có hành động đi kèm thì đừng làm mô hình.</li>
+  <li><strong>Dịch sang loại bài toán ML</strong> (bảng bên dưới): hồi quy, phân loại, phân cụm, bất thường, gợi ý, dự báo hay ra quyết định tuần tự.</li>
+  <li><strong>Kiểm kê dữ liệu.</strong> Có nhãn chưa? Bao nhiêu mẫu? Dữ liệu dạng gì (bảng, ảnh, chữ, chuỗi)? Lúc dự đoán thật, các cột này đã có sẵn chưa? (Cột “số ngày trễ hạn” không dùng được để dự đoán trước khi trễ.)</li>
+  <li><strong>Chọn thước đo theo chi phí sai lầm.</strong> Bỏ sót một ca ung thư (false negative) khác hẳn báo nhầm một giao dịch gian lận (false positive). Chọn precision, recall, F1, MAE… theo đó (chương 11), và quy ra tiền hoặc giờ công nếu được.</li>
+  <li><strong>Làm baseline đơn giản trước</strong>: luật nghiệp vụ hiện tại, hồi quy tuyến tính/logistic, cây quyết định. Đây là mốc để biết mô hình phức tạp có đáng không.</li>
+  <li><strong>Cải tiến có kiểm soát</strong>: thêm đặc trưng (chương 5, 21), thử XGBoost (12), mạng nơ-ron (20–22), CNN/transfer learning (24), Transformer (25). Mỗi lần chỉ đổi một thứ và so trên cùng tập validation. Dùng chẩn đoán bias/variance (chương 11) để biết nên thêm dữ liệu hay đổi mô hình.</li>
+  <li><strong>Triển khai và giám sát.</strong> Chạy song song với cách làm cũ một thời gian (shadow mode), theo dõi <em>data drift</em> (dữ liệu mới khác dữ liệu huấn luyện), có con người kiểm tra các ca không chắc chắn, và lịch huấn luyện lại.</li>
+</ol>
+
+<h2>Từ câu hỏi nghiệp vụ đến loại bài toán</h2>
+<table>
+  <tr><th>Câu hỏi nghiệp vụ có dạng…</th><th>Loại bài toán</th><th>Mô hình khởi đầu</th><th>Chương</th></tr>
+  <tr><td>“Bao nhiêu?” (giá, thời gian, số lượng)</td><td>Hồi quy</td><td>Hồi quy tuyến tính → XGBoost → mạng nơ-ron</td><td>2–5, 12, 21</td></tr>
+  <tr><td>“Có hay không?” (vỡ nợ, rời bỏ, bệnh)</td><td>Phân loại nhị phân</td><td>Logistic regression → XGBoost</td><td>6, 11, 12</td></tr>
+  <tr><td>“Thuộc loại nào?” (chủ đề, bệnh lá, chữ số)</td><td>Phân loại đa lớp</td><td>Softmax / CNN / Transformer</td><td>9, 22, 24, 25</td></tr>
+  <tr><td>“Nhóm nào giống nhau?” (phân khúc khách)</td><td>Phân cụm</td><td>K-means (+ PCA để xem)</td><td>13, 15</td></tr>
+  <tr><td>“Có gì bất thường?” (gian lận, máy hỏng)</td><td>Phát hiện bất thường</td><td>Mô hình Gauss, Isolation Forest, autoencoder</td><td>14</td></tr>
+  <tr><td>“Người này sẽ thích gì?”</td><td>Gợi ý</td><td>Collaborative filtering, mạng hai tháp</td><td>16</td></tr>
+  <tr><td>“Tuần sau sẽ thế nào?”</td><td>Dự báo chuỗi thời gian</td><td>Baseline ngây thơ → XGBoost + đặc trưng trễ → LSTM/Transformer</td><td>12, 25</td></tr>
+  <tr><td>“Nên làm gì tiếp theo?” (điều khiển, đặt giá động)</td><td>Học tăng cường</td><td>Thường bắt đầu bằng luật + mô phỏng; RL khi có môi trường thử nghiệm an toàn</td><td>17</td></tr>
+</table>
+
+<div class="demo" data-demo="chooser"></div>
+
+<h2>Bản đồ bài toán theo lĩnh vực</h2>
+<p>Mỗi lĩnh vực gồm: bài toán phổ biến, dữ liệu thường có, mô hình nên thử đầu tiên, thước đo, và điều cần cẩn thận.</p>
+
+<h3>🏥 Y tế &amp; sức khoẻ</h3>
+<table>
+  <tr><th>Bài toán</th><th>Dữ liệu</th><th>Mô hình đầu tiên</th><th>Thước đo</th></tr>
+  <tr><td>Dự đoán nguy cơ tiểu đường, tái nhập viện</td><td>Bảng: tuổi, BMI, xét nghiệm</td><td>Logistic regression, XGBoost (ch. 6, 12)</td><td>Recall, AUC</td></tr>
+  <tr><td>Sàng lọc X-quang, ảnh da liễu, võng mạc</td><td>Ảnh</td><td>Transfer learning CNN (ch. 24)</td><td>Recall ở độ đặc hiệu cố định</td></tr>
+  <tr><td>Tóm tắt bệnh án, mã hoá chẩn đoán ICD</td><td>Văn bản</td><td>Transformer pretrained y khoa (ch. 25)</td><td>F1 theo mã</td></tr>
+</table>
+<div class="box warn"><span class="box-title">⚠️ Cẩn thận</span><p>Mô hình chỉ <em>hỗ trợ</em>, bác sĩ quyết định. Đánh giá trên dữ liệu của <strong>bệnh viện khác</strong> (máy chụp khác) trước khi tin. Dữ liệu sức khoẻ là dữ liệu cá nhân nhạy cảm, nên phải ẩn danh và tuân thủ quy định bảo vệ dữ liệu cá nhân.</p></div>
+
+<h3>🏦 Tài chính &amp; ngân hàng</h3>
+<table>
+  <tr><th>Bài toán</th><th>Dữ liệu</th><th>Mô hình đầu tiên</th><th>Thước đo</th></tr>
+  <tr><td>Chấm điểm tín dụng</td><td>Bảng hồ sơ, lịch sử trả nợ</td><td>Logistic regression (dễ giải thích), XGBoost</td><td>AUC, tỉ lệ nợ xấu ở ngưỡng duyệt</td></tr>
+  <tr><td>Phát hiện giao dịch gian lận</td><td>Giao dịch theo thời gian, rất mất cân bằng</td><td>XGBoost + phát hiện bất thường (ch. 12, 14)</td><td>Precision@k, recall, tiền chặn được</td></tr>
+  <tr><td>Đọc CCCD, hoá đơn (eKYC, OCR)</td><td>Ảnh</td><td>Mô hình OCR có sẵn + CNN (ch. 24)</td><td>Tỉ lệ đúng toàn trường</td></tr>
+</table>
+<div class="box warn"><span class="box-title">⚠️ Cẩn thận</span><p>Quyết định từ chối cho vay cần <strong>giải thích được</strong> (hệ số logistic, SHAP). Kiểm tra mô hình có phân biệt đối xử theo giới tính, vùng miền không. Gian lận thay đổi liên tục, nên phải giám sát drift hằng tuần.</p></div>
+
+<h3>🛒 Bán lẻ &amp; thương mại điện tử</h3>
+<table>
+  <tr><th>Bài toán</th><th>Dữ liệu</th><th>Mô hình đầu tiên</th><th>Thước đo</th></tr>
+  <tr><td>Dự báo nhu cầu, tồn kho</td><td>Doanh số theo ngày × cửa hàng × sản phẩm</td><td>XGBoost + đặc trưng lễ/khuyến mãi (ch. 12, 25)</td><td>MAE, WAPE, chi phí tồn/thiếu hàng</td></tr>
+  <tr><td>Gợi ý sản phẩm</td><td>Lượt xem, mua, giỏ hàng</td><td>Collaborative filtering, hai tháp (ch. 16)</td><td>Recall@k, CTR khi A/B test</td></tr>
+  <tr><td>Phân khúc khách hàng</td><td>RFM: lần mua gần nhất, tần suất, giá trị</td><td>K-means (ch. 13)</td><td>Mức hữu ích cho marketing</td></tr>
+  <tr><td>Dự đoán khách rời bỏ (churn)</td><td>Bảng hành vi 90 ngày</td><td>Logistic → XGBoost (ch. 6, 12)</td><td>Recall trong top 10% điểm cao</td></tr>
+</table>
+
+<h3>🏭 Sản xuất &amp; IoT</h3>
+<table>
+  <tr><th>Bài toán</th><th>Dữ liệu</th><th>Mô hình đầu tiên</th><th>Thước đo</th></tr>
+  <tr><td>Kiểm tra lỗi ngoại quan</td><td>Ảnh camera dây chuyền</td><td>Transfer learning CNN; bất thường nếu ảnh lỗi hiếm (ch. 14, 24)</td><td>Recall lỗi, tỉ lệ báo nhầm/ca</td></tr>
+  <tr><td>Bảo trì dự đoán</td><td>Cảm biến rung, nhiệt, dòng điện</td><td>Đặc trưng cửa sổ + XGBoost; mô hình Gauss cho bất thường (ch. 14, 25)</td><td>Số giờ báo trước hỏng</td></tr>
+  <tr><td>Tối ưu thông số máy</td><td>Thông số vận hành → chất lượng</td><td>Hồi quy, mạng nơ-ron (ch. 4, 21)</td><td>Tỉ lệ phế phẩm</td></tr>
+</table>
+
+<h3>🌾 Nông nghiệp</h3>
+<table>
+  <tr><th>Bài toán</th><th>Dữ liệu</th><th>Mô hình đầu tiên</th><th>Thước đo</th></tr>
+  <tr><td>Nhận diện bệnh lá, sâu hại</td><td>Ảnh điện thoại</td><td>Pipeline ch. 23 + transfer learning ch. 24</td><td>Accuracy theo từng bệnh, recall bệnh nguy hiểm</td></tr>
+  <tr><td>Phân loại chất lượng nông sản</td><td>Ảnh băng chuyền</td><td>CNN (ch. 24)</td><td>Accuracy, tốc độ/quả</td></tr>
+  <tr><td>Dự báo năng suất</td><td>Thời tiết, đất, phân bón, ảnh vệ tinh</td><td>XGBoost; CNN cho ảnh vệ tinh</td><td>MAE tấn/ha</td></tr>
+</table>
+
+<h3>🚚 Logistics &amp; giao thông</h3>
+<table>
+  <tr><th>Bài toán</th><th>Dữ liệu</th><th>Mô hình đầu tiên</th><th>Thước đo</th></tr>
+  <tr><td>Ước tính thời gian giao hàng (ETA)</td><td>Quãng đường, giờ, ngày, thời tiết</td><td>Đúng bài toán chương 20–21; so với XGBoost</td><td>MAE phút, % đơn trễ so với cam kết</td></tr>
+  <tr><td>Dự báo số đơn theo khu vực</td><td>Chuỗi thời gian theo giờ</td><td>Cửa sổ trượt + XGBoost (ch. 25)</td><td>WAPE</td></tr>
+  <tr><td>Đếm xe, nhận dạng biển số</td><td>Video camera</td><td>Phát hiện vật thể (YOLO, ch. 24)</td><td>Precision/recall, FPS</td></tr>
+</table>
+
+<h3>⚡ Năng lượng</h3>
+<p>Dự báo phụ tải điện theo giờ (nhiệt độ ảnh hưởng hình chữ U, ch. 20), dự báo sản lượng điện mặt trời từ dự báo mây, phát hiện bất thường đồng hồ (trộm điện, ch. 14). Bắt đầu bằng XGBoost + đặc trưng giờ/ngày/nhiệt độ; dùng LSTM/Transformer khi có nhiều trạm và chuỗi dài.</p>
+
+<h3>🎓 Giáo dục</h3>
+<p>Dự đoán học sinh có nguy cơ bỏ học (phân loại, ch. 6, 12; ưu tiên recall và can thiệp sớm), gợi ý bài tập theo năng lực (ch. 16), chấm tự luận/phản hồi bài viết bằng LLM có giáo viên duyệt (ch. 25). Cẩn thận: không để mô hình gắn “nhãn” vĩnh viễn lên học sinh; dùng để hỗ trợ, không để xếp loại.</p>
+
+<h3>👥 Nhân sự</h3>
+<p>Lọc CV bằng embedding + so khớp mô tả công việc (ch. 25), dự đoán nghỉ việc (ch. 12), phân tích khảo sát nội bộ (cảm xúc, chủ đề). Rủi ro thiên lệch rất cao: mô hình học từ quyết định tuyển dụng quá khứ sẽ lặp lại định kiến quá khứ. Bỏ các cột nhạy cảm và kiểm tra tỉ lệ chọn theo nhóm.</p>
+
+<h3>🏠 Bất động sản</h3>
+<p>Định giá nhà (hồi quy nhiều biến, ch. 4–5, 12; đặc trưng vị trí rất quan trọng), phân loại ảnh tin đăng (phòng khách, bếp, ảnh rác, ch. 24), gợi ý tin đăng tương tự (ch. 16). Đo bằng MAE theo % giá, và kiểm tra riêng từng quận/khu vực.</p>
+
+<h3>📣 Marketing</h3>
+<p>Phân khúc khách (K-means, ch. 13), dự đoán khả năng phản hồi chiến dịch (phân loại), phân tích cảm xúc mạng xã hội (ch. 25), tối ưu ngân sách kênh (hồi quy có hiệu ứng bão hoà, ch. 20). Luôn kiểm chứng bằng A/B test: mô hình dự đoán đúng chưa chắc đã làm tăng doanh thu.</p>
+
+<h2>Ví dụ trọn vẹn: dự đoán khách hàng rời bỏ</h2>
+<p>Một nhà mạng có bảng 50 000 thuê bao với các cột: số tháng sử dụng, cước trung bình, số lần gọi tổng đài, có dùng gói data, khiếu nại 30 ngày… và nhãn <code>churn</code> (đã rời mạng trong tháng sau hay chưa). Quyết định đi kèm: mỗi tháng gọi điện tặng ưu đãi cho 2 000 thuê bao rủi ro nhất.</p>
+<pre><code class="language-python">import pandas as pd, numpy as np, torch, torch.nn as nn
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+from xgboost import XGBClassifier
+
+df = pd.read_csv("subscribers.csv")
+X = pd.get_dummies(df.drop(columns=["churn"]), drop_first=True).astype("float32")   # one-hot (ch. 12)
+y = df["churn"].values
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)
+scaler = StandardScaler().fit(X_tr)                          # mean/std CHỈ từ tập train
+X_tr_s, X_te_s = scaler.transform(X_tr), scaler.transform(X_te)
+
+# 1) Baseline: logistic regression (ch. 6)
+lr = LogisticRegression(max_iter=1000).fit(X_tr_s, y_tr)
+print("Logistic AUC:", roc_auc_score(y_te, lr.predict_proba(X_te_s)[:, 1]))
+
+# 2) Cây tăng cường (ch. 12)
+xgb = XGBClassifier(n_estimators=300, max_depth=4, learning_rate=0.05).fit(X_tr, y_tr)
+print("XGBoost AUC:", roc_auc_score(y_te, xgb.predict_proba(X_te)[:, 1]))
+
+# 3) Mạng nơ-ron PyTorch (ch. 20–22) — phân loại nhị phân: 1 logit + BCEWithLogitsLoss
+Xt = torch.tensor(X_tr_s, dtype=torch.float32); yt = torch.tensor(y_tr, dtype=torch.float32).unsqueeze(1)
+net = nn.Sequential(nn.Linear(Xt.shape[1], 64), nn.ReLU(), nn.Dropout(0.2),
+                    nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, 1))
+opt = torch.optim.Adam(net.parameters(), lr=1e-3)
+loss_fn = nn.BCEWithLogitsLoss()                             # sigmoid + log loss ổn định (ch. 6, 9)
+loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(Xt, yt), batch_size=256, shuffle=True)
+for epoch in range(20):
+    net.train()
+    for xb, yb in loader:
+        opt.zero_grad(); loss = loss_fn(net(xb), yb); loss.backward(); opt.step()
+net.eval()
+with torch.no_grad():
+    p_nn = torch.sigmoid(net(torch.tensor(X_te_s, dtype=torch.float32))).squeeze(1).numpy()
+print("Neural net AUC:", roc_auc_score(y_te, p_nn))
+
+# 4) Thước đo nghiệp vụ: trong 2000 thuê bao điểm cao nhất, bắt được bao nhiêu người thật sự rời bỏ?
+scores = xgb.predict_proba(X_te)[:, 1]
+top = np.argsort(-scores)[:2000 * len(y_te) // len(y)]     # quy đổi 2000/tháng theo kích thước tập test
+print("Recall trong nhóm gọi điện:", y_te[top].sum() / y_te.sum())</code></pre>
+<p>Kết quả điển hình với dữ liệu bảng cỡ này: XGBoost nhỉnh hơn hoặc ngang mạng nơ-ron, logistic regression kém hơn một chút nhưng dễ giải thích nhất. Đó đúng là lời khuyên ở chương 18. Báo cáo cho lãnh đạo bằng con số ở bước 4 (“gọi 2 000 người thì giữ được X% khách sắp rời”) chứ không phải AUC.</p>
+<div class="box note"><span class="box-title">💡 Nhị phân trong PyTorch</span>
+<p>Phân loại hai lớp có hai cách tương đương: <strong>1 logit + <code>BCEWithLogitsLoss</code></strong> (nhãn float 0/1, shape <code>[N, 1]</code>) như trên, hoặc <strong>2 logits + <code>CrossEntropyLoss</code></strong> (nhãn int 0/1, shape <code>[N]</code>) như chương 22.</p></div>
+
+<h2>Rủi ro, đạo đức và pháp lý</h2>
+<ul>
+  <li><strong>Thiên lệch (bias) dữ liệu</strong>: mô hình học từ quá khứ, nên học cả định kiến của quá khứ. Đo hiệu năng riêng cho từng nhóm (giới tính, vùng miền, độ tuổi).</li>
+  <li><strong>Dữ liệu cá nhân</strong>: chỉ thu thập cái cần, ẩn danh, phân quyền truy cập; tuân thủ quy định bảo vệ dữ liệu cá nhân hiện hành của Việt Nam (như Nghị định 13/2023/NĐ-CP) và nơi bạn hoạt động.</li>
+  <li><strong>Giải thích được</strong>: lĩnh vực tín dụng, y tế, tuyển dụng thường bắt buộc giải thích. Ưu tiên mô hình đơn giản, hoặc dùng công cụ giải thích (SHAP, feature importance).</li>
+  <li><strong>Con người trong vòng lặp</strong>: quy định rõ ca nào máy tự quyết, ca nào người duyệt (dựa vào ngưỡng xác suất như các ví dụ ở chương 9, 22).</li>
+  <li><strong>Drift</strong>: thị trường, hành vi, thiết bị thay đổi. Mô hình tốt hôm nay có thể kém sau 6 tháng.</li>
+</ul>
+
+<div class="box tip"><span class="box-title">✅ Checklist trước khi đưa mô hình vào sử dụng</span>
+<ol>
+  <li>Có quyết định/hành động cụ thể dùng đầu ra của mô hình.</li>
+  <li>Thước đo nghiệp vụ được thống nhất với người dùng.</li>
+  <li>Có baseline, và mô hình thắng baseline trên tập test chưa dùng để chọn mô hình.</li>
+  <li>Mọi đặc trưng đều có sẵn tại thời điểm dự đoán (không rò rỉ tương lai).</li>
+  <li>Tiền xử lý (mean/std, từ điển nhãn, tokenizer) được lưu cùng mô hình.</li>
+  <li>Đã kiểm tra lỗi theo nhóm và các ca biên (dữ liệu thiếu, ảnh mờ, câu tiếng lóng).</li>
+  <li>Có ngưỡng chuyển cho con người và quy trình phản hồi khi máy sai.</li>
+  <li>Có giám sát drift và lịch huấn luyện lại.</li>
+</ol></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Bắt đầu từ quyết định nghiệp vụ → loại bài toán → dữ liệu → thước đo → baseline.</li>
+  <li>Bảng: logistic/XGBoost trước. Ảnh: transfer learning CNN. Văn bản: Transformer pretrained. Chuỗi: baseline ngây thơ + XGBoost, rồi mới đến mô hình sâu.</li>
+  <li>Thước đo phải phản ánh chi phí sai lầm thực tế của lĩnh vực.</li>
+  <li>Triển khai mới là bắt đầu: giám sát, con người trong vòng lặp, huấn luyện lại.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Bệnh viện muốn AI đọc X-quang phổi để phát hiện lao. Nên tối ưu precision hay recall? Vì sao?</summary><p>Recall: bỏ sót ca lao (false negative) gây hại cho bệnh nhân và cộng đồng. Ca báo nhầm sẽ được bác sĩ đọc lại. Thực tế chọn ngưỡng sao cho recall đạt mục tiêu (ví dụ ≥ 95%) và chấp nhận precision thấp hơn.</p></details>
+<details class="quiz"><summary>Chuỗi cửa hàng dự báo doanh số bằng mô hình có accuracy 99% khi chia train/test ngẫu nhiên theo ngày. Có gì đáng ngờ?</summary><p>Chia ngẫu nhiên với chuỗi thời gian là để mô hình nhìn thấy các ngày “xung quanh” ngày cần dự báo, tức rò rỉ tương lai. Phải chia theo thời gian và so với baseline “cùng ngày tuần trước”.</p></details>
+<details class="quiz"><summary>Bạn có 300 ảnh sản phẩm lỗi và 30 000 ảnh sản phẩm tốt. Hướng tiếp cận?</summary><p>Hai hướng: (1) phát hiện bất thường, học “ảnh tốt trông thế nào” (ch. 14) bằng embedding CNN pretrained; (2) phân loại bằng transfer learning có trọng số lớp/oversampling cho lớp lỗi và augmentation mạnh. Đo bằng recall lỗi và số báo nhầm mỗi ca làm việc.</p></details>
+</article>
+</body>
+</html>

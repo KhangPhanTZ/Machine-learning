@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phụ lục B. Thuật ngữ Anh – Việt · Sổ tay Machine Learning</title>
+<title>Phụ lục B. Thuật ngữ Anh – Việt · Sổ tay Machine Learning &amp; Deep Learning</title>
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/book.js"></script>
 </head>
@@ -12,7 +12,7 @@
 <header class="chapter-head">
   <div class="eyebrow">Phụ lục B</div>
   <h1>Thuật ngữ Anh – Việt</h1>
-  <p class="lede">Trong ML, nhiều thuật ngữ tiếng Anh được dùng nguyên văn. Bảng này giúp hiểu nghĩa và biết thuật ngữ xuất hiện ở chương nào.</p>
+  <p class="lede">Trong ML và DL, nhiều thuật ngữ tiếng Anh được dùng nguyên văn. Bảng này giúp hiểu nghĩa và biết thuật ngữ xuất hiện ở chương nào.</p>
 </header>
 
 <p><input id="gloss-filter" class="search" type="search" placeholder="Lọc thuật ngữ…" aria-label="Lọc thuật ngữ" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--rule);background:var(--bg-elev);color:var(--ink);font:inherit;font-family:var(--font-ui)"></p>
@@ -22,16 +22,20 @@
   <tr><td>Activation function</td><td>Hàm kích hoạt — hàm phi tuyến áp dụng sau tổng có trọng số</td><td>8, 9</td></tr>
   <tr><td>Adam</td><td>Thuật toán tối ưu tự điều chỉnh learning rate cho từng tham số</td><td>10</td></tr>
   <tr><td>Anomaly detection</td><td>Phát hiện bất thường</td><td>14</td></tr>
+  <tr><td>Attention</td><td>Cơ chế chú ý — mỗi token “nhìn” các token khác, gán trọng số bằng softmax</td><td>25</td></tr>
+  <tr><td>Autograd</td><td>Bộ tự động tính đạo hàm của PyTorch (<code>loss.backward()</code>)</td><td>20</td></tr>
   <tr><td>Backpropagation</td><td>Lan truyền ngược — tính gradient bằng quy tắc chuỗi</td><td>10</td></tr>
   <tr><td>Bagging</td><td>Bootstrap aggregating — huấn luyện nhiều mô hình trên các mẫu có hoàn lại</td><td>12</td></tr>
   <tr><td>Baseline</td><td>Mức hiệu năng cơ sở để so sánh</td><td>11</td></tr>
   <tr><td>Batch / mini-batch</td><td>Lô dữ liệu dùng cho một bước cập nhật</td><td>3, 8</td></tr>
-  <tr><td>Bias (tham số)</td><td>Hệ số tự do \(b\)</td><td>2</td></tr>
-  <tr><td>Bias (lỗi)</td><td>Độ chệch — mô hình quá đơn giản, underfit</td><td>7, 11</td></tr>
+  <tr><td>Batch normalization</td><td>Chuẩn hoá đầu ra mỗi lớp theo lô bên trong mạng</td><td>24</td></tr>
   <tr><td>Bellman equation</td><td>Phương trình Bellman: \(Q(s,a) = R + \gamma\max Q(s',a')\)</td><td>17</td></tr>
+  <tr><td>Bias (lỗi)</td><td>Độ chệch — mô hình quá đơn giản, underfit</td><td>7, 11</td></tr>
+  <tr><td>Bias (tham số)</td><td>Hệ số tự do \(b\)</td><td>2</td></tr>
   <tr><td>Centroid</td><td>Tâm cụm</td><td>13</td></tr>
   <tr><td>Classification</td><td>Phân loại</td><td>6</td></tr>
   <tr><td>Clustering</td><td>Phân cụm</td><td>13</td></tr>
+  <tr><td>CNN (Convolutional Neural Network)</td><td>Mạng nơ-ron tích chập — dùng bộ lọc trượt trên ảnh</td><td>24</td></tr>
   <tr><td>Cold start</td><td>Khởi động lạnh — khó gợi ý cho người dùng/sản phẩm mới</td><td>16</td></tr>
   <tr><td>Collaborative filtering</td><td>Lọc cộng tác</td><td>16</td></tr>
   <tr><td>Computation graph</td><td>Đồ thị tính toán</td><td>10</td></tr>
@@ -39,18 +43,26 @@
   <tr><td>Content-based filtering</td><td>Lọc dựa trên nội dung</td><td>16</td></tr>
   <tr><td>Convergence</td><td>Hội tụ</td><td>3</td></tr>
   <tr><td>Convex function</td><td>Hàm lồi — chỉ có một cực tiểu</td><td>2</td></tr>
+  <tr><td>Convolution</td><td>Phép tích chập — nhân bộ lọc với từng vùng nhỏ rồi cộng lại</td><td>24</td></tr>
   <tr><td>Cost function</td><td>Hàm chi phí \(J\) — trung bình loss trên tập dữ liệu</td><td>2</td></tr>
   <tr><td>Cross-entropy</td><td>Entropy chéo — loss cho phân loại</td><td>6, 9</td></tr>
   <tr><td>Cross-validation set</td><td>Tập kiểm định chéo (dev/validation set)</td><td>11</td></tr>
   <tr><td>Data augmentation</td><td>Tăng cường dữ liệu</td><td>11</td></tr>
+  <tr><td>Data drift</td><td>Dữ liệu thực tế thay đổi so với lúc huấn luyện</td><td>26</td></tr>
   <tr><td>Data leakage</td><td>Rò rỉ dữ liệu — thông tin tập test lọt vào lúc huấn luyện</td><td>5</td></tr>
+  <tr><td>DataLoader</td><td>Đối tượng PyTorch chia Dataset thành các lô, có xáo trộn</td><td>22, 23</td></tr>
+  <tr><td>Dataset (PyTorch)</td><td>Lớp có <code>__len__</code> và <code>__getitem__</code>, trả về từng mẫu</td><td>23</td></tr>
   <tr><td>Decision boundary</td><td>Ranh giới quyết định</td><td>6</td></tr>
   <tr><td>Decision tree</td><td>Cây quyết định</td><td>12</td></tr>
+  <tr><td>Deep learning</td><td>Học sâu — ML dùng mạng nơ-ron nhiều lớp, tự học đặc trưng</td><td>18</td></tr>
   <tr><td>Dense layer</td><td>Lớp kết nối đầy đủ (fully connected)</td><td>8</td></tr>
   <tr><td>Derivative / gradient</td><td>Đạo hàm / vector đạo hàm riêng</td><td>3, 10</td></tr>
+  <tr><td>Device (CPU/GPU)</td><td>Thiết bị chạy tính toán; mô hình và dữ liệu phải cùng device</td><td>22</td></tr>
   <tr><td>Dimensionality reduction</td><td>Giảm chiều</td><td>15</td></tr>
   <tr><td>Discount factor γ</td><td>Hệ số chiết khấu</td><td>17</td></tr>
   <tr><td>Distortion</td><td>Hàm chi phí của K-means</td><td>13</td></tr>
+  <tr><td>Dropout</td><td>Tắt ngẫu nhiên một phần nơ-ron khi huấn luyện để chống overfitting</td><td>24</td></tr>
+  <tr><td>Early stopping</td><td>Dừng sớm khi điểm validation không còn cải thiện</td><td>24</td></tr>
   <tr><td>Embedding</td><td>Vector biểu diễn chiều thấp học được</td><td>15, 16</td></tr>
   <tr><td>Ensemble</td><td>Tổ hợp nhiều mô hình</td><td>12</td></tr>
   <tr><td>Entropy</td><td>Đo độ hỗn loạn/không chắc chắn</td><td>12</td></tr>
@@ -60,8 +72,10 @@
   <tr><td>Experience replay</td><td>Bộ nhớ phát lại trải nghiệm</td><td>17</td></tr>
   <tr><td>Feature</td><td>Đặc trưng — biến đầu vào</td><td>1</td></tr>
   <tr><td>Feature engineering</td><td>Kỹ nghệ đặc trưng — tạo đặc trưng mới</td><td>5</td></tr>
+  <tr><td>Feature map</td><td>Bản đồ đặc trưng — đầu ra của một bộ lọc tích chập</td><td>24</td></tr>
   <tr><td>Feature scaling / normalization</td><td>Co giãn / chuẩn hoá đặc trưng</td><td>5</td></tr>
   <tr><td>Fine-tuning</td><td>Tinh chỉnh mô hình đã huấn luyện sẵn</td><td>11</td></tr>
+  <tr><td>Flatten</td><td>Trải phẳng tensor nhiều chiều thành vector</td><td>22</td></tr>
   <tr><td>Forward propagation</td><td>Lan truyền xuôi</td><td>8</td></tr>
   <tr><td>Generalization</td><td>Khả năng tổng quát hoá cho dữ liệu mới</td><td>7</td></tr>
   <tr><td>Gradient descent</td><td>Hạ gradient (hạ dốc)</td><td>3</td></tr>
@@ -72,31 +86,42 @@
   <tr><td>Label / target</td><td>Nhãn / giá trị mục tiêu \(y\)</td><td>1</td></tr>
   <tr><td>Learning curve</td><td>Đường cong học (J theo số vòng lặp hoặc theo m)</td><td>3, 11</td></tr>
   <tr><td>Learning rate α</td><td>Tốc độ học</td><td>3</td></tr>
+  <tr><td>LLM (Large Language Model)</td><td>Mô hình ngôn ngữ lớn (GPT, Claude, Llama…)</td><td>25</td></tr>
   <tr><td>Logits</td><td>Đầu ra trước softmax/sigmoid</td><td>9</td></tr>
   <tr><td>Loss function</td><td>Hàm mất mát — lỗi trên một ví dụ</td><td>6</td></tr>
+  <tr><td>LSTM / RNN</td><td>Mạng hồi quy — đọc chuỗi từng bước, giữ trạng thái ẩn</td><td>25</td></tr>
   <tr><td>Mean normalization</td><td>Chuẩn hoá trung bình</td><td>5, 16</td></tr>
   <tr><td>Multiclass / multi-label</td><td>Đa lớp (một nhãn) / đa nhãn (nhiều nhãn cùng lúc)</td><td>9</td></tr>
   <tr><td>Neuron / unit</td><td>Nơ-ron / đơn vị</td><td>8</td></tr>
+  <tr><td>nn.Module</td><td>Lớp cơ sở để định nghĩa mạng trong PyTorch (<code>__init__</code> + <code>forward</code>)</td><td>22</td></tr>
   <tr><td>One-hot encoding</td><td>Mã hoá một-nóng</td><td>5, 12</td></tr>
   <tr><td>Overfitting</td><td>Quá khớp</td><td>7</td></tr>
   <tr><td>Parameter</td><td>Tham số — mô hình tự học (\(w, b\))</td><td>1</td></tr>
   <tr><td>Policy π</td><td>Chính sách — ánh xạ trạng thái → hành động</td><td>17</td></tr>
+  <tr><td>Pooling</td><td>Gộp — giảm kích thước feature map (max/average)</td><td>24</td></tr>
   <tr><td>Precision / Recall</td><td>Độ chính xác dự báo dương / độ phủ</td><td>11</td></tr>
+  <tr><td>Pretrained model</td><td>Mô hình đã huấn luyện sẵn trên dữ liệu lớn</td><td>24, 25</td></tr>
   <tr><td>Principal component</td><td>Thành phần chính</td><td>15</td></tr>
+  <tr><td>RAG (Retrieval-Augmented Generation)</td><td>Tìm tài liệu liên quan rồi đưa vào prompt cho LLM</td><td>25</td></tr>
   <tr><td>Random forest</td><td>Rừng ngẫu nhiên</td><td>12</td></tr>
   <tr><td>Regression</td><td>Hồi quy</td><td>2</td></tr>
   <tr><td>Regularization</td><td>Chính quy hoá — phạt độ phức tạp</td><td>7</td></tr>
   <tr><td>Reinforcement learning</td><td>Học tăng cường</td><td>17</td></tr>
   <tr><td>Return</td><td>Tổng phần thưởng có chiết khấu</td><td>17</td></tr>
   <tr><td>Reward</td><td>Phần thưởng</td><td>17</td></tr>
+  <tr><td>Shape</td><td>Kích thước các chiều của tensor, ví dụ <code>[32, 3, 128, 128]</code></td><td>19</td></tr>
   <tr><td>Sigmoid / logistic function</td><td>Hàm sigmoid</td><td>6</td></tr>
   <tr><td>Skewed dataset</td><td>Bộ dữ liệu lệch lớp</td><td>11</td></tr>
   <tr><td>State / action</td><td>Trạng thái / hành động</td><td>17</td></tr>
   <tr><td>Supervised / unsupervised learning</td><td>Học có giám sát / không giám sát</td><td>1</td></tr>
   <tr><td>Target network</td><td>Mạng mục tiêu \(\hat Q\)</td><td>17</td></tr>
+  <tr><td>Tensor</td><td>Mảng nhiều chiều của PyTorch, chạy được trên GPU, hỗ trợ autograd</td><td>19</td></tr>
   <tr><td>Test set</td><td>Tập kiểm tra</td><td>11</td></tr>
+  <tr><td>Token / tokenization</td><td>Mảnh văn bản nhỏ / việc cắt văn bản thành token</td><td>25</td></tr>
   <tr><td>Training set</td><td>Tập huấn luyện</td><td>1</td></tr>
   <tr><td>Transfer learning</td><td>Học chuyển giao</td><td>11</td></tr>
+  <tr><td>Transformer</td><td>Kiến trúc dựa trên attention — nền của BERT, GPT</td><td>25</td></tr>
+  <tr><td>Transforms</td><td>Chuỗi biến đổi ảnh: resize, ToTensor, Normalize…</td><td>22, 23</td></tr>
   <tr><td>Underfitting</td><td>Chưa khớp</td><td>7</td></tr>
   <tr><td>Variance</td><td>Phương sai — mô hình quá nhạy với dữ liệu, overfit</td><td>7, 11</td></tr>
   <tr><td>Vectorization</td><td>Vector hoá — thay vòng lặp bằng phép toán ma trận</td><td>4</td></tr>

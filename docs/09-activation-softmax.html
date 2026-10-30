@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>9. Hàm kích hoạt & Softmax · Sổ tay Machine Learning</title>
+<title>9. Hàm kích hoạt & Softmax · Sổ tay Machine Learning &amp; Deep Learning</title>
 <link rel="stylesheet" href="assets/style.css">
 <script defer src="assets/book.js"></script>
 <script defer src="assets/demos.js"></script>
@@ -115,6 +115,9 @@ yhat = np.argmax(logits, axis=1)           # nếu chỉ cần lớp: argmax tr�
 <pre><code class="language-python">probs = tf.nn.softmax(model(X_msg)).numpy()
 label = probs.argmax(axis=1)
 needs_human = probs.max(axis=1) &lt; 0.6</code></pre></div>
+
+<div class="box tip"><span class="box-title">➡️ Trong PyTorch</span>
+<p><code>nn.CrossEntropyLoss</code> của PyTorch tương đương <code>SparseCategoricalCrossentropy(from_logits=True)</code>: lớp cuối trả về logits, nhãn là số nguyên, không thêm softmax vào mô hình. Xem <a href="22-phan-loai-anh-mnist.html">chương 22</a>. Phân loại nhị phân dùng <code>nn.BCEWithLogitsLoss</code> (<a href="26-ap-dung-domain.html">chương 26</a>).</p></div>
 
 <div class="keypoints"><h2>Ghi nhớ</h2>
 <ul>

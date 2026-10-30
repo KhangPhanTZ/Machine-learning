@@ -271,3 +271,12 @@ ol.steps pre { margin: .6em 0 0; }
 .box.real { background: var(--bg-elev); border-color: var(--rule); border-top: 3px solid var(--warn); box-shadow: var(--shadow); }
 .box.real .box-title { color: var(--warn); }
 .box.real table, .box.real pre { margin: .8em 0; }
+
+/* Phần IV: select trong demo, khung gợi ý, sơ đồ SVG */
+.demo select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 8px; padding: 5px 8px; max-width: 100%; }
+.demo select:disabled { opacity: .5; }
+.demo .reco { margin-top: 14px; padding: 12px 14px; border-radius: 8px; background: var(--bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent); }
+.demo .reco p { margin: .35em 0; }
+article svg { color: var(--ink); font-family: var(--font-ui); max-width: 100%; height: auto; }
+.diagram { overflow-x: auto; margin: 1em 0; -webkit-overflow-scrolling: touch; }
+.diagram svg { min-width: 560px; margin: 0 auto !important; }

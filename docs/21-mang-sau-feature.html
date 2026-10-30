@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>21. Mạng nhiều lớp & feature engineering · Sổ tay Machine Learning &amp; Deep Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 21 · PyTorch C1, Module 1 — Assignment</div>
+  <h1>Mạng nhiều lớp &amp; feature engineering</h1>
+  <p class="lede">Thời gian giao hàng không chỉ phụ thuộc quãng đường, mà còn vào giờ trong ngày, ngày thường hay cuối tuần, có kẹt xe giờ cao điểm hay không. Chương này đưa nhiều đặc trưng vào một mạng sâu hơn và tự tạo thêm một đặc trưng mới.</p>
+  <div class="meta"><span>⏱ 25 phút đọc</span><span>🧪 C1M1 Assignment — Deeper Regression, Smarter Features</span></div>
+</header>
+
+<h2>Bài toán</h2>
+<p>File <code>data_with_features.csv</code> có 100 đơn hàng, mỗi đơn 4 cột:</p>
+<table>
+  <tr><th>distance_miles</th><th>time_of_day_hours</th><th>is_weekend</th><th>delivery_time_minutes</th></tr>
+  <tr><td>1.60</td><td>8.20</td><td>0</td><td>7.22</td></tr>
+  <tr><td>13.09</td><td>16.80</td><td>1</td><td>32.41</td></tr>
+  <tr><td>10.66</td><td>16.07</td><td>0</td><td>37.17</td></tr>
+  <tr><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+</table>
+<p>Ba cột đầu là <strong>đặc trưng</strong> (x), cột cuối là <strong>mục tiêu</strong> (y). Đây là bài toán <em>hồi quy nhiều biến</em> (chương 4), nhưng giải bằng mạng nơ-ron.</p>
+
+<h2>Feature engineering: dạy mô hình kiến thức nghiệp vụ</h2>
+<p>Người giao hàng nào cũng biết: <em>ngày thường, 8–10 giờ sáng và 16–19 giờ chiều</em> là giờ cao điểm, đường kẹt. Về lý thuyết, mạng có thể tự học điều này từ cột giờ và cột cuối tuần, nhưng với chỉ 100 mẫu thì rất khó. Ta “mớm” sẵn cho nó một đặc trưng mới:</p>
+<pre><code class="language-python">def rush_hour_feature(hours_tensor, weekends_tensor):
+    is_morning_rush = (hours_tensor >= 8.0) & (hours_tensor < 10.0)
+    is_evening_rush = (hours_tensor >= 16.0) & (hours_tensor < 19.0)
+    is_weekday = (weekends_tensor == 0)
+    is_rush_hour_mask = is_weekday & (is_morning_rush | is_evening_rush)
+    return is_rush_hour_mask.float()        # True/False → 1.0/0.0
+
+# giờ [8.2, 16.8, 8.02, 16.07, 13.47], cuối tuần [0, 1, 1, 0, 0]
+# → cao điểm      [1,   0,    0,    1,     0]</code></pre>
+<div class="box note"><span class="box-title">💡 Vì sao feature engineering vẫn quan trọng trong thời Deep Learning?</span>
+<p>Deep Learning <em>có thể</em> tự học đặc trưng, nhưng chỉ khi có nhiều dữ liệu. Ở các dự án thực tế với dữ liệu bảng vừa và nhỏ, một đặc trưng tốt do chuyên gia nghiệp vụ gợi ý thường giá trị hơn việc thêm lớp cho mạng. Hãy hỏi người làm nghề: <em>“Theo anh/chị, điều gì làm kết quả thay đổi?”</em></p></div>
+
+<h2>Chuẩn bị dữ liệu: từ DataFrame tới tensor</h2>
+<pre><code class="language-python">def prepare_data(df):
+    full = torch.tensor(df.values, dtype=torch.float32)          # [100, 4]
+    dist, hours, weekend, y = full[:, 0], full[:, 1], full[:, 2], full[:, 3]
+    rush = rush_hour_feature(hours, weekend)
+
+    # 1D → cột 2D để ghép lại
+    dist, hours, weekend, rush = (t.unsqueeze(1) for t in (dist, hours, weekend, rush))
+
+    # chuẩn hoá các cột SỐ LIÊN TỤC; cột 0/1 giữ nguyên
+    dist_n  = (dist - dist.mean()) / dist.std()
+    hours_n = (hours - hours.mean()) / hours.std()
+
+    X = torch.cat([dist_n, hours_n, weekend, rush], dim=1)      # [100, 4]
+    return X, y.unsqueeze(1)                                     # y: [100, 1]</code></pre>
+<p>Ba chi tiết nên để ý:</p>
+<ul>
+  <li><strong>Chỉ chuẩn hoá cột liên tục</strong> (quãng đường, giờ). Cột nhị phân 0/1 đã nằm sẵn trong khoảng nhỏ.</li>
+  <li><strong><code>unsqueeze(1)</code> + <code>torch.cat(dim=1)</code></strong>: biến mỗi cột từ <code>[100]</code> thành <code>[100, 1]</code> rồi xếp cạnh nhau thành <code>[100, 4]</code>.</li>
+  <li>Mục tiêu <code>y</code> cũng phải là <code>[100, 1]</code> để khớp với đầu ra của mô hình. Nếu để <code>[100]</code>, <code>MSELoss</code> sẽ broadcast thành ma trận <code>[100, 100]</code> và tính sai mà không báo lỗi (PyTorch chỉ in cảnh báo).</li>
+</ul>
+
+<h2>Mô hình sâu hơn: 4 → 64 → 32 → 1</h2>
+<pre><code class="language-python">def init_model():
+    torch.manual_seed(41)
+    model = nn.Sequential(
+        nn.Linear(4, 64), nn.ReLU(),     # 4 đặc trưng → 64 nơ-ron ẩn
+        nn.Linear(64, 32), nn.ReLU(),    # 64 → 32
+        nn.Linear(32, 1),                # 32 → 1 giá trị: số phút (không activation vì là hồi quy)
+    )
+    optimizer = optim.SGD(model.parameters(), lr=0.01)
+    loss_function = nn.MSELoss()
+    return model, optimizer, loss_function</code></pre>
+<div class="diagram"><svg viewBox="0 0 640 200" role="img" aria-label="Kiến trúc 4-64-32-1" style="width:100%;max-width:640px;display:block;margin:1em auto">
+  <g font-size="12" fill="currentColor" text-anchor="middle">
+    <rect x="20" y="40" width="110" height="120" rx="10" fill="#457b9d" fill-opacity=".12" stroke="#457b9d"/>
+    <text x="75" y="70">đầu vào: 4</text><text x="75" y="92" font-size="11" opacity=".75">quãng đường*</text><text x="75" y="108" font-size="11" opacity=".75">giờ*</text><text x="75" y="124" font-size="11" opacity=".75">cuối tuần</text><text x="75" y="140" font-size="11" opacity=".75">cao điểm</text>
+    <rect x="190" y="20" width="110" height="160" rx="10" fill="#2a9d8f" fill-opacity=".12" stroke="#2a9d8f"/>
+    <text x="245" y="95">Linear 64</text><text x="245" y="113" font-size="11" opacity=".75">+ ReLU</text>
+    <rect x="360" y="50" width="110" height="100" rx="10" fill="#2a9d8f" fill-opacity=".12" stroke="#2a9d8f"/>
+    <text x="415" y="95">Linear 32</text><text x="415" y="113" font-size="11" opacity=".75">+ ReLU</text>
+    <rect x="530" y="80" width="90" height="40" rx="10" fill="#e76f51" fill-opacity=".14" stroke="#e76f51"/>
+    <text x="575" y="105">số phút</text>
+    <text x="320" y="196" font-size="11" opacity=".75">* đã chuẩn hoá · tổng cộng 4·64+64 + 64·32+32 + 32+1 = 2 433 tham số</text>
+  </g>
+  <g stroke="currentColor" stroke-opacity=".5"><path d="M130 100H188"/><path d="M300 100H358"/><path d="M470 100H528"/></g>
+</svg></div>
+<p>Đầu ra là <strong>một số thực</strong> (số phút), nên lớp cuối <em>không có</em> hàm kích hoạt. Đây là quy tắc chọn activation ở chương 9.</p>
+
+<h2>Huấn luyện</h2>
+<pre><code class="language-python">def train_model(features, targets, epochs):
+    model, optimizer, loss_function = init_model()
+    for epoch in range(epochs):
+        outputs = model(features)
+        loss = loss_function(outputs, targets)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    return model
+
+model = train_model(X, y, 30000)</code></pre>
+<table>
+  <tr><th>Epoch</th><th>5 000</th><th>10 000</th><th>15 000</th><th>20 000</th><th>25 000</th><th>30 000</th></tr>
+  <tr><td>MSE (phút²)</td><td>3.32</td><td>1.98</td><td>0.94</td><td>0.84</td><td>0.70</td><td>0.42</td></tr>
+</table>
+<p>Ở đây <code>zero_grad()</code> được gọi sau khi tính loss, nhưng vẫn trước <code>backward()</code>, nên kết quả giống hệt. Điều bắt buộc chỉ là xoá gradient trước khi tính gradient mới.</p>
+<div class="box warn"><span class="box-title">⚠️ MSE 0.42 có thật sự tốt?</span>
+<p>Đó là sai số trên chính <em>tập huấn luyện</em>. Với 2 433 tham số và chỉ 100 mẫu, mô hình rất dễ học thuộc (overfitting, chương 7). Trong dự án thật bạn phải giữ lại một phần dữ liệu làm validation/test (chương 11, 23) để biết sai số trên đơn hàng <em>mới</em>.</p></div>
+
+<h2>Dự đoán cho đơn hàng mới</h2>
+<p>Đơn 9.5 dặm, 17:30, ngày thường. Hàm dự đoán phải chạy <em>đúng</em> pipeline lúc huấn luyện: tạo đặc trưng cao điểm → chuẩn hoá bằng mean/std của tập train → ghép → mô hình.</p>
+<pre><code class="language-python">raw = torch.tensor([[9.5, 17.5, 0]], dtype=torch.float32)
+# … áp dụng rush_hour_feature + chuẩn hoá bằng mean/std CỦA TẬP TRAIN …
+# Kết quả lab: ngày thường, 17:30 → giờ cao điểm → ước tính 37.23 phút</code></pre>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-pt="M1_tensors_and_nn/assignment/C1M1_Assignment.ipynb">C1M1 Assignment — Deeper Regression, Smarter Features</a> (graded: <code>rush_hour_feature</code>, <code>prepare_data</code>, <code>init_model</code>, <code>train_model</code>)</li>
+</ul></div>
+
+<h2>Đi từng bước qua lab</h2>
+<ol class="steps">
+  <li><strong>Khám phá dữ liệu:</strong> đọc CSV bằng pandas, vẽ thời gian theo quãng đường, tô màu theo ngày thường/cuối tuần.</li>
+  <li><strong>Bài 1 — <code>rush_hour_feature</code>:</strong> ba mask so sánh, ghép bằng <code>&amp;</code> và <code>|</code>, đổi sang float.</li>
+  <li><strong>Bài 2 — <code>prepare_data</code>:</strong> DataFrame → tensor float32 → tách cột bằng slicing → tạo đặc trưng cao điểm → <code>unsqueeze(1)</code> → chuẩn hoá cột liên tục → <code>cat</code>.</li>
+  <li><strong>Bài 3 — <code>init_model</code>:</strong> <code>Sequential</code> 4 → 64 → 32 → 1 với ReLU, SGD lr 0.01, MSELoss.</li>
+  <li><strong>Bài 4 — <code>train_model</code>:</strong> vòng lặp 5 bước, ghi loss mỗi 5000 epoch.</li>
+  <li><strong>Đánh giá trực quan:</strong> vẽ dự đoán so với thực tế; các điểm càng sát đường chéo càng tốt.</li>
+  <li><strong>Dự đoán:</strong> tự đổi quãng đường, giờ, cuối tuần để xem thời gian ước tính thay đổi.</li>
+</ol>
+
+<div class="box real"><span class="box-title">🏙️ Ví dụ thực tiễn: cùng khung, khác lĩnh vực</span>
+<table>
+  <tr><th>Lĩnh vực</th><th>Đặc trưng thô</th><th>Đặc trưng tự tạo (kiến thức nghiệp vụ)</th><th>Mục tiêu</th></tr>
+  <tr><td>Bất động sản</td><td>diện tích, số phòng, toạ độ</td><td>khoảng cách tới trung tâm, giá/m² trung bình của phường</td><td>giá nhà</td></tr>
+  <tr><td>Bán lẻ</td><td>ngày, cửa hàng, giá</td><td>là ngày lễ / ngày lương / có khuyến mãi</td><td>doanh số ngày</td></tr>
+  <tr><td>Y tế</td><td>chiều cao, cân nặng, tuổi</td><td>BMI = cân nặng / chiều cao²</td><td>nguy cơ tiểu đường</td></tr>
+  <tr><td>Nhà hàng</td><td>giờ đặt món, số món</td><td>giờ ăn trưa/tối, trời mưa</td><td>thời gian chuẩn bị</td></tr>
+</table>
+<p>Với dữ liệu bảng kiểu này, hãy so mạng nơ-ron với XGBoost (chương 12) trên cùng tập validation trước khi chọn mô hình.</p></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Nhiều đặc trưng: tensor <code>[N, số_đặc_trưng]</code>, lớp đầu <code>nn.Linear(số_đặc_trưng, …)</code>.</li>
+  <li>Feature engineering đưa kiến thức nghiệp vụ vào mô hình và rất hiệu quả khi dữ liệu ít.</li>
+  <li>Chỉ chuẩn hoá cột liên tục; mục tiêu hồi quy có shape <code>[N, 1]</code>.</li>
+  <li>Hồi quy: lớp cuối không activation, loss MSE.</li>
+  <li>Loss thấp trên tập train chưa chứng minh gì; luôn kiểm tra trên dữ liệu chưa thấy.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Thứ Bảy, 9 giờ sáng: <code>rush_hour_feature</code> trả về gì?</summary><p>0. Giờ nằm trong khung sáng, nhưng là cuối tuần nên không thoả điều kiện <code>is_weekday</code>.</p></details>
+<details class="quiz"><summary>Nếu thêm cột “thời tiết” với 3 giá trị nắng / mưa / bão, mã hoá thế nào?</summary><p>One-hot (chương 12): 3 cột 0/1. Không mã hoá thành 0/1/2, vì như thế mô hình sẽ hiểu “bão = 2 × mưa”.</p></details>
+<details class="quiz"><summary>Lớp đầu tiên cần đổi gì nếu có 7 đặc trưng?</summary><p><code>nn.Linear(7, 64)</code>. Số đầu vào của lớp đầu phải bằng số cột đặc trưng.</p></details>
+</article>
+</body>
+</html>

@@ -360,6 +360,208 @@
     draw();
   };
 
+  /* ---------- 8. Mạng 1 → H (ReLU) → 1 học dữ liệu giao hàng (ch. 20) ---------- */
+  demos.relufit = function (root) {
+    root.innerHTML =
+      '<div class="demo-title">Thử nghiệm: mạng nơ-ron học đường cong thời gian giao hàng</div>' +
+      '<div class="demo-sub">39 chuyến xe đạp + ô tô từ Lab 2. Chọn số nơ-ron ẩn và hàm kích hoạt rồi bấm “Huấn luyện” (Adam, dữ liệu đã chuẩn hoá). Không có ReLU thì mạng chỉ vẽ được đường thẳng.</div>' +
+      '<canvas width="700" height="300"></canvas>' +
+      '<div class="controls"><label>nơ-ron ẩn <input class="h" type="range" min="1" max="12" step="1" value="3"><span class="hv readout"></span></label>' +
+      '<label>kích hoạt <select class="act"><option value="relu">ReLU</option><option value="none">không (tuyến tính)</option></select></label>' +
+      '<button class="run">Huấn luyện</button><button class="ghost reset">Khởi tạo lại</button>' +
+      '<span class="readout info"></span></div>';
+    var cv = q(root, "canvas"), W = 700, H = 300, ctx = setupCanvas(cv, W, H);
+    var ax = new Axes(ctx, W, H, [0, 21], [0, 100]);
+    var T = [6.96, 9.67, 12.11, 14.56, 16.77, 21.7, 26.52, 32.47, 37.15, 42.35, 46.1, 52.98, 57.76, 61.29, 66.15, 67.63, 69.45, 71.57, 72.8, 73.88,
+      76.34, 76.38, 78.34, 80.07, 81.86, 84.45, 83.98, 86.55, 88.33, 86.83, 89.24, 88.11, 88.16, 91.77, 92.27, 92.13, 90.73, 90.39, 92.98];
+    var D = T.map(function (_, i) { return 1 + i * 0.5; });
+    function stats(a) { var m = a.reduce(function (s, v) { return s + v; }, 0) / a.length; var v = a.reduce(function (s, x) { return s + (x - m) * (x - m); }, 0) / (a.length - 1); return [m, Math.sqrt(v)]; }
+    var sd = stats(D), st = stats(T);
+    var xn = D.map(function (d) { return (d - sd[0]) / sd[1]; }), yn = T.map(function (t) { return (t - st[0]) / st[1]; });
+    var P, M, V, t, ep, timer = null, seed = 27;
+    function init() {
+      var h = +q(root, ".h").value, r = rng(seed++);
+      P = { w1: [], b1: [], w2: [], b2: 0 };
+      for (var j = 0; j < h; j++) { P.w1.push(gauss(r) * 1.2); P.b1.push(gauss(r) * 0.5); P.w2.push(gauss(r) * 0.6); }
+      M = { w1: P.w1.map(function () { return 0; }), b1: P.b1.map(function () { return 0; }), w2: P.w2.map(function () { return 0; }), b2: 0 };
+      V = JSON.parse(JSON.stringify(M)); t = 0; ep = 0; draw();
+    }
+    function relu() { return q(root, ".act").value === "relu"; }
+    function fwd(x) {
+      var y = P.b2, hs = [];
+      for (var j = 0; j < P.w1.length; j++) { var z = P.w1[j] * x + P.b1[j], a = relu() ? Math.max(0, z) : z; hs.push([z, a]); y += P.w2[j] * a; }
+      return [y, hs];
+    }
+    function step() {
+      var n = xn.length, g = { w1: P.w1.map(function () { return 0; }), b1: P.b1.map(function () { return 0; }), w2: P.w2.map(function () { return 0; }), b2: 0 };
+      for (var i = 0; i < n; i++) {
+        var f = fwd(xn[i]), e = 2 * (f[0] - yn[i]) / n;
+        g.b2 += e;
+        for (var j = 0; j < P.w1.length; j++) {
+          g.w2[j] += e * f[1][j][1];
+          var da = e * P.w2[j] * (relu() ? (f[1][j][0] > 0 ? 1 : 0) : 1);
+          g.w1[j] += da * xn[i]; g.b1[j] += da;
+        }
+      }
+      t++; var lr = 0.02, b1 = 0.9, b2 = 0.999;
+      function upd(k, j) {
+        var gi = j == null ? g[k] : g[k][j];
+        var m = (j == null ? M[k] : M[k][j]) * b1 + (1 - b1) * gi, v = (j == null ? V[k] : V[k][j]) * b2 + (1 - b2) * gi * gi;
+        var d = lr * (m / (1 - Math.pow(b1, t))) / (Math.sqrt(v / (1 - Math.pow(b2, t))) + 1e-8);
+        if (j == null) { M[k] = m; V[k] = v; P[k] -= d; } else { M[k][j] = m; V[k][j] = v; P[k][j] -= d; }
+      }
+      ["w1", "b1", "w2"].forEach(function (k) { for (var j = 0; j < P[k].length; j++) upd(k, j); });
+      upd("b2"); ep++;
+    }
+    function mse() { var s = 0; for (var i = 0; i < D.length; i++) { var e = fwd(xn[i])[0] * st[1] + st[0] - T[i]; s += e * e; } return s / D.length; }
+    function draw() {
+      ax.frame("quãng đường (dặm)", "thời gian (phút)");
+      ctx.strokeStyle = css("--ink-faint"); ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(ax.X(3), ax.Y(0)); ctx.lineTo(ax.X(3), ax.Y(100)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = css("--ink-faint"); ctx.font = "11px " + css("--font-ui"); ctx.textAlign = "left"; ctx.fillText("← xe đạp | ô tô →", ax.X(3) - 52, ax.Y(6));
+      D.forEach(function (d, i) { ax.dot(d, T[i], SERIES[1], 4.5); });
+      ax.curve(function (d) { return fwd((d - sd[0]) / sd[1])[0] * st[1] + st[0]; }, css("--accent"), 3);
+      q(root, ".hv").textContent = q(root, ".h").value;
+      q(root, ".info").textContent = "epoch " + ep + " · MSE = " + mse().toFixed(2) + " phút² · tham số = " + (3 * P.w1.length + 1);
+    }
+    q(root, ".run").onclick = function () {
+      var btn = this;
+      if (timer) { clearInterval(timer); timer = null; btn.textContent = "Huấn luyện"; return; }
+      btn.textContent = "Dừng";
+      timer = setInterval(function () { for (var k = 0; k < 20; k++) step(); draw(); if (ep >= 3000) { clearInterval(timer); timer = null; btn.textContent = "Huấn luyện"; } }, 30);
+    };
+    q(root, ".reset").onclick = init;
+    q(root, ".h").oninput = init;
+    q(root, ".act").onchange = init;
+    document.addEventListener("themechange", draw);
+    init();
+  };
+
+  /* ---------- 9. Phép tích chập 3×3 (ch. 24) ---------- */
+  demos.conv = function (root) {
+    var KS = {
+      "cạnh dọc": [[1, 0, -1], [2, 0, -2], [1, 0, -1]],
+      "cạnh ngang": [[1, 2, 1], [0, 0, 0], [-1, -2, -1]],
+      "viền (Laplace)": [[0, -1, 0], [-1, 4, -1], [0, -1, 0]],
+      "làm mờ": [[1, 1, 1], [1, 1, 1], [1, 1, 1]].map(function (r) { return r.map(function (v) { return v / 9; }); }),
+      "làm nét": [[0, -1, 0], [-1, 5, -1], [0, -1, 0]]
+    };
+    var opts = Object.keys(KS).map(function (k) { return '<option>' + k + '</option>'; }).join("");
+    root.innerHTML =
+      '<div class="demo-title">Thử nghiệm: bộ lọc 3×3 trượt trên ảnh chữ số</div>' +
+      '<div class="demo-sub">Trái: ảnh 12×12. Giữa: bộ lọc. Phải: feature map 10×10 (xanh = dương, cam = âm). Rê/chạm vào feature map để thấy vùng 3×3 tương ứng trên ảnh. Bấm vào ảnh để vẽ thêm.</div>' +
+      '<canvas width="700" height="250"></canvas>' +
+      '<div class="controls"><label>bộ lọc <select class="k">' + opts + '</select></label><button class="ghost clear">Xoá ảnh</button><button class="ghost seven">Chữ số 7</button><span class="readout info"></span></div>';
+    var cv = q(root, "canvas"), W = 700, Hh = 250, ctx = setupCanvas(cv, W, Hh);
+    var N = 12, cell = 18, ox = 12, oy = 18, kx = 268, ky = 80, kc = 30, fx = 420, fy = 18 + cell, fc = 18;
+    var img, hover = null;
+    function seven() {
+      img = []; for (var i = 0; i < N; i++) { img.push([]); for (var j = 0; j < N; j++) img[i].push(0); }
+      for (j = 2; j <= 9; j++) { img[2][j] = 1; img[3][j] = 1; }
+      for (i = 4; i <= 10; i++) { var c = Math.round(9 - (i - 4) * 0.7); img[i][c] = 1; img[i][c - 1] = 1; }
+      img[6][5] = 0.6; img[6][6] = 1; img[6][7] = 1; img[6][8] = 0.6;
+    }
+    function outAt(i, j, K) { var s = 0; for (var a = 0; a < 3; a++) for (var b = 0; b < 3; b++) s += img[i + a][j + b] * K[a][b]; return s; }
+    function colorFor(v, mx) {
+      var a = Math.min(1, Math.abs(v) / (mx || 1));
+      return v >= 0 ? "rgba(42,157,143," + a + ")" : "rgba(231,111,81," + a + ")";
+    }
+    function draw() {
+      var K = KS[q(root, ".k").value], ink = css("--ink"), rule = css("--rule"), faint = css("--ink-faint");
+      ctx.clearRect(0, 0, W, Hh); ctx.font = "12px " + css("--font-ui"); ctx.textAlign = "left";
+      ctx.fillStyle = faint; ctx.fillText("ảnh vào 12×12", ox, oy - 6); ctx.fillText("feature map 10×10", fx, fy - 6); ctx.fillText("bộ lọc", kx, ky - 8);
+      for (var i = 0; i < N; i++) for (var j = 0; j < N; j++) {
+        ctx.fillStyle = img[i][j] ? "rgba(128,128,128," + (0.15 + 0.85 * img[i][j]) + ")" : "transparent";
+        ctx.fillRect(ox + j * cell, oy + i * cell, cell, cell);
+        ctx.strokeStyle = rule; ctx.strokeRect(ox + j * cell, oy + i * cell, cell, cell);
+      }
+      for (var a = 0; a < 3; a++) for (var b = 0; b < 3; b++) {
+        ctx.strokeStyle = rule; ctx.strokeRect(kx + b * kc, ky + a * kc, kc, kc);
+        ctx.fillStyle = ink; ctx.textAlign = "center";
+        var v = K[a][b]; ctx.fillText(Math.abs(v - Math.round(v)) > 1e-6 ? v.toFixed(2).replace("0.", ".") : v, kx + b * kc + kc / 2, ky + a * kc + kc / 2 + 4);
+      }
+      ctx.textAlign = "left";
+      var out = [], mx = 0;
+      for (i = 0; i < N - 2; i++) { out.push([]); for (j = 0; j < N - 2; j++) { var o = outAt(i, j, K); out[i].push(o); mx = Math.max(mx, Math.abs(o)); } }
+      for (i = 0; i < N - 2; i++) for (j = 0; j < N - 2; j++) {
+        ctx.fillStyle = colorFor(out[i][j], mx); ctx.fillRect(fx + j * fc, fy + i * fc, fc, fc);
+        ctx.strokeStyle = rule; ctx.strokeRect(fx + j * fc, fy + i * fc, fc, fc);
+      }
+      if (hover) {
+        ctx.strokeStyle = SERIES[1]; ctx.lineWidth = 2.5;
+        ctx.strokeRect(ox + hover[1] * cell, oy + hover[0] * cell, 3 * cell, 3 * cell);
+        ctx.strokeRect(fx + hover[1] * fc, fy + hover[0] * fc, fc, fc); ctx.lineWidth = 1;
+        q(root, ".info").textContent = "ô (" + hover[0] + ", " + hover[1] + ") = Σ vùng 3×3 × bộ lọc = " + out[hover[0]][hover[1]].toFixed(2);
+      } else q(root, ".info").textContent = "giá trị lớn nhất |" + mx.toFixed(2) + "|";
+    }
+    function pos(e) { var r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * Hh / r.height]; }
+    cv.addEventListener("mousemove", function (e) {
+      var p = pos(e), j = Math.floor((p[0] - fx) / fc), i = Math.floor((p[1] - fy) / fc);
+      var nh = i >= 0 && j >= 0 && i < N - 2 && j < N - 2 ? [i, j] : null;
+      if (String(nh) !== String(hover)) { hover = nh; draw(); }
+    });
+    cv.addEventListener("mouseleave", function () { hover = null; draw(); });
+    cv.addEventListener("click", function (e) {
+      var p = pos(e), j = Math.floor((p[0] - ox) / cell), i = Math.floor((p[1] - oy) / cell);
+      if (i >= 0 && j >= 0 && i < N && j < N) { img[i][j] = img[i][j] ? 0 : 1; draw(); return; }
+      j = Math.floor((p[0] - fx) / fc); i = Math.floor((p[1] - fy) / fc);
+      hover = i >= 0 && j >= 0 && i < N - 2 && j < N - 2 ? [i, j] : null; draw();
+    });
+    q(root, ".k").onchange = draw;
+    q(root, ".clear").onclick = function () { img = img.map(function (r) { return r.map(function () { return 0; }); }); draw(); };
+    q(root, ".seven").onclick = function () { seven(); draw(); };
+    document.addEventListener("themechange", draw);
+    seven(); draw();
+  };
+
+  /* ---------- 10. Chọn phương pháp theo bài toán (ch. 18, 26) ---------- */
+  demos.chooser = function (root) {
+    function sel(cls, label, opts) {
+      return '<label>' + label + ' <select class="' + cls + '">' + opts.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join("") + '</select></label>';
+    }
+    root.innerHTML =
+      '<div class="demo-title">Công cụ: nên bắt đầu bằng mô hình nào?</div>' +
+      '<div class="demo-sub">Chọn đặc điểm bài toán của bạn. Gợi ý dựa trên kinh nghiệm chung, luôn kiểm chứng bằng baseline và tập validation.</div>' +
+      '<div class="controls">' +
+      sel("data", "Dữ liệu", [["tab", "bảng (cột số/phân loại)"], ["img", "ảnh"], ["txt", "văn bản"], ["ts", "chuỗi thời gian"], ["aud", "âm thanh"], ["rec", "tương tác người dùng–sản phẩm"]]) +
+      sel("lab", "Nhãn", [["yes", "có nhãn"], ["no", "không có nhãn"]]) +
+      sel("n", "Số mẫu có nhãn", [["s", "< 1 000"], ["m", "1 000 – 100 000"], ["l", "> 100 000"]]) +
+      sel("exp", "Cần giải thích?", [["no", "không bắt buộc"], ["yes", "bắt buộc"]]) +
+      '</div><div class="reco"></div>';
+    function link(n) { var f = { 2: "02-hoi-quy-tuyen-tinh", 6: "06-logistic-regression", 11: "11-danh-gia-mo-hinh", 12: "12-decision-tree", 13: "13-k-means", 14: "14-anomaly-detection", 15: "15-pca", 16: "16-recommender", 21: "21-mang-sau-feature", 22: "22-phan-loai-anh-mnist", 23: "23-data-pipeline", 24: "24-cnn-transfer-learning", 25: "25-chuoi-transformer" }[n]; return '<a href="' + f + '.html">ch. ' + n + '</a>'; }
+    function render() {
+      var d = q(root, ".data").value, l = q(root, ".lab").value, n = q(root, ".n").value, e = q(root, ".exp").value, r = [];
+      q(root, ".n").disabled = l === "no";
+      if (l === "no" && d !== "rec") {
+        r.push(["Bài toán không giám sát", "Phân cụm bằng K-means (" + link(13) + "), giảm chiều PCA để xem dữ liệu (" + link(15) + "), phát hiện bất thường (" + link(14) + ")." + (d === "img" || d === "txt" || d === "aud" ? " Với " + (d === "img" ? "ảnh" : d === "txt" ? "văn bản" : "âm thanh") + ": lấy embedding từ mô hình pretrained (" + link(d === "img" ? 24 : 25) + ") rồi mới phân cụm/tìm bất thường." : "")]);
+        r.push(["Bước tiếp theo", "Gán nhãn một mẫu nhỏ (vài trăm) để có thể đánh giá và chuyển sang học có giám sát."]);
+      } else if (d === "tab") {
+        r.push(["Baseline", "Hồi quy tuyến tính / logistic regression (" + link(2) + ", " + link(6) + ")."]);
+        r.push([e === "yes" ? "Mô hình chính (cần giải thích)" : "Mô hình chính", e === "yes" ? "Logistic regression hoặc cây quyết định nông; XGBoost + SHAP nếu cần chính xác hơn (" + link(12) + ")." : "XGBoost / LightGBM (" + link(12) + "). Thường mạnh nhất cho dữ liệu bảng."]);
+        if (n === "l" && e === "no") r.push(["Có thể thử", "Mạng nơ-ron nhiều lớp với embedding cho cột phân loại (" + link(21) + "); so trên cùng tập validation."]);
+        else r.push(["Deep Learning?", "Chưa cần. Mạng nơ-ron hiếm khi thắng XGBoost với dữ liệu bảng cỡ này."]);
+      } else if (d === "img") {
+        r.push(["Mô hình chính", n === "l" ? "CNN/ViT pretrained, fine-tune nhiều lớp (" + link(24) + ")." : "Transfer learning: CNN pretrained, " + (n === "s" ? "đóng băng, chỉ huấn luyện lớp cuối" : "fine-tune vài khối cuối") + " (" + link(24) + ")."]);
+        r.push(["Dữ liệu", "Pipeline Dataset + augmentation hợp lý với lĩnh vực (" + link(23) + ")."]);
+        if (e === "yes") r.push(["Giải thích", "Dùng bản đồ nhiệt (Grad-CAM) để thấy mô hình nhìn vào đâu; giữ con người duyệt ca khó."]);
+      } else if (d === "txt") {
+        r.push(["Mô hình chính", n === "s" ? "LLM với prompting / vài ví dụ, hoặc embedding pretrained + logistic regression (" + link(25) + ")." : "Encoder pretrained (BERT/PhoBERT) fine-tune cho phân loại; LLM + RAG nếu cần trả lời theo tài liệu (" + link(25) + ")."]);
+        r.push(["Baseline", "TF-IDF + logistic regression: nhanh, rẻ, dễ giải thích (" + link(6) + ")."]);
+      } else if (d === "ts") {
+        r.push(["Baseline bắt buộc", "“Bằng hôm qua” / “bằng cùng kỳ tuần trước”. Chia train/test theo thời gian (" + link(25) + ")."]);
+        r.push(["Mô hình chính", "Đặc trưng trễ + lịch (ngày lễ, khuyến mãi) + XGBoost (" + link(12) + ")."]);
+        if (n === "l") r.push(["Có thể thử", "LSTM / Transformer cho nhiều chuỗi dài (" + link(25) + ")."]);
+      } else if (d === "aud") {
+        r.push(["Mô hình chính", "Mô hình giọng nói pretrained (nhận dạng lời nói), hoặc đổi sang spectrogram (ảnh) + CNN transfer learning (" + link(24) + ")."]);
+      } else if (d === "rec") {
+        r.push(["Mô hình chính", "Collaborative filtering; thêm content-based / mạng hai tháp khi có thông tin người dùng và sản phẩm (" + link(16) + ")."]);
+        r.push(["Đánh giá", "Recall@k offline, rồi A/B test online (" + link(11) + ")."]);
+      }
+      q(root, ".reco").innerHTML = r.map(function (x) { return "<p><strong>" + x[0] + ":</strong> " + x[1] + "</p>"; }).join("");
+    }
+    root.querySelectorAll("select").forEach(function (s) { s.onchange = render; });
+    render();
+  };
+
   function boot() {
     document.querySelectorAll("[data-demo]").forEach(function (root) {
       var f = demos[root.getAttribute("data-demo")];
