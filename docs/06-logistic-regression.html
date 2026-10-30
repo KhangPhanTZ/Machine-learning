@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6. Logistic Regression · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 6 · Khoá C1, tuần 3</div>
+  <h1>Logistic Regression</h1>
+  <p class="lede">Khi câu trả lời là “có” hoặc “không”: ép đầu ra của mô hình tuyến tính vào khoảng (0, 1) và đọc nó như một xác suất.</p>
+  <div class="meta"><span>⏱ 25 phút đọc</span><span>🧪 C1_W3_Lab01–Lab07 · C1_W3 Practice</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Bài toán phân loại</h2>
+<p>Email có phải spam? Giao dịch có gian lận? Khối u ác tính hay lành tính? Đầu ra \(y\) chỉ nhận hai giá trị: <strong>0</strong> (lớp âm, negative) hoặc <strong>1</strong> (lớp dương, positive).</p>
+<p>Lab01 thử dùng hồi quy tuyến tính cho bài toán này: kẻ đường thẳng rồi lấy ngưỡng 0.5. Nó chạy được… cho tới khi thêm một điểm dữ liệu rất xa bên phải — đường thẳng nghiêng đi và ngưỡng 0.5 dịch chuyển, làm phân loại sai các điểm vốn đúng. Hồi quy tuyến tính không phù hợp cho phân loại.</p>
+<figure class="medium"><img src="images/C1_W3_Classification.png" alt="Slide: các bài toán phân loại nhị phân" loading="lazy"><figcaption>Phân loại nhị phân: câu trả lời chỉ là “no” (lớp âm, 0) hoặc “yes” (lớp dương, 1).</figcaption></figure>
+
+<h2>Hàm sigmoid</h2>
+<div class="math-box">$$ g(z) = \frac{1}{1 + e^{-z}} $$</div>
+<ul>
+  <li>\(z \to +\infty\): \(g(z) \to 1\); \(z \to -\infty\): \(g(z) \to 0\); \(g(0) = 0.5\).</li>
+  <li>Đơn điệu tăng, trơn, khả vi khắp nơi, và có đạo hàm đẹp: \(g'(z) = g(z)(1 - g(z))\).</li>
+</ul>
+<pre><code class="language-python">def sigmoid(z):
+    g = 1 / (1 + np.exp(-z))     # chạy được với số, vector, ma trận
+    return g</code></pre>
+
+<h2>Mô hình logistic regression</h2>
+<div class="math-box">$$ z = \mathbf{w}\cdot\mathbf{x} + b, \qquad f_{\mathbf{w},b}(\mathbf{x}) = g(\mathbf{w}\cdot\mathbf{x} + b) = \frac{1}{1 + e^{-(\mathbf{w}\cdot\mathbf{x} + b)}} $$</div>
+<figure class="small"><img src="images/C1_W3_LogisticRegression_right.png" alt="Sơ đồ mô hình logistic regression: z = w·x + b đưa qua g(z)" loading="lazy"><figcaption>Logistic regression = mô hình tuyến tính \(z\) đưa qua sigmoid \(g\).</figcaption></figure>
+<p>Đầu ra được hiểu là xác suất: \(f_{\mathbf{w},b}(\mathbf{x}) = P(y = 1 \mid \mathbf{x}; \mathbf{w}, b)\). Ví dụ \(f = 0.7\) nghĩa là mô hình tin 70% khối u này ác tính.</p>
+
+<h2>Ranh giới quyết định</h2>
+<p>Để ra quyết định 0/1, ta dùng ngưỡng 0.5: dự đoán \(\hat y = 1\) khi \(f \ge 0.5\), tức khi \(g(z) \ge 0.5\), tức khi \(z \ge 0\). Vậy <strong>ranh giới quyết định</strong> là tập các điểm thoả</p>
+<div class="math-box">$$ \mathbf{w}\cdot\mathbf{x} + b = 0 $$</div>
+<p>Ví dụ trong Lab03: \(w_0 = 1, w_1 = 1, b = -3\) cho ranh giới \(x_0 + x_1 = 3\) — một đường thẳng. Với đặc trưng đa thức như \(x_0^2 + x_1^2\), ranh giới có thể là đường tròn hoặc hình dạng phức tạp hơn.</p>
+
+<div class="demo" data-demo="sigmoid"></div>
+
+<h2>Hàm mất mát logistic</h2>
+<p>Nếu dùng lại sai số bình phương, hàm chi phí \(J\) của logistic regression sẽ <strong>không lồi</strong> — đầy hố cục bộ, gradient descent dễ kẹt (Lab04 vẽ minh hoạ điều này).</p>
+<figure class="medium"><img src="images/C1_W3_SqErrorVsLogistic.png" alt="So sánh hàm chi phí bình phương với logistic" loading="lazy"><figcaption>Sai số bình phương + sigmoid cho mặt chi phí gồ ghề, không lồi.</figcaption></figure>
+<p>Thay vào đó ta dùng <strong>log loss</strong> (binary cross-entropy):</p>
+<div class="math-box">$$
+L\big(f, y\big) = \begin{cases} -\log(f) & \text{nếu } y = 1 \\ -\log(1 - f) & \text{nếu } y = 0 \end{cases}
+\;=\; -y\log(f) - (1-y)\log(1-f)
+$$</div>
+<p>Trực giác: nếu \(y = 1\) mà mô hình dự đoán \(f \approx 0\) (tự tin và sai), mất mát \(-\log(f) \to \infty\). Nếu dự đoán \(f \approx 1\) (đúng), mất mát \(\approx 0\). Mô hình bị phạt rất nặng khi tự tin mà sai.</p>
+<figure class="small"><img src="images/C1_W3_LogisticLoss_a.png" alt="Đồ thị hàm mất mát logistic" loading="lazy"><figcaption>Hai nhánh của log loss.</figcaption></figure>
+
+<h3>Hàm chi phí</h3>
+<div class="math-box">$$ J(\mathbf{w},b) = -\frac{1}{m}\sum_{i=0}^{m-1}\Big[y^{(i)}\log f_{\mathbf{w},b}(\mathbf{x}^{(i)}) + (1 - y^{(i)})\log\big(1 - f_{\mathbf{w},b}(\mathbf{x}^{(i)})\big)\Big] $$</div>
+<p>Hàm này lồi, và có nguồn gốc từ ước lượng hợp lý cực đại (MLE) với giả định \(y\) tuân theo phân phối Bernoulli. Code mình viết trong Practice Lab:</p>
+<pre><code class="language-python">def compute_cost(X, y, w, b, *argv):
+    m, n = X.shape
+    total_cost = 0
+    for i in range(m):
+        z_wb = np.dot(w, X[i]) + b
+        f_wb = sigmoid(z_wb)
+        cost = -y[i] * np.log(f_wb) - (1 - y[i]) * np.log(1 - f_wb)
+        total_cost += cost
+    total_cost = total_cost / m
+    return total_cost</code></pre>
+
+<h2>Gradient descent cho logistic regression</h2>
+<p>Một điều bất ngờ: đạo hàm có <strong>đúng cùng dạng</strong> với hồi quy tuyến tính!</p>
+<div class="math-box">$$
+\frac{\partial J}{\partial w_j} = \frac{1}{m}\sum_{i=0}^{m-1}\left(f_{\mathbf{w},b}(\mathbf{x}^{(i)}) - y^{(i)}\right)x_j^{(i)},
+\qquad
+\frac{\partial J}{\partial b} = \frac{1}{m}\sum_{i=0}^{m-1}\left(f_{\mathbf{w},b}(\mathbf{x}^{(i)}) - y^{(i)}\right)
+$$</div>
+<p>Khác biệt nằm ở định nghĩa của \(f\): ở đây \(f = g(\mathbf{w}\cdot\mathbf{x}+b)\) chứ không phải \(\mathbf{w}\cdot\mathbf{x}+b\).</p>
+<details class="quiz"><summary>Vì sao lại gọn như vậy? (bấm để xem)</summary>
+<p>Với một ví dụ, \(\frac{\partial L}{\partial f} = -\frac{y}{f} + \frac{1-y}{1-f} = \frac{f - y}{f(1-f)}\). Và \(\frac{\partial f}{\partial z} = f(1-f)\). Nhân lại theo quy tắc chuỗi: \(\frac{\partial L}{\partial z} = f - y\). Mẫu số \(f(1-f)\) triệt tiêu hoàn toàn — đây là “phép màu” khi ghép sigmoid với log loss.</p></details>
+<pre><code class="language-python">def compute_gradient(X, y, w, b, *argv):
+    m, n = X.shape
+    dj_dw = np.zeros(w.shape)
+    dj_db = 0.
+    for i in range(m):
+        f_wb = sigmoid(np.dot(X[i], w) + b)
+        dj_db += f_wb - y[i]
+        for j in range(n):
+            dj_dw[j] += (f_wb - y[i]) * X[i, j]
+    return dj_db / m, dj_dw / m
+
+def predict(X, w, b):
+    # vector hoá: ngưỡng 0.5
+    return (sigmoid(X @ w + b) &gt;= 0.5).astype(float)</code></pre>
+
+<div class="box lab"><span class="box-title">🧪 Kết quả Practice Lab</span>
+<p>Bài toán: dự đoán sinh viên có đậu đại học dựa trên điểm hai kỳ thi. Sau 10.000 vòng gradient descent, độ chính xác trên tập train đạt khoảng <strong>92%</strong>. Phần hai dùng dữ liệu kiểm tra chất lượng vi mạch (microchip) với đặc trưng đa thức bậc 6 và regularization (chương 7).</p></div>
+
+<h2>Scikit-learn</h2>
+<pre><code class="language-python">from sklearn.linear_model import LogisticRegression
+
+lr_model = LogisticRegression()
+lr_model.fit(X, y)
+y_pred = lr_model.predict(X)
+print("Accuracy:", lr_model.score(X, y))
+proba = lr_model.predict_proba(X)[:, 1]   # xác suất lớp 1</code></pre>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: chọn ngưỡng &amp; số ổn định</span>
+<ul>
+  <li><strong>Ngưỡng không nhất thiết là 0.5.</strong> Trong sàng lọc ung thư, bỏ sót (false negative) nguy hiểm hơn báo nhầm, nên có thể hạ ngưỡng xuống 0.3. Đánh đổi precision/recall được bàn kỹ ở chương 11.</li>
+  <li><strong>Tràn số:</strong> \(\log(0)\) cho <code>-inf</code>. Thư viện thực tế tính trực tiếp từ \(z\): \(L = \log(1 + e^{z}) - yz\) và dùng thủ thuật log-sum-exp. Đây chính là ý nghĩa của <code>from_logits=True</code> trong TensorFlow (chương 9).</li>
+  <li><strong>Phân loại đa lớp với logistic:</strong> chiến lược <em>one-vs-all</em> — huấn luyện \(K\) bộ phân loại nhị phân, mỗi cái tách một lớp khỏi phần còn lại, rồi chọn lớp có xác suất cao nhất. Softmax (chương 9) là cách tự nhiên hơn.</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab01_Classification_Soln.ipynb">Lab01 — Classification</a> · <a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab02_Sigmoid_function_Soln.ipynb">Lab02 — Sigmoid</a> · <a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab03_Decision_Boundary_Soln.ipynb">Lab03 — Decision Boundary</a></li>
+  <li><a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab04_LogisticLoss_Soln.ipynb">Lab04 — Logistic Loss</a> · <a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab05_Cost_Function_Soln.ipynb">Lab05 — Cost Function</a> · <a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab06_Gradient_Descent_Soln.ipynb">Lab06 — Gradient Descent</a></li>
+  <li><a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab07_Scikit_Learn_Soln.ipynb">Lab07 — Scikit-Learn</a></li>
+  <li><a data-nb="c1_w3_prac/home/jovyan/work/C1_W3_Logistic_Regression.ipynb">C1_W3 Practice Lab — Logistic Regression</a> (graded: <code>sigmoid</code>, <code>compute_cost</code>, <code>compute_gradient</code>, <code>predict</code>, bản regularized)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>\(f = g(\mathbf{w}\cdot\mathbf{x}+b)\), \(g\) là sigmoid; \(f\) là xác suất \(y = 1\).</li>
+  <li>Ranh giới quyết định: \(\mathbf{w}\cdot\mathbf{x}+b = 0\).</li>
+  <li>Dùng log loss (không dùng bình phương) để \(J\) lồi.</li>
+  <li>Gradient có dạng giống hệt hồi quy tuyến tính: trung bình (f − y)·x.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>z = 0 thì mô hình dự đoán gì?</summary><p>\(g(0) = 0.5\) — điểm nằm đúng trên ranh giới quyết định. Với ngưỡng “≥ 0.5”, dự đoán là 1.</p></details>
+<details class="quiz"><summary>y = 0, mô hình dự đoán f = 0.99. Loss bằng bao nhiêu?</summary><p>\(-\log(1 - 0.99) = -\log(0.01) \approx 4.6\). Rất lớn so với khi đúng (\(-\log 0.99 \approx 0.01\)).</p></details>
+</article>
+</body>
+</html>

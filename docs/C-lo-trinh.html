@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phụ lục C. Lộ trình học tiếp · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Phụ lục C</div>
+  <h1>Lộ trình học tiếp</h1>
+  <p class="lede">Hoàn thành Machine Learning Specialization là nền móng vững chắc. Đây là những hướng đi tiếp theo, kèm tài liệu đáng đọc.</p>
+</header>
+
+<h2>1. Củng cố nền tảng toán</h2>
+<ul>
+  <li><strong>Đại số tuyến tính</strong>: ma trận, vector riêng, SVD — nền của PCA, embeddings, mọi phép toán trong mạng nơ-ron. <em>3Blue1Brown — Essence of Linear Algebra</em> (video trực quan).</li>
+  <li><strong>Giải tích nhiều biến</strong>: gradient, quy tắc chuỗi, Jacobian — nền của backprop.</li>
+  <li><strong>Xác suất thống kê</strong>: phân phối, kỳ vọng, MLE, Bayes — nền của loss function, anomaly detection, mô hình sinh.</li>
+  <li><em>Mathematics for Machine Learning</em> (Deisenroth, Faisal, Ong) — sách miễn phí.</li>
+</ul>
+
+<h2>2. Machine learning cổ điển sâu hơn</h2>
+<ul>
+  <li><strong>SVM</strong> (support vector machine) và kernel trick — có trong bản cũ của khoá Andrew Ng (2011).</li>
+  <li><strong>Naive Bayes</strong>, <strong>k-NN</strong>, <strong>Gaussian Mixture Models</strong>, <strong>EM algorithm</strong>.</li>
+  <li>Thực hành nhiều với <strong>scikit-learn</strong>, <strong>pandas</strong>, <strong>XGBoost/LightGBM</strong> trên Kaggle.</li>
+  <li><em>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</em> (Aurélien Géron) — sách thực hành rất tốt.</li>
+  <li><em>An Introduction to Statistical Learning</em> (ISLP, có bản Python, miễn phí).</li>
+</ul>
+
+<h2>3. Deep Learning</h2>
+<ul>
+  <li><strong>Deep Learning Specialization</strong> (Andrew Ng, DeepLearning.AI) — bước tiếp theo tự nhiên: tối ưu hoá, CNN, RNN, attention.</li>
+  <li><strong>PyTorch</strong>: framework phổ biến nhất trong nghiên cứu hiện nay. Khoá <em>fast.ai — Practical Deep Learning for Coders</em> dạy theo hướng “làm trước, lý thuyết sau”.</li>
+  <li><strong>CNN</strong> cho thị giác máy tính: phân loại ảnh, phát hiện vật thể (YOLO), phân đoạn (U-Net).</li>
+  <li><strong>Transformer</strong>: bài báo <em>Attention Is All You Need</em> (2017); khoá <em>Stanford CS224N</em> (NLP) và <em>CS231n</em> (thị giác).</li>
+  <li><em>Dive into Deep Learning</em> (d2l.ai) — sách miễn phí, có code PyTorch/TensorFlow.</li>
+</ul>
+
+<h2>4. Generative AI &amp; LLM</h2>
+<ul>
+  <li>Kiến trúc GPT, pre-training, fine-tuning, RLHF (xem chương 17).</li>
+  <li><strong>Prompt engineering</strong>, <strong>RAG</strong> (retrieval-augmented generation — dùng vector search như chương 16), <strong>agents</strong> và tool use.</li>
+  <li>Fine-tuning hiệu quả: LoRA, QLoRA. Thư viện Hugging Face Transformers.</li>
+  <li>Mô hình khuếch tán (diffusion) cho sinh ảnh.</li>
+  <li>Các khoá ngắn miễn phí của DeepLearning.AI về LLM và agents; Andrej Karpathy — <em>Neural Networks: Zero to Hero</em> (tự xây GPT từ đầu).</li>
+</ul>
+
+<h2>5. MLOps — đưa mô hình vào thực tế</h2>
+<ul>
+  <li>Quản lý thí nghiệm: MLflow, Weights &amp; Biases.</li>
+  <li>Phục vụ mô hình: FastAPI, Docker, các nền tảng cloud (SageMaker, Vertex AI).</li>
+  <li>Giám sát data drift, huấn luyện lại định kỳ, kiểm thử mô hình.</li>
+  <li><em>Machine Learning in Production</em> (DeepLearning.AI) và sách <em>Designing Machine Learning Systems</em> (Chip Huyen).</li>
+</ul>
+
+<h2>6. Thực hành, thực hành, thực hành</h2>
+<ol>
+  <li>Làm lại các lab trong repo này <em>không nhìn lời giải</em>, bằng NumPy thuần.</li>
+  <li>Cài lại vài thuật toán bằng PyTorch (hồi quy logistic, mạng 2 lớp, K-means trên GPU).</li>
+  <li>Tham gia một cuộc thi Kaggle dạng bảng (dùng chương 11–12) và một cuộc thi ảnh/văn bản (dùng transfer learning).</li>
+  <li>Xây một dự án hoàn chỉnh từ dữ liệu thô đến web demo (Streamlit/Gradio), viết blog giải thích — chính cuốn sổ tay này là một bước như vậy!</li>
+</ol>
+
+<div class="box note"><span class="box-title">💡 Gợi ý mở rộng cuốn sách</span>
+<p>Mỗi khi học xong một chủ đề mới, thêm một chương: tạo file HTML mới trong <code>docs/</code> (sao chép một chương có sẵn làm khung) và khai báo nó trong mảng <code>PARTS</code> ở đầu file <code>docs/assets/book.js</code> — mục lục, thanh bên và nút chuyển chương sẽ tự cập nhật.</p></div>
+</article>
+</body>
+</html>

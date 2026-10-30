@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phụ lục A. Bảng công thức · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Phụ lục A</div>
+  <h1>Bảng công thức tóm tắt</h1>
+  <p class="lede">Mọi công thức quan trọng trong sách trên một trang — để ôn thi, phỏng vấn, hoặc khi cần tra nhanh lúc code. In ra được (Ctrl/Cmd + P).</p>
+</header>
+
+<h2>Hồi quy tuyến tính <small>(ch. 2–5)</small></h2>
+<table>
+  <tr><th>Mô hình</th><td>\(f_{\mathbf{w},b}(\mathbf{x}) = \mathbf{w}\cdot\mathbf{x} + b\)</td></tr>
+  <tr><th>Chi phí</th><td>\(J = \frac{1}{2m}\sum_i \left(f(\mathbf{x}^{(i)}) - y^{(i)}\right)^2\)</td></tr>
+  <tr><th>Gradient</th><td>\(\frac{\partial J}{\partial w_j} = \frac{1}{m}\sum_i (f - y)x_j^{(i)}\), \(\;\frac{\partial J}{\partial b} = \frac{1}{m}\sum_i (f - y)\)</td></tr>
+  <tr><th>Cập nhật</th><td>\(w_j := w_j - \alpha\frac{\partial J}{\partial w_j}\), \(\;b := b - \alpha\frac{\partial J}{\partial b}\) (đồng thời)</td></tr>
+  <tr><th>Normal equation</th><td>\(\mathbf{w} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}\)</td></tr>
+  <tr><th>Z-score</th><td>\(x_j := (x_j - \mu_j)/\sigma_j\)</td></tr>
+</table>
+
+<h2>Logistic regression <small>(ch. 6)</small></h2>
+<table>
+  <tr><th>Sigmoid</th><td>\(g(z) = \frac{1}{1 + e^{-z}}\), \(\;g'(z) = g(z)(1-g(z))\)</td></tr>
+  <tr><th>Mô hình</th><td>\(f = g(\mathbf{w}\cdot\mathbf{x} + b) = P(y=1\mid\mathbf{x})\)</td></tr>
+  <tr><th>Ranh giới</th><td>\(\mathbf{w}\cdot\mathbf{x} + b = 0\)</td></tr>
+  <tr><th>Loss</th><td>\(L = -y\log f - (1-y)\log(1-f)\)</td></tr>
+  <tr><th>Gradient</th><td>giống hồi quy tuyến tính: \(\frac{1}{m}\sum_i (f - y)x_j^{(i)}\)</td></tr>
+</table>
+
+<h2>Regularization <small>(ch. 7)</small></h2>
+<table>
+  <tr><th>Chi phí</th><td>\(J + \frac{\lambda}{2m}\sum_j w_j^2\)</td></tr>
+  <tr><th>Gradient</th><td>\(\frac{\partial J}{\partial w_j} + \frac{\lambda}{m}w_j\) (không áp cho \(b\))</td></tr>
+</table>
+
+<h2>Mạng nơ-ron <small>(ch. 8–10)</small></h2>
+<table>
+  <tr><th>Forward</th><td>\(\mathbf{A}^{[l]} = g\left(\mathbf{A}^{[l-1]}\mathbf{W}^{[l]} + \mathbf{b}^{[l]}\right)\), \(\mathbf{A}^{[0]} = \mathbf{X}\)</td></tr>
+  <tr><th>Số tham số lớp Dense</th><td>\(n_{\text{in}} \times n_{\text{out}} + n_{\text{out}}\)</td></tr>
+  <tr><th>ReLU</th><td>\(\max(0, z)\)</td></tr>
+  <tr><th>Softmax</th><td>\(a_j = e^{z_j}/\sum_k e^{z_k}\)</td></tr>
+  <tr><th>Cross-entropy</th><td>\(L = -\log a_y\)</td></tr>
+  <tr><th>Backprop (lớp ra)</th><td>\(\delta^{[L]} = \mathbf{A}^{[L]} - \mathbf{Y}\)</td></tr>
+  <tr><th>Backprop (lớp ẩn)</th><td>\(\delta^{[l]} = (\delta^{[l+1]}\mathbf{W}^{[l+1]\top})\odot g'(\mathbf{Z}^{[l]})\), \(\;\nabla_{\mathbf{W}^{[l]}} = \frac{1}{m}\mathbf{A}^{[l-1]\top}\delta^{[l]}\)</td></tr>
+  <tr><th>Adam</th><td>\(\mathbf m \leftarrow \beta_1 \mathbf m + (1-\beta_1)\nabla\), \(\mathbf v \leftarrow \beta_2\mathbf v + (1-\beta_2)\nabla^2\), \(\mathbf w \leftarrow \mathbf w - \alpha\hat{\mathbf m}/(\sqrt{\hat{\mathbf v}}+\epsilon)\)</td></tr>
+</table>
+<table>
+  <tr><th>Bài toán</th><th>Lớp ra</th><th>Loss (Keras)</th></tr>
+  <tr><td>Nhị phân</td><td><code>Dense(1, 'linear')</code></td><td><code>BinaryCrossentropy(from_logits=True)</code></td></tr>
+  <tr><td>Đa lớp</td><td><code>Dense(N, 'linear')</code></td><td><code>SparseCategoricalCrossentropy(from_logits=True)</code></td></tr>
+  <tr><td>Hồi quy</td><td><code>Dense(1, 'linear')</code></td><td><code>MeanSquaredError()</code></td></tr>
+</table>
+
+<h2>Đánh giá mô hình <small>(ch. 11)</small></h2>
+<table>
+  <tr><th>Chia dữ liệu</th><td>60% train · 20% CV · 20% test</td></tr>
+  <tr><th>High bias</th><td>J_train ≫ baseline</td></tr>
+  <tr><th>High variance</th><td>J_cv ≫ J_train</td></tr>
+  <tr><th>Precision</th><td>\(TP/(TP+FP)\)</td></tr>
+  <tr><th>Recall</th><td>\(TP/(TP+FN)\)</td></tr>
+  <tr><th>F1</th><td>\(2PR/(P+R)\)</td></tr>
+</table>
+
+<h2>Cây quyết định <small>(ch. 12)</small></h2>
+<table>
+  <tr><th>Entropy</th><td>\(H(p_1) = -p_1\log_2 p_1 - (1-p_1)\log_2(1-p_1)\)</td></tr>
+  <tr><th>Information gain</th><td>\(H(p_1^{\text{node}}) - \left(w^{\text{left}}H(p_1^{\text{left}}) + w^{\text{right}}H(p_1^{\text{right}})\right)\)</td></tr>
+  <tr><th>Gini</th><td>\(1 - \sum_k p_k^2\)</td></tr>
+</table>
+
+<h2>Học không giám sát <small>(ch. 13–15)</small></h2>
+<table>
+  <tr><th>K-means: gán</th><td>\(c^{(i)} = \arg\min_k\|\mathbf{x}^{(i)} - \boldsymbol\mu_k\|^2\)</td></tr>
+  <tr><th>K-means: dời tâm</th><td>\(\boldsymbol\mu_k = \text{mean}\{\mathbf{x}^{(i)} : c^{(i)} = k\}\)</td></tr>
+  <tr><th>Distortion</th><td>\(J = \frac{1}{m}\sum_i\|\mathbf{x}^{(i)} - \boldsymbol\mu_{c^{(i)}}\|^2\)</td></tr>
+  <tr><th>Gauss</th><td>\(p(x) = \frac{1}{\sqrt{2\pi}\sigma}\exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)\)</td></tr>
+  <tr><th>Anomaly</th><td>\(p(\mathbf{x}) = \prod_j p(x_j;\mu_j,\sigma_j^2) &lt; \varepsilon\)</td></tr>
+  <tr><th>PCA</th><td>\(\mathbf{Z} = \mathbf{X}_c\mathbf{U}_K\), \(\hat{\mathbf X} = \mathbf Z\mathbf U_K^\top\)</td></tr>
+</table>
+
+<h2>Hệ gợi ý <small>(ch. 16)</small></h2>
+<table>
+  <tr><th>Dự đoán</th><td>\(\mathbf{w}^{(j)}\cdot\mathbf{x}^{(i)} + b^{(j)} (+\mu_i)\)</td></tr>
+  <tr><th>Chi phí CF</th><td>\(\frac12\sum_{r(i,j)=1}(\mathbf{w}^{(j)}\cdot\mathbf{x}^{(i)} + b^{(j)} - y^{(i,j)})^2 + \frac\lambda2\|\mathbf W\|^2 + \frac\lambda2\|\mathbf X\|^2\)</td></tr>
+  <tr><th>Content-based</th><td>\(\hat y = \mathbf{v}_u\cdot\mathbf{v}_m\)</td></tr>
+</table>
+
+<h2>Học tăng cường <small>(ch. 17)</small></h2>
+<table>
+  <tr><th>Return</th><td>\(R_1 + \gamma R_2 + \gamma^2R_3 + \dots\)</td></tr>
+  <tr><th>Bellman</th><td>\(Q(s,a) = R(s) + \gamma\max_{a'}Q(s',a')\)</td></tr>
+  <tr><th>Chính sách</th><td>\(\pi(s) = \arg\max_a Q(s,a)\)</td></tr>
+  <tr><th>Nhãn DQN</th><td>\(y = R + \gamma\max_{a'}\hat Q(s',a')\cdot(1 - \text{done})\)</td></tr>
+  <tr><th>Soft update</th><td>\(\mathbf w_{\hat Q} \leftarrow \tau\mathbf w_Q + (1-\tau)\mathbf w_{\hat Q}\)</td></tr>
+</table>
+</article>
+</body>
+</html>

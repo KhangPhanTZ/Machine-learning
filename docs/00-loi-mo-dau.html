@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0. Lời mở đầu · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 0</div>
+  <h1>Lời mở đầu &amp; cách dùng sách</h1>
+  <p class="lede">Một cuốn sổ tay ghi lại hành trình học Machine Learning — từ những dòng NumPy đầu tiên đến một con tàu tự hạ cánh trên Mặt Trăng.</p>
+  <div class="meta"><span>⏱ 5 phút đọc</span><span>📁 Repo: coursera/Machine_learning</span></div>
+</header>
+
+<h2>Cuốn sách này là gì?</h2>
+<p>Repo này chứa toàn bộ bài lab mình đã làm trong <strong>Machine Learning Specialization</strong> của Andrew Ng trên Coursera, gồm ba khoá:</p>
+<table>
+  <tr><th>Khoá</th><th>Nội dung</th><th>Thư mục lab</th></tr>
+  <tr><td><strong>C1</strong> · Supervised Machine Learning: Regression and Classification</td><td>Hồi quy tuyến tính, gradient descent, logistic regression, regularization</td><td><code>c1_w1</code> → <code>c1_w3_prac</code></td></tr>
+  <tr><td><strong>C2</strong> · Advanced Learning Algorithms</td><td>Mạng nơ-ron, TensorFlow, softmax, đánh giá mô hình, cây quyết định</td><td><code>c2_w1</code> → <code>c2_w4_prac</code></td></tr>
+  <tr><td><strong>C3</strong> · Unsupervised Learning, Recommenders, Reinforcement Learning</td><td>K-means, phát hiện bất thường, hệ gợi ý, Deep Q-Learning</td><td><code>c3_w1_prac1</code> → <code>c3_w3_prac</code></td></tr>
+</table>
+<p>Notebook là nơi tuyệt vời để <em>thực hành</em>, nhưng khó để <em>ôn lại</em>. Cuốn sách này sắp xếp lại các notebook theo mạch kiến thức, viết lời giải thích bằng tiếng Việt, rút ra các công thức cốt lõi, giữ lại đoạn code mình tự viết trong các bài graded, và bổ sung thêm kiến thức ngoài khoá học ở những chỗ đáng biết.</p>
+
+<h2>Cách đọc</h2>
+<p>Mỗi chương đều có cấu trúc giống nhau:</p>
+<ul>
+  <li><strong>Trực giác</strong> — vấn đề cần giải quyết và ý tưởng chính, trước khi có công thức.</li>
+  <li><strong>Toán</strong> — các công thức then chốt, viết bằng ký hiệu thống nhất trong toàn sách.</li>
+  <li><strong>Code</strong> — thường là đoạn code chính mình viết trong lab, kèm chú thích.</li>
+  <li><strong>Demo tương tác</strong> (ở một số chương) — kéo thanh trượt để thấy thuật toán chạy.</li>
+  <li><strong>Mở rộng</strong> — kiến thức vượt ngoài khoá học.</li>
+  <li><strong>Ghi nhớ</strong> và <strong>câu hỏi tự kiểm tra</strong> ở cuối chương.</li>
+</ul>
+
+<div class="box lab"><span class="box-title">🧪 Hộp “Từ lab”</span>
+<p>Hộp này liệt kê notebook gốc trong repo. Bấm vào để mở trên GitHub, hoặc mở bằng Jupyter trên máy để chạy lại.</p></div>
+<div class="box note"><span class="box-title">💡 Ghi chú</span><p>Giải thích thêm, trực giác, hoặc mẹo nhớ.</p></div>
+<div class="box warn"><span class="box-title">⚠️ Cẩn thận</span><p>Lỗi hay gặp, bẫy khi cài đặt.</p></div>
+<div class="box extra"><span class="box-title">📚 Mở rộng</span><p>Kiến thức nâng cao ngoài phạm vi khoá học.</p></div>
+
+<h2>Ký hiệu dùng trong sách</h2>
+<table>
+  <tr><th>Ký hiệu</th><th>Ý nghĩa</th><th>Trong code</th></tr>
+  <tr><td>\(x\), \(\mathbf{x}\)</td><td>đặc trưng (feature) — số vô hướng hoặc vector</td><td><code>x</code>, <code>X[i]</code></td></tr>
+  <tr><td>\(y\)</td><td>nhãn / giá trị mục tiêu (target)</td><td><code>y</code></td></tr>
+  <tr><td>\(m\)</td><td>số ví dụ huấn luyện</td><td><code>m = X.shape[0]</code></td></tr>
+  <tr><td>\(n\)</td><td>số đặc trưng</td><td><code>n = X.shape[1]</code></td></tr>
+  <tr><td>\(\mathbf{x}^{(i)}, y^{(i)}\)</td><td>ví dụ thứ \(i\)</td><td><code>X[i], y[i]</code></td></tr>
+  <tr><td>\(x_j^{(i)}\)</td><td>đặc trưng thứ \(j\) của ví dụ thứ \(i\)</td><td><code>X[i, j]</code></td></tr>
+  <tr><td>\(\mathbf{w}, b\)</td><td>tham số mô hình: trọng số và hệ số tự do (bias)</td><td><code>w, b</code></td></tr>
+  <tr><td>\(f_{\mathbf{w},b}(\mathbf{x})\), \(\hat y\)</td><td>dự đoán của mô hình</td><td><code>f_wb</code></td></tr>
+  <tr><td>\(J(\mathbf{w}, b)\)</td><td>hàm chi phí</td><td><code>cost</code></td></tr>
+  <tr><td>\(\alpha\)</td><td>learning rate (tốc độ học)</td><td><code>alpha</code></td></tr>
+  <tr><td>\(\lambda\)</td><td>hệ số regularization</td><td><code>lambda_</code></td></tr>
+  <tr><td>\(\mathbf{a}^{[l]}\)</td><td>đầu ra (activation) của lớp \(l\) trong mạng nơ-ron</td><td><code>a1, a2</code></td></tr>
+</table>
+<p>Chỉ số trên trong ngoặc tròn \((i)\) là <em>ví dụ thứ mấy</em>; chỉ số trên trong ngoặc vuông \([l]\) là <em>lớp thứ mấy</em>; chỉ số dưới \(j\) là <em>đặc trưng thứ mấy</em>. Python đánh chỉ số từ 0, nên \(x^{(1)}\) trong toán thường tương ứng <code>x[0]</code> trong code.</p>
+
+<h2>Chạy lại các notebook</h2>
+<p>Các notebook được tải về từ môi trường Jupyter của Coursera (đường dẫn <code>home/jovyan/work</code>). Để chạy trên máy:</p>
+<pre><code class="language-bash">python -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install numpy matplotlib scikit-learn tensorflow pandas jupyter ipywidgets
+cd coursera/Machine_learning/c1_w1/home/jovyan/work
+jupyter notebook</code></pre>
+<div class="box warn"><span class="box-title">⚠️ Lưu ý phiên bản</span>
+<p>Lab gốc chạy trên Python 3.7 và TensorFlow 2.x đời cũ. Một số hàm vẽ tương tác (<code>%matplotlib widget</code>) cần <code>ipympl</code>. Lab Lunar Lander (C3) cần thêm <code>gym</code> và <code>box2d</code>, khá kén phiên bản — dùng Google Colab sẽ đỡ mất công hơn.</p></div>
+
+<h2>Ghi chú Notion</h2>
+<p>Song song với các lab, mình có ghi chép trên <a href="https://app.notion.com/p/Machine-Learning-12f1ff87df828012b38fc41200db58a0">Notion</a>. Mỗi chương là một file HTML độc lập trong thư mục <code>docs/</code>, nên khi muốn đưa thêm ghi chú vào sách, chỉ cần mở đúng file chương và thêm một đoạn hoặc một hộp <code>&lt;div class="box note"&gt;</code>.</p>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Sách đi theo 3 phần, bám sát 3 khoá C1 → C2 → C3, cộng phụ lục tra cứu.</li>
+  <li>\((i)\) = ví dụ, \([l]\) = lớp, \(j\) = đặc trưng.</li>
+  <li>Bấm <strong>◐</strong> ở góc phải để đổi giao diện sáng/tối; tiến độ đọc được lưu trong trình duyệt.</li>
+</ul></div>
+</article>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13. K-means clustering · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 13 · Khoá C3, tuần 1</div>
+  <h1>K-means clustering</h1>
+  <p class="lede">Không có nhãn, chỉ có dữ liệu. Làm sao tự tìm ra các nhóm tự nhiên? K-means trả lời bằng hai bước lặp đi lặp lại cực kỳ đơn giản.</p>
+  <div class="meta"><span>⏱ 20 phút đọc</span><span>🧪 C3_W1 K-means Assignment</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Phân cụm là gì?</h2>
+<p>Cho tập \(\{\mathbf{x}^{(1)}, \dots, \mathbf{x}^{(m)}\}\) <em>không có</em> \(y\). Phân cụm gom các điểm giống nhau vào cùng một nhóm. Ứng dụng: phân khúc khách hàng, nhóm bài báo cùng chủ đề, phân tích dữ liệu gen, nén ảnh…</p>
+
+<h2>Thuật toán K-means</h2>
+<div class="math-box">$$
+\begin{aligned}
+&\text{Khởi tạo ngẫu nhiên } K \text{ tâm cụm } \boldsymbol{\mu}_1, \dots, \boldsymbol{\mu}_K \\
+&\text{Lặp:} \\
+&\quad \text{1. Gán cụm: với mỗi } i,\; c^{(i)} := \arg\min_k \left\|\mathbf{x}^{(i)} - \boldsymbol{\mu}_k\right\|^2 \\
+&\quad \text{2. Dời tâm: với mỗi } k,\; \boldsymbol{\mu}_k := \text{trung bình các } \mathbf{x}^{(i)} \text{ có } c^{(i)} = k
+\end{aligned}
+$$</div>
+<div class="demo" data-demo="kmeans"></div>
+
+<h3>Bước 1: tìm tâm gần nhất</h3>
+<p>Hàm mình viết trong lab (dùng ba vòng lặp, rất tường minh):</p>
+<pre><code class="language-python">def find_closest_centroids(X, centroids):
+    K = centroids.shape[0]
+    idx = np.zeros(X.shape[0], dtype=int)
+    for i in range(X.shape[0]):
+        min_dist = float('inf')
+        min_index = -1
+        for j in range(K):
+            dist = 0
+            for k in range(X.shape[1]):
+                dist += (X[i, k] - centroids[j, k]) ** 2
+            if dist &lt; min_dist:
+                min_dist = dist
+                min_index = j
+        idx[i] = min_index
+    return idx</code></pre>
+<p>Phiên bản vector hoá dùng broadcasting — tính toàn bộ ma trận khoảng cách \(m \times K\) một lần:</p>
+<pre><code class="language-python">def find_closest_centroids_vec(X, centroids):
+    # X[:, None, :] có shape (m, 1, n); centroids[None] có shape (1, K, n)
+    d = ((X[:, None, :] - centroids[None, :, :]) ** 2).sum(axis=2)   # (m, K)
+    return np.argmin(d, axis=1)</code></pre>
+
+<h3>Bước 2: tính lại tâm</h3>
+<pre><code class="language-python">def compute_centroids(X, idx, K):
+    m, n = X.shape
+    centroids = np.zeros((K, n))
+    for k in range(K):
+        points = X[idx == k]                  # mọi điểm thuộc cụm k
+        if len(points) &gt; 0:
+            centroids[k] = points.mean(axis=0)
+    return centroids</code></pre>
+<figure class="medium"><img src="images/kmeans_iter.png" alt="Quỹ đạo của các tâm cụm qua 10 vòng lặp K-means" loading="lazy"><figcaption>Kết quả mong đợi trong lab: quỹ đạo các tâm (×) sau 10 vòng lặp trên dữ liệu 2 chiều, K = 3.</figcaption></figure>
+
+<h2>Hàm chi phí (distortion)</h2>
+<div class="math-box">$$ J\left(c^{(1)}, \dots, c^{(m)}, \boldsymbol{\mu}_1, \dots, \boldsymbol{\mu}_K\right) = \frac{1}{m}\sum_{i=1}^{m}\left\|\mathbf{x}^{(i)} - \boldsymbol{\mu}_{c^{(i)}}\right\|^2 $$</div>
+<p>Bước 1 cực tiểu \(J\) theo \(c\) (giữ \(\mu\) cố định); bước 2 cực tiểu \(J\) theo \(\mu\) (giữ \(c\) cố định). Vì vậy \(J\) <strong>không bao giờ tăng</strong> qua các vòng lặp — nếu tăng, code có bug. K-means chắc chắn hội tụ, nhưng có thể vào <strong>cực tiểu cục bộ</strong>.</p>
+
+<h2>Khởi tạo ngẫu nhiên</h2>
+<p>Cách khởi tạo trong lab: chọn ngẫu nhiên \(K\) điểm dữ liệu làm tâm ban đầu.</p>
+<pre><code class="language-python">def kMeans_init_centroids(X, K):
+    randidx = np.random.permutation(X.shape[0])
+    return X[randidx[:K]]</code></pre>
+<p>Vì kết quả phụ thuộc vào khởi tạo, hãy chạy K-means nhiều lần (50–1000 lần) với khởi tạo khác nhau và giữ kết quả có \(J\) nhỏ nhất. Bấm “Khởi tạo lại tâm” trong demo vài lần để thấy đôi khi hai tâm “tranh nhau” một cụm và bỏ rơi cụm khác.</p>
+
+<h2>Chọn K</h2>
+<ul>
+  <li><strong>Phương pháp khuỷu tay (elbow)</strong>: vẽ \(J\) theo \(K\), chọn điểm mà đường cong “gập” lại. Thực tế đường cong thường mượt, không có khuỷu rõ ràng.</li>
+  <li><strong>Theo mục đích sử dụng</strong> (Andrew Ng khuyên): chọn K dựa trên bài toán hạ nguồn. Ví dụ may áo: K = 3 (S, M, L) hay K = 5 (XS–XL) tuỳ chi phí sản xuất và độ vừa vặn mong muốn.</li>
+  <li>Không chọn K bằng cách cực tiểu \(J\) — \(J\) luôn giảm khi K tăng.</li>
+</ul>
+
+<h2>Ứng dụng: nén ảnh</h2>
+<p>Phần hai của lab nén một bức ảnh chim 128×128 pixel. Mỗi pixel có 3 kênh màu RGB 8-bit, tức 24 bit/pixel và hàng nghìn màu khác nhau. Coi mỗi pixel là một điểm trong không gian 3 chiều, chạy K-means với K = 16:</p>
+<pre><code class="language-python">original_img = plt.imread('bird_small.png')          # (128, 128, 3), giá trị trong [0, 1]
+X_img = original_img.reshape(-1, 3)                  # (16384, 3): mỗi hàng là một pixel
+
+K = 16
+initial_centroids = kMeans_init_centroids(X_img, K)
+centroids, idx = run_kMeans(X_img, initial_centroids, max_iters=10)
+
+# thay mỗi pixel bằng màu tâm cụm của nó
+X_recovered = centroids[idx, :].reshape(original_img.shape)</code></pre>
+<figure class="small"><img src="images/bird_small.png" alt="Ảnh chim gốc dùng để nén" loading="lazy"><figcaption>Ảnh gốc 128×128.</figcaption></figure>
+<p>Sau nén, chỉ cần lưu bảng 16 màu (16 × 24 bit) và mỗi pixel một chỉ số 4 bit: \(16 \times 24 + 128 \times 128 \times 4 = 65.920\) bit so với \(128 \times 128 \times 24 = 393.216\) bit — nén khoảng <strong>6 lần</strong>, ảnh vẫn nhận ra rõ.</p>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: K-means++ và các thuật toán phân cụm khác</span>
+<ul>
+  <li><strong>K-means++</strong>: chọn tâm đầu tiên ngẫu nhiên, các tâm sau được chọn với xác suất tỉ lệ với bình phương khoảng cách tới tâm gần nhất → các tâm ban đầu trải đều, hội tụ nhanh và tốt hơn. Mặc định trong <code>sklearn.cluster.KMeans</code>.</li>
+  <li><strong>Silhouette score</strong>: đo mức một điểm gần cụm của nó hơn cụm khác bao nhiêu (−1 đến 1) — dùng để so sánh các giá trị K.</li>
+  <li>K-means giả định cụm có dạng “tròn” và kích thước tương đương. Với cụm hình dạng tuỳ ý dùng <strong>DBSCAN</strong> (dựa trên mật độ, tự tìm số cụm, phát hiện nhiễu); với cụm hình elip dùng <strong>Gaussian Mixture Model</strong> (phân cụm “mềm”, mỗi điểm có xác suất thuộc từng cụm); muốn cây phân cấp dùng <strong>hierarchical clustering</strong>.</li>
+</ul>
+<pre><code class="language-python">from sklearn.cluster import KMeans
+km = KMeans(n_clusters=16, n_init=10).fit(X_img)
+X_recovered = km.cluster_centers_[km.labels_]</code></pre></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c3_w1_prac1/home/jovyan/work/C3_W1_KMeans_Assignment.ipynb">C3_W1 Practice Lab — K-means Clustering</a> (graded: <code>find_closest_centroids</code>, <code>compute_centroids</code>)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>K-means lặp hai bước: gán điểm về tâm gần nhất → dời tâm về trung bình cụm.</li>
+  <li>Distortion J không bao giờ tăng; chạy nhiều lần với khởi tạo khác nhau để tránh cực tiểu cục bộ.</li>
+  <li>Chọn K theo mục đích sử dụng; elbow chỉ là gợi ý.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Một cụm không có điểm nào được gán. Xử lý thế nào?</summary><p>Phổ biến nhất là bỏ cụm đó (còn K−1 cụm), hoặc khởi tạo lại tâm đó ngẫu nhiên. Code trong lab giữ tâm ở vị trí 0 nếu cụm rỗng — nên kiểm tra trường hợp này.</p></details>
+<details class="quiz"><summary>Có cần chuẩn hoá đặc trưng trước khi chạy K-means không?</summary><p>Thường là có — K-means dựa trên khoảng cách Euclid, đặc trưng có thang đo lớn sẽ áp đảo. Riêng nén ảnh thì không cần vì ba kênh RGB đã cùng thang [0, 1].</p></details>
+</article>
+</body>
+</html>

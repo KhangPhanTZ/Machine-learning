@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9. Hàm kích hoạt & Softmax · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 9 · Khoá C2, tuần 2</div>
+  <h1>Hàm kích hoạt, Softmax &amp; phân loại đa lớp</h1>
+  <p class="lede">Tại sao mạng nơ-ron cần phi tuyến, vì sao ReLU thắng sigmoid ở lớp ẩn, và cách nhận dạng đủ 10 chữ số thay vì chỉ 0 và 1.</p>
+  <div class="meta"><span>⏱ 25 phút đọc</span><span>🧪 C2_W2 Relu, SoftMax, Multiclass · C2_W2 Practice</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Các hàm kích hoạt</h2>
+<table>
+  <tr><th>Tên</th><th>Công thức</th><th>Miền giá trị</th><th>Dùng khi</th></tr>
+  <tr><td>Linear</td><td>\(g(z) = z\)</td><td>\((-\infty, \infty)\)</td><td>Đầu ra hồi quy, \(y\) có thể âm (ví dụ: thay đổi giá cổ phiếu)</td></tr>
+  <tr><td>Sigmoid</td><td>\(g(z) = \frac{1}{1+e^{-z}}\)</td><td>\((0, 1)\)</td><td>Đầu ra phân loại nhị phân</td></tr>
+  <tr><td><strong>ReLU</strong></td><td>\(g(z) = \max(0, z)\)</td><td>\([0, \infty)\)</td><td>Lớp ẩn (mặc định) · đầu ra hồi quy \(y \ge 0\) (giá nhà)</td></tr>
+  <tr><td>Softmax</td><td>xem bên dưới</td><td>vector xác suất</td><td>Đầu ra phân loại đa lớp</td></tr>
+</table>
+
+<h3>Vì sao ReLU phổ biến ở lớp ẩn?</h3>
+<ul>
+  <li><strong>Tính nhanh</strong>: chỉ là một phép so sánh, không cần hàm mũ.</li>
+  <li><strong>Gradient không “tắt”</strong>: sigmoid phẳng ở hai đầu, đạo hàm gần 0 → gradient descent rất chậm (vanishing gradient). ReLU chỉ phẳng ở một phía.</li>
+</ul>
+
+<h3>Vì sao cần hàm phi tuyến?</h3>
+<p>Nếu mọi lớp đều dùng activation tuyến tính, cả mạng chỉ là một hàm tuyến tính: \(\mathbf{W}_2(\mathbf{W}_1\mathbf{x} + \mathbf{b}_1) + \mathbf{b}_2 = \mathbf{W}'\mathbf{x} + \mathbf{b}'\). Bao nhiêu lớp cũng không hơn hồi quy tuyến tính. Lab ReLU minh hoạ: ghép nhiều đoạn ReLU (mỗi nơ-ron “bật” ở một điểm khác nhau) để xấp xỉ một hàm cong từng khúc.</p>
+<figure class="medium"><img src="images/C2_W2_ReLU_Graph.png" alt="Ghép các đoạn ReLU để tạo hàm tuyến tính từng khúc" loading="lazy"><figcaption>Mỗi nơ-ron ReLU “bật” tại một điểm và thay đổi độ dốc; ghép lại ta được hàm tuyến tính từng khúc khớp với target.</figcaption></figure>
+<div class="box warn"><span class="box-title">⚠️ Đừng dùng activation tuyến tính ở lớp ẩn</span>
+<p>Mạng toàn linear + đầu ra sigmoid tương đương đúng một logistic regression.</p></div>
+
+<h2>Phân loại đa lớp</h2>
+<p>Khi \(y \in \{0, 1, \dots, N-1\}\), ví dụ nhận dạng chữ số 0–9, ta cần mô hình trả về xác suất cho <em>mỗi</em> lớp.</p>
+<figure class="medium"><img src="images/C2_W2_BinaryVsMultiClass.png" alt="So sánh phân loại nhị phân và đa lớp" loading="lazy"><figcaption>Nhị phân vs đa lớp.</figcaption></figure>
+
+<h3>Hàm Softmax</h3>
+<p>Lớp đầu ra có \(N\) nơ-ron, cho ra \(N\) số thực \(z_1, \dots, z_N\) (gọi là <strong>logits</strong>). Softmax biến chúng thành phân phối xác suất:</p>
+<div class="math-box">$$ a_j = \frac{e^{z_j}}{\sum_{k=1}^{N} e^{z_k}} = P(y = j \mid \mathbf{x}) $$</div>
+<p>Mọi \(a_j \in (0, 1)\) và \(\sum_j a_j = 1\). Khi \(N = 2\), softmax rút gọn về đúng logistic regression.</p>
+<pre><code class="language-python">def my_softmax(z):
+    ez = np.exp(z)
+    a = ez / np.sum(ez)
+    return a</code></pre>
+<div class="demo" data-demo="softmax"></div>
+
+<h3>Hàm mất mát: cross-entropy</h3>
+<div class="math-box">$$ L(\mathbf{a}, y) = -\log a_y \qquad \text{(chỉ lấy xác suất của lớp đúng)} $$</div>
+<figure class="medium"><img src="images/C2_W2_SoftMaxNN.png" alt="Mạng nơ-ron với lớp đầu ra softmax" loading="lazy"><figcaption>Mạng với lớp đầu ra softmax.</figcaption></figure>
+<p>Mất mát nhỏ khi \(a_y\) gần 1, lớn khi \(a_y\) gần 0. Trong TensorFlow:</p>
+<ul>
+  <li><code>SparseCategoricalCrossentropy</code>: nhãn là số nguyên (ví dụ <code>y = 3</code>).</li>
+  <li><code>CategoricalCrossentropy</code>: nhãn là one-hot (ví dụ <code>[0,0,0,1,0,…]</code>).</li>
+</ul>
+
+<h2>Cách cài đặt chuẩn xác về số học</h2>
+<p>Cách “hiển nhiên” là đặt <code>activation='softmax'</code> ở lớp cuối. Cách <strong>được khuyến nghị</strong> là để lớp cuối <code>linear</code> và báo cho hàm loss biết đầu vào là logits:</p>
+<pre><code class="language-python">model = Sequential([
+    Dense(25, activation='relu'),
+    Dense(15, activation='relu'),
+    Dense(10, activation='linear'),        # trả về logits, KHÔNG softmax
+], name="my_model")
+
+model.compile(
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+)
+model.fit(X, y, epochs=40)
+
+logits = model.predict(X_test)
+probs = tf.nn.softmax(logits).numpy()      # nếu cần xác suất
+yhat = np.argmax(logits, axis=1)           # nếu chỉ cần lớp: argmax trên logits là đủ</code></pre>
+<figure class="medium"><img src="images/C2_W2_softmax_accurate.png" alt="Cách cài đặt softmax chính xác hơn với from_logits" loading="lazy"><figcaption>Gộp softmax vào loss giúp TensorFlow sắp xếp lại phép tính để tránh tràn số.</figcaption></figure>
+<div class="box note"><span class="box-title">💡 Vì sao from_logits=True chính xác hơn?</span>
+<p>Tính \(e^{z}\) với \(z = 1000\) bị tràn số; tính \(\log\) của một số rất gần 0 mất độ chính xác. Khi loss nhận trực tiếp \(z\), nó dùng công thức tương đương ổn định: \(-\log a_y = -z_y + \log\sum_k e^{z_k}\), với thủ thuật trừ \(\max z\) trước khi lấy mũ (log-sum-exp). Bản <code>my_softmax</code> ở trên an toàn hơn nếu viết <code>ez = np.exp(z - np.max(z))</code> — kết quả không đổi vì tử và mẫu cùng nhân \(e^{-\max z}\).</p></div>
+
+<h2>Bài thực hành: nhận dạng chữ số 0–9</h2>
+<p>Practice Lab C2_W2 dùng 5000 ảnh 20×20 (400 đặc trưng), mạng 400 → 25 (ReLU) → 15 (ReLU) → 10 (linear), loss <code>SparseCategoricalCrossentropy(from_logits=True)</code>, Adam với learning rate 0.001, 40 epoch. Kết quả: chỉ sai khoảng 15/5000 ảnh trên tập huấn luyện.</p>
+<figure class="medium"><img src="images/C2_W2_mclass_lab_network.PNG" alt="Mạng phân loại đa lớp trong lab" loading="lazy"><figcaption>Mạng 2 lớp cho bài phân loại 4 lớp trong lab Multiclass.</figcaption></figure>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: multi-label và các activation hiện đại</span>
+<ul>
+  <li><strong>Multi-class</strong> (mỗi ảnh đúng một lớp) ≠ <strong>multi-label</strong> (một ảnh có thể chứa cả xe hơi, người, đèn giao thông). Multi-label dùng \(N\) nơ-ron <em>sigmoid</em> độc lập + binary cross-entropy, không dùng softmax.</li>
+  <li><strong>Leaky ReLU</strong> \(\max(0.01z, z)\): tránh nơ-ron “chết” (luôn ra 0 và không bao giờ học lại được).</li>
+  <li><strong>GELU</strong>, <strong>SiLU/Swish</strong> \(z \cdot \sigma(z)\): phiên bản trơn của ReLU, dùng trong Transformer (GPT, BERT…).</li>
+  <li><strong>tanh</strong>: giống sigmoid nhưng miền \((-1, 1)\), tâm tại 0; hay gặp trong RNN/LSTM.</li>
+  <li><strong>Softmax với nhiệt độ</strong> \(a_j \propto e^{z_j/T}\): T nhỏ → phân phối “nhọn” (chắc chắn), T lớn → phân phối “phẳng” (đa dạng). Chính là tham số <code>temperature</code> khi sinh văn bản bằng LLM.</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c2_w2/Files/home/jovyan/work/C2_W2_Relu.ipynb">C2_W2 — ReLU activation</a></li>
+  <li><a data-nb="c2_w2/Files/home/jovyan/work/C2_W2_SoftMax.ipynb">C2_W2 — Softmax Function</a></li>
+  <li><a data-nb="c2_w2/Files/home/jovyan/work/C2_W2_Multiclass_TF.ipynb">C2_W2 — Multi-class Classification</a></li>
+  <li><a data-nb="c2_w2_prac/Files/home/jovyan/work/C2_W2_Assignment.ipynb">C2_W2 Practice Lab — Handwritten Digit Recognition, Multiclass</a> (graded: <code>my_softmax</code>, model)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Lớp ẩn: ReLU. Lớp ra: sigmoid (nhị phân), linear (hồi quy), linear + <code>from_logits=True</code> (đa lớp).</li>
+  <li>Softmax: \(a_j = e^{z_j} / \sum_k e^{z_k}\); loss = \(-\log a_y\).</li>
+  <li>Không có activation phi tuyến thì mạng sâu cũng chỉ là mô hình tuyến tính.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>z = [2, 1, 0]. Tính softmax.</summary><p>\(e^2 = 7.39, e^1 = 2.72, e^0 = 1\), tổng 11.11 → [0.665, 0.245, 0.090].</p></details>
+<details class="quiz"><summary>Cộng thêm 100 vào mọi z thì softmax thay đổi thế nào?</summary><p>Không đổi. Softmax bất biến khi cộng cùng một hằng số vào mọi logit — chính là lý do có thể trừ \(\max z\) để ổn định số học.</p></details>
+<details class="quiz"><summary>Dự đoán giá nhà (luôn dương): lớp đầu ra dùng activation gì?</summary><p>ReLU (hoặc linear). Không dùng sigmoid vì giá không nằm trong (0, 1).</p></details>
+</article>
+</body>
+</html>

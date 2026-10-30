@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>16. Hệ thống gợi ý · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 16 · Khoá C3, tuần 2</div>
+  <h1>Hệ thống gợi ý</h1>
+  <p class="lede">Netflix gợi ý phim, Shopee gợi ý sản phẩm, Spotify gợi ý bài hát. Hai cách tiếp cận: học từ hành vi của những người giống bạn, hoặc học từ đặc điểm của chính món hàng.</p>
+  <div class="meta"><span>⏱ 28 phút đọc</span><span>🧪 C3_W2 Collaborative Filtering · C3_W2 RecSysNN</span></div>
+</header>
+
+<h2>Bài toán và ký hiệu</h2>
+<p>Có \(n_u\) người dùng, \(n_m\) bộ phim. Người dùng chấm điểm 0.5–5 sao, nhưng mỗi người chỉ xem một phần nhỏ số phim.</p>
+<table>
+  <tr><th>Ký hiệu</th><th>Ý nghĩa</th></tr>
+  <tr><td>\(r(i,j)\)</td><td>= 1 nếu người dùng \(j\) đã chấm phim \(i\)</td></tr>
+  <tr><td>\(y^{(i,j)}\)</td><td>điểm người dùng \(j\) cho phim \(i\) (nếu có)</td></tr>
+  <tr><td>\(\mathbf{w}^{(j)}, b^{(j)}\)</td><td>tham số của người dùng \(j\)</td></tr>
+  <tr><td>\(\mathbf{x}^{(i)}\)</td><td>vector đặc trưng của phim \(i\)</td></tr>
+</table>
+<p>Dự đoán điểm người dùng \(j\) cho phim \(i\): \(\;\mathbf{w}^{(j)}\cdot\mathbf{x}^{(i)} + b^{(j)}\).</p>
+<p>Lab dùng dữ liệu MovieLens rút gọn: \(n_u = 443\) người dùng, \(n_m = 4778\) phim, ma trận \(\mathbf{Y}\) (\(n_m \times n_u\)) và ma trận chỉ báo \(\mathbf{R}\).</p>
+
+<h2>Collaborative filtering</h2>
+<p>Nếu đã biết đặc trưng phim \(\mathbf{x}^{(i)}\) (ví dụ mức độ “lãng mạn”, “hành động”), học \(\mathbf{w}^{(j)}\) chỉ là hồi quy tuyến tính cho từng người dùng. Nhưng ai gán sẵn những đặc trưng đó? Ý tưởng của <strong>collaborative filtering</strong>: học <em>cả</em> \(\mathbf{x}\) lẫn \(\mathbf{w}\) cùng lúc. Nhiều người dùng cùng chấm một phim → “hợp tác” để suy ra đặc trưng của phim đó.</p>
+<figure class="medium"><img src="images/ColabFilterLearn.PNG" alt="Sơ đồ học tham số trong collaborative filtering" loading="lazy"><figcaption>Học đồng thời tham số người dùng \(\mathbf{w}, b\) và đặc trưng phim \(\mathbf{x}\) từ ma trận điểm \(\mathbf{Y}\).</figcaption></figure>
+<div class="math-box">$$
+J(\mathbf{X},\mathbf{W},\mathbf{b}) = \frac12\sum_{(i,j):\,r(i,j)=1}\left(\mathbf{w}^{(j)}\cdot\mathbf{x}^{(i)} + b^{(j)} - y^{(i,j)}\right)^2
++ \frac{\lambda}{2}\sum_{j}\sum_{k}\left(w_k^{(j)}\right)^2
++ \frac{\lambda}{2}\sum_{i}\sum_{k}\left(x_k^{(i)}\right)^2
+$$</div>
+<p>Hàm chi phí mình viết trong lab (vòng lặp, rất sát công thức):</p>
+<pre><code class="language-python">def cofi_cost_func(X, W, b, Y, R, lambda_):
+    nm, nu = Y.shape
+    J = 0
+    for i in range(nm):                       # mỗi phim
+        for j in range(nu):                   # mỗi người dùng
+            if R[i, j] == 1:                  # chỉ tính khi đã chấm
+                prediction = np.dot(X[i], W[j]) + b[0, j]
+                error = prediction - Y[i, j]
+                J += 0.5 * (error ** 2)
+    J += (lambda_ / 2) * np.sum(W ** 2)
+    J += (lambda_ / 2) * np.sum(X ** 2)
+    return J</code></pre>
+<p>Bản vector hoá dùng trong vòng huấn luyện (nhân với \(\mathbf{R}\) để bỏ qua ô chưa chấm):</p>
+<pre><code class="language-python">def cofi_cost_func_v(X, W, b, Y, R, lambda_):
+    j = (tf.linalg.matmul(X, tf.transpose(W)) + b - Y) * R
+    J = 0.5 * tf.reduce_sum(j**2) + (lambda_ / 2) * (tf.reduce_sum(X**2) + tf.reduce_sum(W**2))
+    return J</code></pre>
+
+<h3>Huấn luyện với TensorFlow — vòng lặp tuỳ chỉnh</h3>
+<p>Đây không phải mô hình <code>Sequential</code> quen thuộc, nên ta tự viết vòng huấn luyện bằng <code>GradientTape</code> (autodiff, chương 10):</p>
+<pre><code class="language-python">num_features = 100
+W = tf.Variable(tf.random.normal((num_users,  num_features), dtype=tf.float64), name='W')
+X = tf.Variable(tf.random.normal((num_movies, num_features), dtype=tf.float64), name='X')
+b = tf.Variable(tf.random.normal((1, num_users),             dtype=tf.float64), name='b')
+optimizer = keras.optimizers.Adam(learning_rate=1e-1)
+
+for it in range(200):
+    with tf.GradientTape() as tape:
+        cost = cofi_cost_func_v(X, W, b, Ynorm, R, lambda_=1)
+    grads = tape.gradient(cost, [X, W, b])
+    optimizer.apply_gradients(zip(grads, [X, W, b]))</code></pre>
+
+<h3>Mean normalization</h3>
+<p>Với một người dùng mới chưa chấm phim nào, regularization đẩy \(\mathbf{w} \to 0\) → dự đoán mọi phim 0 sao. Giải pháp: trừ điểm trung bình \(\mu_i\) của mỗi phim trước khi huấn luyện, rồi cộng lại khi dự đoán:</p>
+<div class="math-box">$$ \text{dự đoán} = \mathbf{w}^{(j)}\cdot\mathbf{x}^{(i)} + b^{(j)} + \mu_i $$</div>
+<p>Người dùng mới sẽ được gợi ý theo điểm trung bình của phim — hợp lý hơn nhiều. Trong lab, mình thêm điểm của chính mình cho vài phim (<code>my_ratings</code>) rồi xem mô hình gợi ý gì.</p>
+
+<h3>Tìm phim tương tự</h3>
+<p>Phim \(k\) tương tự phim \(i\) nếu đặc trưng học được gần nhau: \(\|\mathbf{x}^{(k)} - \mathbf{x}^{(i)}\|^2\) nhỏ.</p>
+
+<h3>Hạn chế</h3>
+<ul>
+  <li><strong>Cold start</strong>: phim mới (chưa ai chấm) hoặc người dùng mới (chấm rất ít) khó gợi ý.</li>
+  <li>Không tận dụng được thông tin phụ: thể loại, diễn viên, tuổi/quốc gia người dùng…</li>
+</ul>
+
+<h2>Content-based filtering với mạng nơ-ron</h2>
+<p>Gợi ý dựa trên <strong>đặc trưng</strong> của người dùng \(\mathbf{x}_u\) (tuổi, giới tính, quốc gia, điểm trung bình theo thể loại…) và của phim \(\mathbf{x}_m\) (năm, thể loại, điểm trung bình…). Hai mạng nơ-ron riêng biệt biến chúng thành hai vector cùng kích thước, rồi lấy tích vô hướng:</p>
+<figure class="medium"><img src="images/RecSysNN.png" alt="Kiến trúc hai tháp: user network và item network" loading="lazy"><figcaption>Kiến trúc “hai tháp”: user network → \(\mathbf{v}_u\), item network → \(\mathbf{v}_m\), dự đoán \(= \mathbf{v}_u\cdot\mathbf{v}_m\).</figcaption></figure>
+<pre><code class="language-python">num_outputs = 32
+user_NN = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(num_outputs),            # không activation
+])
+item_NN = tf.keras.models.Sequential([
+    tf.keras.layers.Dense(256, activation='relu'),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(num_outputs),
+])
+
+input_user = tf.keras.layers.Input(shape=(num_user_features,))
+vu = tf.linalg.l2_normalize(user_NN(input_user), axis=1)
+input_item = tf.keras.layers.Input(shape=(num_item_features,))
+vm = tf.linalg.l2_normalize(item_NN(input_item), axis=1)
+
+output = tf.keras.layers.Dot(axes=1)([vu, vm])     # tích vô hướng = cosine similarity
+model = tf.keras.Model([input_user, input_item], output)
+model.compile(optimizer=keras.optimizers.Adam(learning_rate=0.01),
+              loss=tf.keras.losses.MeanSquaredError())</code></pre>
+<p>Tìm phim tương tự: so sánh các vector \(\mathbf{v}_m\) bằng khoảng cách bình phương:</p>
+<pre><code class="language-python">def sq_dist(a, b):
+    return np.sum((a - b) ** 2)</code></pre>
+<div class="box tip"><span class="box-title">✅ Mẹo triển khai: retrieval &amp; ranking</span>
+<p>Với hàng triệu sản phẩm, không thể chạy mạng cho mọi cặp người dùng–sản phẩm. Hệ thống thực tế làm hai bước:</p>
+<ol>
+  <li><strong>Retrieval</strong>: nhanh chóng lấy vài trăm ứng viên (phim tương tự phim vừa xem, top phim theo thể loại yêu thích, phim hot tại quốc gia…). Các \(\mathbf{v}_m\) có thể tính sẵn từ trước.</li>
+  <li><strong>Ranking</strong>: chạy mô hình đầy đủ trên các ứng viên đó và sắp xếp.</li>
+</ol></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: matrix factorization, implicit feedback và đạo đức</span>
+<ul>
+  <li>Collaborative filtering chính là <strong>phân tích ma trận</strong> (matrix factorization): \(\mathbf{Y} \approx \mathbf{X}\mathbf{W}^\top\) — thuật toán nổi tiếng từ cuộc thi Netflix Prize (2006–2009).</li>
+  <li><strong>Phản hồi ngầm (implicit feedback)</strong>: thay vì điểm sao, dùng click, thời gian xem, thêm vào giỏ hàng. Nhãn nhị phân → thay hồi quy bằng logistic (dự đoán xác suất người dùng tương tác).</li>
+  <li><strong>Đánh giá</strong>: ngoài MSE, dùng các thước đo xếp hạng như Precision@K, Recall@K, NDCG.</li>
+  <li><strong>Vector database &amp; ANN search</strong> (FAISS, ScaNN): tìm láng giềng gần nhất trong hàng tỉ vector — nền tảng của retrieval và của RAG trong ứng dụng LLM.</li>
+  <li><strong>Đạo đức</strong>: tối ưu thuần “tương tác” có thể đẩy nội dung giật gân, tạo “bong bóng lọc”. Andrew Ng khuyến khích minh bạch với người dùng và cân nhắc lợi ích lâu dài của họ.</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c3_w2_prac2/Files/home/jovyan/work/C3_W2_Collaborative_RecSys_Assignment.ipynb">C3_W2 Practice Lab — Collaborative Filtering</a> (graded: <code>cofi_cost_func</code>)</li>
+  <li><a data-nb="c3_w2_prac1/Files/home/jovyan/work/C3_W2_RecSysNN_Assignment.ipynb">C3_W2 Practice Lab — Content-based Filtering với mạng nơ-ron</a> (graded: <code>user_NN</code>/<code>item_NN</code>, <code>sq_dist</code>)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Collaborative filtering học đồng thời đặc trưng phim \(\mathbf{x}\) và tham số người dùng \(\mathbf{w}, b\), chỉ tính lỗi trên ô có \(r(i,j)=1\).</li>
+  <li>Mean normalization giúp người dùng mới nhận gợi ý hợp lý.</li>
+  <li>Content-based: hai mạng nơ-ron tạo \(\mathbf{v}_u, \mathbf{v}_m\); dự đoán = \(\mathbf{v}_u\cdot\mathbf{v}_m\); giải quyết cold start nhờ đặc trưng.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Vì sao không regularize b trong collaborative filtering?</summary><p>Giống các chương trước: b chỉ dịch chuyển dự đoán, không làm mô hình “phức tạp” hơn; regularize hay không ảnh hưởng rất ít. Lab chỉ regularize X và W.</p></details>
+<details class="quiz"><summary>Phim mới ra mắt, chưa ai chấm. Cách nào gợi ý được?</summary><p>Content-based filtering: dùng đặc trưng của phim (thể loại, năm, diễn viên…) để tính \(\mathbf{v}_m\) ngay lập tức.</p></details>
+</article>
+</body>
+</html>

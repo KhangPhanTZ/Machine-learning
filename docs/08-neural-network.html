@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8. Mạng nơ-ron · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 8 · Khoá C2, tuần 1</div>
+  <h1>Mạng nơ-ron &amp; forward propagation</h1>
+  <p class="lede">Xếp chồng nhiều logistic regression thành từng lớp, và mạng sẽ tự học ra những đặc trưng mà ta không cần thiết kế bằng tay.</p>
+  <div class="meta"><span>⏱ 25 phút đọc</span><span>🧪 C2_W1_Lab01–Lab03 · C2_W1 Practice</span></div>
+</header>
+
+<h2>Từ nơ-ron sinh học đến nơ-ron nhân tạo</h2>
+<p>Một nơ-ron nhân tạo nhận các đầu vào, tính tổng có trọng số, rồi đưa qua một <strong>hàm kích hoạt</strong> (activation). Thật ra đó chính là mô hình ta đã biết:</p>
+<ul>
+  <li>Không có activation (linear): \(a = \mathbf{w}\cdot\mathbf{x} + b\) — hồi quy tuyến tính.</li>
+  <li>Activation sigmoid: \(a = g(\mathbf{w}\cdot\mathbf{x} + b)\) — logistic regression.</li>
+</ul>
+<p>Lab01 kiểm chứng điều này: một lớp <code>Dense(units=1, activation='linear')</code> của TensorFlow, gán trọng số bằng tay, cho đúng kết quả như <code>np.dot(x, w) + b</code>.</p>
+<figure class="medium"><img src="images/C2_W1_NeuronsAndLayers.png" alt="Nơ-ron sinh học và mô hình toán học đơn giản hoá" loading="lazy"><figcaption>Nơ-ron sinh học (trái) và mô hình toán học đơn giản hoá của nó (phải).</figcaption></figure>
+
+<h2>Lớp (layer) và mạng</h2>
+<p>Một <strong>lớp</strong> gồm nhiều nơ-ron cùng nhận một đầu vào. Lớp \(l\) có \(j\) nơ-ron, mỗi nơ-ron có vector trọng số \(\mathbf{w}_j^{[l]}\) và bias \(b_j^{[l]}\):</p>
+<div class="math-box">$$ a_j^{[l]} = g\left(\mathbf{w}_j^{[l]}\cdot\mathbf{a}^{[l-1]} + b_j^{[l]}\right) $$</div>
+<p>với \(\mathbf{a}^{[0]} = \mathbf{x}\). Đầu ra của lớp này là đầu vào của lớp tiếp theo. Các lớp giữa gọi là <strong>lớp ẩn</strong> (hidden layer); lớp cuối là <strong>lớp đầu ra</strong>.</p>
+<div class="box note"><span class="box-title">💡 Mạng tự học đặc trưng</span>
+<p>Trong ví dụ dự đoán áo bán chạy, lớp ẩn có thể tự học ra các khái niệm như “giá cả phải chăng”, “mức độ nhận biết”, “chất lượng cảm nhận” từ các đặc trưng thô (giá, phí ship, marketing…). Ta không cần thiết kế những đặc trưng này — đó là sức mạnh của mạng nơ-ron so với feature engineering thủ công ở chương 5.</p></div>
+
+<h2>Ví dụ: rang cà phê</h2>
+<p>Lab02 và Lab03 dùng dữ liệu rang cà phê: hai đặc trưng là nhiệt độ (°C) và thời gian (phút); nhãn là rang ngon (1) hay không (0). Vùng “ngon” là một tam giác — rang quá ngắn hoặc quá nguội thì sống, quá lâu hoặc quá nóng thì cháy.</p>
+<figure class="medium"><img src="images/C2_W1_RoastingNetwork.PNG" alt="Mạng nơ-ron 2 lớp cho bài rang cà phê" loading="lazy"><figcaption>Mạng 2 lớp: 3 nơ-ron sigmoid ở lớp ẩn, 1 nơ-ron sigmoid ở đầu ra.</figcaption></figure>
+<p>Sau khi huấn luyện, mỗi nơ-ron ở lớp ẩn học được một “cạnh” của tam giác — ví dụ một nơ-ron bật khi nhiệt độ quá thấp, một nơ-ron bật khi thời gian quá ngắn. Lớp đầu ra kết hợp chúng lại.</p>
+
+<h3>TensorFlow / Keras</h3>
+<pre><code class="language-python">import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense
+
+# Chuẩn hoá đặc trưng bằng lớp Normalization của Keras
+norm_l = tf.keras.layers.Normalization(axis=-1)
+norm_l.adapt(X)          # học mean, variance
+Xn = norm_l(X)
+
+model = Sequential([
+    tf.keras.Input(shape=(2,)),
+    Dense(3, activation='sigmoid', name='layer1'),
+    Dense(1, activation='sigmoid', name='layer2'),
+])
+model.compile(loss=tf.keras.losses.BinaryCrossentropy(),
+              optimizer=tf.keras.optimizers.Adam(learning_rate=0.01))
+model.fit(Xt, Yt, epochs=10)
+
+predictions = model.predict(norm_l(X_test))
+yhat = (predictions &gt;= 0.5).astype(int)</code></pre>
+<div class="box note"><span class="box-title">💡 Epoch và batch</span>
+<p><strong>Epoch</strong> = một lượt đi qua toàn bộ dữ liệu huấn luyện. Keras chia dữ liệu thành các <strong>batch</strong> (mặc định 32 ví dụ), mỗi batch là một bước cập nhật. Log <code>6250/6250</code> nghĩa là 6250 batch trong một epoch. Lab02 còn nhân bản dữ liệu (<code>np.tile</code>) lên 1000 lần để có nhiều bước cập nhật hơn với ít epoch.</p></div>
+
+<h2>Forward propagation bằng NumPy</h2>
+<p>Lab03 cài đặt lại đúng mạng trên chỉ bằng NumPy — để hiểu điều gì xảy ra bên trong <code>model.predict</code>. Trong lab, ma trận trọng số \(\mathbf{W}\) có shape \((n_{\text{in}}, n_{\text{units}})\): mỗi <strong>cột</strong> là trọng số của một nơ-ron.</p>
+<figure class="medium"><img src="images/C2_W1_dense.PNG" alt="Sơ đồ hàm dense tính từng nơ-ron" loading="lazy"><figcaption>Hàm <code>my_dense</code>: mỗi nơ-ron dùng một cột của W.</figcaption></figure>
+<p>Hàm mình viết trong Practice Lab:</p>
+<pre><code class="language-python">def my_dense(a_in, W, b, g):
+    """a_in: (n,), W: (n, j), b: (j,), g: hàm kích hoạt"""
+    units = W.shape[1]
+    a_out = np.zeros(units)
+    for j in range(units):
+        z = np.dot(W[:, j], a_in) + b[j]
+        a_out[j] = g(z)
+    return a_out
+
+def my_sequential(x, W1, b1, W2, b2, W3, b3):
+    a1 = my_dense(x,  W1, b1, sigmoid)
+    a2 = my_dense(a1, W2, b2, sigmoid)
+    a3 = my_dense(a2, W3, b3, sigmoid)
+    return a3</code></pre>
+<p>Và bản vector hoá — xử lý <em>cả lô</em> \(m\) ví dụ trong một phép nhân ma trận:</p>
+<div class="math-box">$$ \mathbf{Z}^{[l]} = \mathbf{A}^{[l-1]}\mathbf{W}^{[l]} + \mathbf{b}^{[l]}, \qquad \mathbf{A}^{[l]} = g(\mathbf{Z}^{[l]}) $$</div>
+<pre><code class="language-python">def my_dense_v(A_in, W, b, g):
+    """A_in: (m, n), W: (n, j), b: (1, j) -&gt; A_out: (m, j)"""
+    z = np.matmul(A_in, W) + b
+    A_out = g(z)
+    return A_out</code></pre>
+
+<h2>Bài thực hành: nhận dạng chữ số 0 và 1</h2>
+<p>Practice Lab dùng 1000 ảnh chữ viết tay 20×20 pixel (một phần của MNIST), duỗi thành vector 400 phần tử. Mạng 3 lớp:</p>
+<figure class="medium"><img src="images/C2_W1_Assign1.PNG" alt="Kiến trúc mạng 400-25-15-1" loading="lazy"><figcaption>Kiến trúc 400 → 25 → 15 → 1, đều dùng sigmoid.</figcaption></figure>
+<pre><code class="language-python">model = Sequential([
+    tf.keras.Input(shape=(400,)),
+    Dense(25, activation='sigmoid', name='layer1'),
+    Dense(15, activation='sigmoid', name='layer2'),
+    Dense(1,  activation='sigmoid', name='layer3'),
+], name="my_model")
+# Số tham số: 400*25+25 = 10025, 25*15+15 = 390, 15*1+1 = 16</code></pre>
+<p>Shape của trọng số: <code>W1 (400, 25)</code>, <code>W2 (25, 15)</code>, <code>W3 (15, 1)</code>. Sau 20 epoch, mô hình nhận dạng gần như hoàn hảo trên tập này.</p>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: vì sao “deep” lại hiệu quả?</span>
+<ul>
+  <li><strong>Định lý xấp xỉ phổ quát</strong>: mạng chỉ với một lớp ẩn đủ rộng có thể xấp xỉ bất kỳ hàm liên tục nào. Nhưng “đủ rộng” có thể là cực kỳ rộng; mạng <em>sâu</em> thường biểu diễn cùng hàm đó với ít tham số hơn nhiều.</li>
+  <li><strong>Học phân cấp</strong>: với ảnh, lớp đầu học cạnh, lớp sau học hình dạng, lớp sâu hơn học bộ phận (mắt, mũi), cuối cùng là khuôn mặt.</li>
+  <li><strong>Dense</strong> (fully-connected) chỉ là một loại lớp. <strong>Convolutional layer</strong> (CNN) cho ảnh: mỗi nơ-ron chỉ nhìn một vùng nhỏ và chia sẻ trọng số → ít tham số, bất biến với dịch chuyển. <strong>Recurrent / Transformer</strong> cho chuỗi (văn bản, âm thanh).</li>
+  <li>Khởi tạo trọng số ngẫu nhiên là bắt buộc: nếu mọi trọng số bằng 0, các nơ-ron trong một lớp sẽ luôn giống hệt nhau (vấn đề đối xứng).</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c2_w1/Files/home/jovyan/work/C2_W1_Lab01_Neurons_and_Layers.ipynb">C2_W1_Lab01 — Neurons and Layers</a></li>
+  <li><a data-nb="c2_w1/Files/home/jovyan/work/C2_W1_Lab02_CoffeeRoasting_TF.ipynb">C2_W1_Lab02 — Coffee Roasting (TensorFlow)</a></li>
+  <li><a data-nb="c2_w1/Files/home/jovyan/work/C2_W1_Lab03_CoffeeRoasting_Numpy.ipynb">C2_W1_Lab03 — Coffee Roasting (NumPy)</a></li>
+  <li><a data-nb="c2_w1_prac/Files/home/jovyan/work/C2_W1_Assignment.ipynb">C2_W1 Practice Lab — Handwritten Digit Recognition, Binary</a> (graded: Sequential model, <code>my_dense</code>, <code>my_dense_v</code>)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Một nơ-ron = \(g(\mathbf{w}\cdot\mathbf{a}+b)\); một lớp = nhiều nơ-ron; mạng = nhiều lớp nối tiếp.</li>
+  <li>Forward prop: \(\mathbf{A}^{[l]} = g(\mathbf{A}^{[l-1]}\mathbf{W}^{[l]} + \mathbf{b}^{[l]})\).</li>
+  <li>Keras: <code>Sequential([Dense(...), ...])</code> → <code>compile(loss, optimizer)</code> → <code>fit</code> → <code>predict</code>.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Lớp Dense có 64 nơ-ron, đầu vào 100 chiều. Có bao nhiêu tham số?</summary><p>\(100 \times 64 + 64 = 6464\) (trọng số + bias).</p></details>
+<details class="quiz"><summary>Đầu vào lô có shape (32, 400), W1 có shape (400, 25). A1 có shape gì?</summary><p>(32, 25) — 25 giá trị kích hoạt cho mỗi trong 32 ví dụ.</p></details>
+</article>
+</body>
+</html>

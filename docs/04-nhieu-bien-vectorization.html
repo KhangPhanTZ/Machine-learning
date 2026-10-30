@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4. Hồi quy nhiều biến & vectorization · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 4 · Khoá C1, tuần 2</div>
+  <h1>Hồi quy nhiều biến &amp; vectorization</h1>
+  <p class="lede">Giá nhà không chỉ phụ thuộc diện tích. Thêm số phòng ngủ, số tầng, tuổi nhà — và học cách để NumPy làm phép tính thay cho vòng lặp.</p>
+  <div class="meta"><span>⏱ 20 phút đọc</span><span>🧪 C1_W2_Lab01, Lab02</span></div>
+</header>
+
+<h2>NumPy: vector và ma trận</h2>
+<p>NumPy là nền móng của gần như mọi thư viện ML trong Python. Đối tượng trung tâm là <code>ndarray</code> — mảng nhiều chiều, cùng kiểu dữ liệu, lưu liên tục trong bộ nhớ.</p>
+<pre><code class="language-python">import numpy as np
+
+a = np.zeros(4)                 # [0. 0. 0. 0.]
+a = np.arange(4.)               # [0. 1. 2. 3.]
+a = np.random.random_sample(4)  # 4 số ngẫu nhiên trong [0, 1)
+a = np.array([5, 4, 3, 2])
+
+a[2], a[-1]          # truy cập phần tử: 3, 2
+a[1:3]               # cắt (slicing): [4, 3]
+a.shape              # (4,)
+
+X = np.array([[1, 2], [3, 4], [5, 6]])
+X.shape              # (3, 2): 3 hàng (ví dụ), 2 cột (đặc trưng)
+X[1]                 # hàng thứ 2: [3, 4]
+X[:, 0]              # cột đầu tiên: [1, 3, 5]
+X.reshape(-1, 1)     # -1: "tự tính số hàng"</code></pre>
+
+<h3>Tích vô hướng (dot product)</h3>
+<p>Phép toán xuất hiện ở khắp nơi trong ML:</p>
+<div class="math-box">$$ \mathbf{a} \cdot \mathbf{b} = \sum_{j=0}^{n-1} a_j b_j $$</div>
+<figure class="small"><img src="images/C1_W2_Lab04_dot_notrans.gif" alt="Hoạt hình tích vô hướng hai vector" loading="lazy"><figcaption>Nhân từng cặp phần tử rồi cộng lại.</figcaption></figure>
+<pre><code class="language-python">def my_dot(a, b):
+    x = 0
+    for i in range(a.shape[0]):
+        x = x + a[i] * b[i]
+    return x
+
+a = np.array([1, 2, 3, 4]); b = np.array([-1, 4, 3, 2])
+my_dot(a, b), np.dot(a, b)       # (24, 24)</code></pre>
+
+<h2>Vì sao vectorization nhanh?</h2>
+<p>Lab01 đo thời gian tính tích vô hướng của hai vector 10 triệu phần tử: vòng lặp Python mất vài <strong>giây</strong>, <code>np.dot</code> chỉ mất vài <strong>mili-giây</strong> — nhanh hơn hàng trăm lần.</p>
+<ul>
+  <li>NumPy chạy vòng lặp bằng C đã biên dịch, không phải trình thông dịch Python.</li>
+  <li>CPU hiện đại có lệnh <strong>SIMD</strong> (một lệnh xử lý nhiều số cùng lúc); GPU còn song song hoá ở quy mô hàng nghìn lõi.</li>
+  <li>Bộ nhớ liên tục giúp tận dụng cache.</li>
+</ul>
+<div class="box tip"><span class="box-title">✅ Quy tắc</span>
+<p>Mỗi khi thấy vòng <code>for</code> chạy qua từng ví dụ hoặc từng đặc trưng, hãy tự hỏi: có viết được bằng <code>np.dot</code>, <code>@</code>, <code>np.sum</code>, broadcasting không?</p></div>
+
+<h3>Broadcasting</h3>
+<p>NumPy tự “kéo giãn” mảng có kích thước khác nhau khi làm phép toán từng phần tử, miễn là các chiều tương thích (bằng nhau hoặc bằng 1):</p>
+<pre><code class="language-python">X = np.array([[1, 2, 3], [4, 5, 6]])   # (2, 3)
+mu = X.mean(axis=0)                     # (3,)   trung bình từng cột
+X - mu                                  # (2, 3) — mu được lặp cho mỗi hàng
+5 * np.array([1, 2])                    # [5, 10]</code></pre>
+
+<h2>Hồi quy tuyến tính nhiều biến</h2>
+<p>Dữ liệu trong Lab02:</p>
+<table>
+  <tr><th>Diện tích (sqft)</th><th>Số phòng ngủ</th><th>Số tầng</th><th>Tuổi nhà</th><th>Giá (1000s $)</th></tr>
+  <tr><td>2104</td><td>5</td><td>1</td><td>45</td><td>460</td></tr>
+  <tr><td>1416</td><td>3</td><td>2</td><td>40</td><td>232</td></tr>
+  <tr><td>852</td><td>2</td><td>1</td><td>35</td><td>178</td></tr>
+</table>
+<p>Ma trận dữ liệu \(\mathbf{X}\) có kích thước \(m \times n\) (mỗi hàng là một ví dụ), tham số là vector \(\mathbf{w}\) có \(n\) phần tử và số \(b\). Mô hình:</p>
+<div class="math-box">$$ f_{\mathbf{w},b}(\mathbf{x}) = w_0x_0 + w_1x_1 + \dots + w_{n-1}x_{n-1} + b = \mathbf{w}\cdot\mathbf{x} + b $$</div>
+<pre><code class="language-python">def predict(x, w, b):
+    return np.dot(x, w) + b
+
+# dự đoán cho TẤT CẢ ví dụ cùng lúc: (m,n) @ (n,) -> (m,)
+y_hat = X_train @ w + b</code></pre>
+
+<h3>Chi phí và gradient dạng vector</h3>
+<div class="math-box">$$
+J(\mathbf{w},b) = \frac{1}{2m}\sum_{i=0}^{m-1}\left(f_{\mathbf{w},b}(\mathbf{x}^{(i)}) - y^{(i)}\right)^2
+$$
+$$
+\frac{\partial J}{\partial w_j} = \frac{1}{m}\sum_{i=0}^{m-1}\left(f_{\mathbf{w},b}(\mathbf{x}^{(i)}) - y^{(i)}\right)x_j^{(i)}
+\qquad
+\frac{\partial J}{\partial b} = \frac{1}{m}\sum_{i=0}^{m-1}\left(f_{\mathbf{w},b}(\mathbf{x}^{(i)}) - y^{(i)}\right)
+$$</div>
+<p>Viết gọn bằng ma trận, với \(\mathbf{e} = \mathbf{X}\mathbf{w} + b - \mathbf{y}\) là vector sai số:</p>
+<div class="math-box">$$ \nabla_{\mathbf{w}} J = \frac{1}{m}\mathbf{X}^\top \mathbf{e}, \qquad \frac{\partial J}{\partial b} = \frac{1}{m}\sum_i e_i $$</div>
+<pre><code class="language-python">def compute_cost(X, y, w, b):
+    err = X @ w + b - y
+    return (err @ err) / (2 * X.shape[0])
+
+def compute_gradient(X, y, w, b):
+    m = X.shape[0]
+    err = X @ w + b - y          # (m,)
+    dj_dw = X.T @ err / m        # (n,)
+    dj_db = err.sum() / m        # số
+    return dj_db, dj_dw</code></pre>
+<p>So với bản trong lab (hai vòng <code>for</code> lồng nhau qua \(i\) và \(j\)), bản vector hoá ngắn hơn, ít lỗi hơn và nhanh hơn rất nhiều.</p>
+
+<div class="box warn"><span class="box-title">⚠️ Hội tụ chậm với dữ liệu thô</span>
+<p>Chạy gradient descent trên dữ liệu nhà ở Lab02 với α = 5e-7 và 1000 vòng lặp, kết quả dự đoán vẫn lệch xa giá thật. Lý do: diện tích (cỡ 1000) và số tầng (cỡ 1) chênh nhau vài bậc độ lớn. Chương 5 sẽ sửa bằng <strong>feature scaling</strong>.</p></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: kiểm tra shape là thói quen sống còn</span>
+<p>Phần lớn bug trong code ML là bug về shape. Một vài mẹo:</p>
+<ul>
+  <li>Phân biệt <code>(n,)</code> (vector 1 chiều) với <code>(n,1)</code> (ma trận cột). Trừ <code>(m,)</code> cho <code>(m,1)</code> sẽ broadcast thành <code>(m,m)</code> — không lỗi nhưng sai hoàn toàn!</li>
+  <li>Đặt <code>assert y_hat.shape == y.shape</code> ở những chỗ quan trọng.</li>
+  <li>Ghi shape trong comment như các lab: <code># (m,n) @ (n,) -&gt; (m,)</code>.</li>
+</ul></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab01_Python_Numpy_Vectorization_Soln.ipynb">C1_W2_Lab01 — Python, NumPy and Vectorization</a></li>
+  <li><a data-nb="c1_w2/home/jovyan/work/C1_W2_Lab02_Multiple_Variable_Soln.ipynb">C1_W2_Lab02 — Multiple Variable Linear Regression</a></li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>\(f_{\mathbf{w},b}(\mathbf{x}) = \mathbf{w}\cdot\mathbf{x} + b\); cả tập: <code>X @ w + b</code>.</li>
+  <li>Gradient: \(\frac{1}{m}\mathbf{X}^\top(\mathbf{X}\mathbf{w}+b-\mathbf{y})\).</li>
+  <li>Vectorization nhanh hơn vòng lặp hàng trăm lần và ít bug hơn.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>X có shape (100, 4), w có shape (4,). X @ w có shape gì?</summary><p>(100,) — một dự đoán cho mỗi ví dụ.</p></details>
+<details class="quiz"><summary>Viết một dòng tính trung bình mỗi đặc trưng của X.</summary><p><code>X.mean(axis=0)</code> — <code>axis=0</code> nghĩa là “gộp theo chiều hàng”, kết quả có một giá trị cho mỗi cột.</p></details>
+</article>
+</body>
+</html>

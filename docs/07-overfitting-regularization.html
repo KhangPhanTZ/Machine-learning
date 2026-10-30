@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7. Overfitting & Regularization · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 7 · Khoá C1, tuần 3</div>
+  <h1>Overfitting &amp; Regularization</h1>
+  <p class="lede">Một mô hình thuộc lòng dữ liệu huấn luyện thì không học được gì. Regularization là cách “phạt” sự phức tạp để mô hình tổng quát hoá tốt hơn.</p>
+  <div class="meta"><span>⏱ 20 phút đọc</span><span>🧪 C1_W3_Lab08, Lab09</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Underfit, vừa khớp, overfit</h2>
+<figure class="medium"><img src="images/C2_W3_BiasVariance.png" alt="Ba mô hình: high bias, just right, high variance" loading="lazy"><figcaption>Bậc 1: underfit (bias cao) · bậc 2: vừa khớp · bậc 4: overfit (variance cao).</figcaption></figure>
+<ul>
+  <li><strong>Underfitting (bias cao)</strong>: mô hình quá đơn giản, không nắm được quy luật — sai nhiều ngay cả trên tập train. Như một học sinh có “định kiến” mạnh: dữ liệu nói gì cũng vẫn vẽ đường thẳng.</li>
+  <li><strong>Overfitting (variance cao)</strong>: mô hình quá phức tạp, khớp cả nhiễu — J_train gần 0 nhưng dự đoán dữ liệu mới rất tệ. Chỉ cần đổi vài điểm dữ liệu là mô hình thay đổi hoàn toàn (variance cao).</li>
+  <li><strong>Vừa khớp (generalization)</strong>: dự đoán tốt cả trên dữ liệu chưa từng thấy. Đây mới là mục tiêu thật sự.</li>
+</ul>
+
+<div class="demo" data-demo="overfit"></div>
+<p>Thử: đặt bậc d = 1 (underfit), d = 4 (vừa), d = 12 (overfit — đường cong uốn lượn để chạm từng điểm train). Giữ d = 12 rồi tăng λ: đường cong mượt lại và J_cv giảm.</p>
+
+<h2>Ba cách chống overfitting</h2>
+<ol>
+  <li><strong>Thu thập thêm dữ liệu</strong> — cách hiệu quả nhất, nếu có thể.</li>
+  <li><strong>Dùng ít đặc trưng hơn</strong> (feature selection) — nhưng có thể bỏ mất thông tin hữu ích.</li>
+  <li><strong>Regularization</strong> — giữ mọi đặc trưng nhưng giảm độ lớn của các trọng số \(w_j\), để không đặc trưng nào chi phối quá mức.</li>
+</ol>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+<figure style="margin:0"><img src="images/C1_W3_Overfitting_a.png" alt="Slide: thu thập thêm dữ liệu huấn luyện" loading="lazy"><figcaption>1. Thêm dữ liệu</figcaption></figure>
+<figure style="margin:0"><img src="images/C1_W3_Overfitting_c.png" alt="Slide: chọn tập con đặc trưng" loading="lazy"><figcaption>2. Chọn đặc trưng</figcaption></figure>
+<figure style="margin:0"><img src="images/C1_W3_Overfitting_b.png" alt="Slide: giảm độ lớn tham số bằng regularization" loading="lazy"><figcaption>3. Regularization</figcaption></figure>
+</div>
+
+<h2>Hàm chi phí có regularization</h2>
+<p>Thêm vào hàm chi phí một số hạng phạt tổng bình phương các trọng số:</p>
+<div class="math-box">$$ J(\mathbf{w},b) = \underbrace{\frac{1}{2m}\sum_{i=0}^{m-1}\left(f_{\mathbf{w},b}(\mathbf{x}^{(i)}) - y^{(i)}\right)^2}_{\text{khớp dữ liệu}} + \underbrace{\frac{\lambda}{2m}\sum_{j=0}^{n-1} w_j^2}_{\text{giữ } w \text{ nhỏ}} $$</div>
+<p>Với logistic regression, thay phần đầu bằng log loss, phần regularization giữ nguyên.</p>
+<ul>
+  <li>\(\lambda = 0\): không regularization → có thể overfit.</li>
+  <li>\(\lambda\) rất lớn: mọi \(w_j \approx 0\), \(f \approx b\) → đường ngang, underfit.</li>
+  <li>Thường <strong>không</strong> regularize \(b\) — trong thực tế khác biệt không đáng kể.</li>
+</ul>
+<pre><code class="language-python">def compute_cost_reg(X, y, w, b, lambda_=1):
+    m, n = X.shape
+    cost_without_reg = compute_cost(X, y, w, b)        # log loss như chương 6
+    reg_cost = (lambda_ / (2 * m)) * np.sum(w ** 2)
+    return cost_without_reg + reg_cost</code></pre>
+
+<h2>Gradient descent có regularization</h2>
+<div class="math-box">$$
+\frac{\partial J}{\partial w_j} = \frac{1}{m}\sum_{i=0}^{m-1}\left(f_{\mathbf{w},b}(\mathbf{x}^{(i)}) - y^{(i)}\right)x_j^{(i)} + \frac{\lambda}{m}w_j,
+\qquad
+\frac{\partial J}{\partial b} \text{ không đổi}
+$$</div>
+<pre><code class="language-python">def compute_gradient_reg(X, y, w, b, lambda_=1):
+    m, n = X.shape
+    dj_db, dj_dw = compute_gradient(X, y, w, b)
+    dj_dw += (lambda_ / m) * w           # chỉ thêm cho w, không cho b
+    return dj_db, dj_dw</code></pre>
+
+<div class="box note"><span class="box-title">💡 Vì sao gọi là “weight decay”?</span>
+<p>Viết lại bước cập nhật:</p>
+$$ w_j := w_j\left(1 - \alpha\frac{\lambda}{m}\right) - \alpha\frac{1}{m}\sum_i (f - y)x_j^{(i)} $$
+<p>Hệ số \(1 - \alpha\lambda/m\) hơi nhỏ hơn 1 (ví dụ 0.9998). Mỗi vòng lặp, trọng số bị “co lại” một chút trước khi cập nhật bình thường — nên regularization L2 còn được gọi là <strong>weight decay</strong>.</p></div>
+
+<div class="box lab"><span class="box-title">🧪 Kết quả Practice Lab (phần microchip)</span>
+<p>Dữ liệu kiểm tra vi mạch không tách được bằng đường thẳng. Ánh xạ hai đặc trưng thành 27 đặc trưng đa thức tới bậc 6 (<code>map_feature</code>), rồi huấn luyện logistic regression với \(\lambda = 0.01\): ranh giới quyết định là một đường cong khép kín bao quanh lớp dương, độ chính xác train khoảng <strong>83%</strong>. Thử \(\lambda = 0\) (overfit, ranh giới méo mó) và \(\lambda = 100\) (underfit, ranh giới gần tròn và lệch) để thấy tác dụng.</p></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: L1, L2 và các dạng regularization khác</span>
+<table>
+  <tr><th>Tên</th><th>Số hạng phạt</th><th>Đặc điểm</th></tr>
+  <tr><td>L2 / Ridge</td><td>\(\lambda\sum w_j^2\)</td><td>Co mọi trọng số về gần 0, mượt</td></tr>
+  <tr><td>L1 / Lasso</td><td>\(\lambda\sum |w_j|\)</td><td>Đẩy nhiều trọng số về <em>đúng</em> 0 → tự chọn đặc trưng (sparse)</td></tr>
+  <tr><td>Elastic Net</td><td>kết hợp L1 + L2</td><td>Cân bằng hai ưu điểm</td></tr>
+</table>
+<p>Trong deep learning còn có: <strong>dropout</strong> (ngẫu nhiên tắt nơ-ron khi huấn luyện), <strong>early stopping</strong> (dừng khi J_cv bắt đầu tăng), <strong>data augmentation</strong> (xoay, lật, cắt ảnh để có thêm dữ liệu), và <strong>batch normalization</strong>.</p>
+<p>Trong scikit-learn: <code>Ridge(alpha=λ)</code>, <code>Lasso(alpha=λ)</code>; với <code>LogisticRegression</code>, tham số <code>C = 1/λ</code> (C nhỏ = regularization mạnh). Trong Keras: <code>kernel_regularizer=regularizers.l2(0.1)</code> (chương 11).</p></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab08_Overfitting_Soln.ipynb">C1_W3_Lab08 — Overfitting</a> (công cụ tương tác chọn bậc đa thức &amp; λ)</li>
+  <li><a data-nb="c1_w3/home/jovyan/work/C1_W3_Lab09_Regularization_Soln.ipynb">C1_W3_Lab09 — Regularized Cost and Gradient</a></li>
+  <li><a data-nb="c1_w3_prac/home/jovyan/work/C1_W3_Logistic_Regression.ipynb">C1_W3 Practice Lab</a> — phần 3: Regularized Logistic Regression</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Underfit = bias cao (sai cả train); overfit = variance cao (đúng train, sai dữ liệu mới).</li>
+  <li>Regularization L2: thêm \(\frac{\lambda}{2m}\sum w_j^2\) vào J và \(\frac{\lambda}{m}w_j\) vào gradient.</li>
+  <li>λ là siêu tham số: quá nhỏ → overfit, quá lớn → underfit. Chọn bằng tập cross-validation (chương 11).</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>J_train = 0.001, J_cv = 2.5. Mô hình đang gặp vấn đề gì? Nên làm gì?</summary><p>Overfit (variance cao). Thêm dữ liệu, giảm số đặc trưng, hoặc tăng λ.</p></details>
+<details class="quiz"><summary>Tại sao phải scale đặc trưng trước khi regularize?</summary><p>Vì phạt \(w_j^2\) như nhau cho mọi \(j\). Nếu một đặc trưng có thang đo lớn, trọng số của nó tự nhiên nhỏ và gần như không bị phạt; đặc trưng thang nhỏ lại bị phạt nặng. Scale giúp phạt công bằng.</p></details>
+</article>
+</body>
+</html>

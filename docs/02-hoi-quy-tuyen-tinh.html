@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2. Hồi quy tuyến tính · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 2 · Khoá C1, tuần 1</div>
+  <h1>Hồi quy tuyến tính &amp; hàm chi phí</h1>
+  <p class="lede">Mô hình đơn giản nhất của machine learning: kẻ một đường thẳng đi “gần” các điểm dữ liệu nhất. Nhưng “gần” nghĩa là gì?</p>
+  <div class="meta"><span>⏱ 15 phút đọc</span><span>🧪 C1_W1_Lab02, Lab03 · C1_W2 Practice</span></div>
+</header>
+
+<h2>Bài toán: dự đoán giá nhà</h2>
+<p>Lab bắt đầu với hai căn nhà:</p>
+<table>
+  <tr><th>Diện tích (1000 sqft)</th><th>Giá (1000s $)</th></tr>
+  <tr><td>1.0</td><td>300</td></tr>
+  <tr><td>2.0</td><td>500</td></tr>
+</table>
+<p>Ta muốn một hàm nhận diện tích và trả về giá, để dự đoán cho căn nhà 1200 sqft chưa có trong dữ liệu.</p>
+
+<h2>Mô hình</h2>
+<p>Hồi quy tuyến tính một biến (univariate linear regression) giả sử quan hệ là một đường thẳng:</p>
+<div class="math-box">$$ f_{w,b}(x^{(i)}) = w\,x^{(i)} + b $$</div>
+<p>Trong đó \(w\) là <strong>độ dốc</strong> (mỗi 1000 sqft thêm vào làm giá tăng bao nhiêu) và \(b\) là <strong>điểm cắt trục tung</strong>. Với hai điểm trên, giải tay ta được \(w = 200\), \(b = 100\), và dự đoán cho 1.2 là \(200 \cdot 1.2 + 100 = 340\) nghìn đô.</p>
+
+<pre><code class="language-python">import numpy as np
+
+x_train = np.array([1.0, 2.0])
+y_train = np.array([300.0, 500.0])
+m = x_train.shape[0]          # số ví dụ: 2
+
+def compute_model_output(x, w, b):
+    """Tính f_wb = w*x + b cho từng ví dụ."""
+    m = x.shape[0]
+    f_wb = np.zeros(m)
+    for i in range(m):
+        f_wb[i] = w * x[i] + b
+    return f_wb
+
+print(compute_model_output(x_train, w=200, b=100))   # [300. 500.]</code></pre>
+
+<div class="box note"><span class="box-title">💡 Vì sao gọi là “tuyến tính”?</span>
+<p>Vì \(f\) tuyến tính <em>theo tham số</em> \(w, b\). Đây là điểm quan trọng: ở chương 5, ta sẽ dùng các đặc trưng như \(x^2, x^3\) — mô hình khi đó vẽ ra đường cong, nhưng vẫn là “hồi quy tuyến tính” vì vẫn chỉ là tổng có trọng số của các đặc trưng.</p></div>
+
+<h2>Hàm chi phí (cost function)</h2>
+<p>Với dữ liệu thật có hàng trăm điểm, không đường thẳng nào đi qua tất cả. Ta cần một con số đo xem một bộ \((w, b)\) <em>tệ</em> đến mức nào. Lựa chọn kinh điển là <strong>sai số bình phương trung bình</strong>:</p>
+<div class="math-box">$$ J(w,b) = \frac{1}{2m} \sum_{i=1}^{m} \left( f_{w,b}(x^{(i)}) - y^{(i)} \right)^2 $$</div>
+<ul>
+  <li>\(f_{w,b}(x^{(i)}) - y^{(i)}\) là <strong>sai số</strong> (error, residual) của ví dụ \(i\).</li>
+  <li>Bình phương để sai số âm và dương không triệt tiêu nhau, và để phạt nặng sai số lớn.</li>
+  <li>Chia \(m\) để chi phí không phụ thuộc kích thước tập dữ liệu; chia thêm \(2\) chỉ để đạo hàm gọn hơn (số 2 từ bình phương sẽ triệt tiêu).</li>
+</ul>
+<p><strong>Mục tiêu học</strong>: tìm \(w, b\) sao cho \(J(w, b)\) nhỏ nhất.</p>
+<div class="math-box">$$ \min_{w,\,b}\; J(w,b) $$</div>
+
+<h3>Code từ bài Practice Lab</h3>
+<p>Trong bài thực hành C1_W2, dữ liệu là dân số thành phố (đơn vị 10.000 người) và lợi nhuận nhà hàng (đơn vị 10.000$). Đây là hàm mình viết:</p>
+<pre><code class="language-python">def compute_cost(x, y, w, b):
+    m = x.shape[0]
+    cost_sum = 0
+    for i in range(m):
+        f_wb = w * x[i] + b             # dự đoán
+        cost = (f_wb - y[i]) ** 2       # bình phương sai số
+        cost_sum = cost_sum + cost
+    total_cost = (1 / (2 * m)) * cost_sum
+    return total_cost</code></pre>
+<p>Phiên bản vector hoá (sẽ học ở chương 4) chỉ cần một dòng:</p>
+<pre><code class="language-python">def compute_cost_vec(x, y, w, b):
+    return np.mean((w * x + b - y) ** 2) / 2</code></pre>
+
+<h2>Trực giác về hình dạng của J</h2>
+<p>Nếu cố định \(b = 100\) và chỉ thay đổi \(w\), \(J\) là một parabol theo \(w\): rất lớn khi \(w\) quá nhỏ hoặc quá lớn, nhỏ nhất ở \(w = 200\). Khi cho cả \(w\) và \(b\) cùng thay đổi, \(J\) trở thành một <strong>mặt cong hình bát</strong> (bowl) trong không gian 3 chiều. Vẽ đồng mức (contour) của mặt này ta được các hình elip lồng nhau; tâm elip là nghiệm tốt nhất.</p>
+<figure class="medium"><img src="images/C1_W2_Lab06_contours.PNG" alt="Đồ thị đường đồng mức của hàm chi phí" loading="lazy"><figcaption>Đường đồng mức của \(J(w,b)\). Mỗi elip là tập các \((w,b)\) có cùng chi phí.</figcaption></figure>
+
+<div class="box tip"><span class="box-title">✅ Tính chất đẹp: hàm lồi</span>
+<p>Với hồi quy tuyến tính và sai số bình phương, \(J\) là <strong>hàm lồi</strong> (convex): chỉ có đúng một cực tiểu, không có “hố” cục bộ nào để mắc kẹt. Gradient descent (chương 3) chắc chắn đi tới nghiệm tốt nhất nếu \(\alpha\) đủ nhỏ.</p></div>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: vì sao lại là bình phương?</span>
+<p>Nếu giả sử nhiễu trong dữ liệu có phân phối chuẩn, \(y = wx + b + \varepsilon\) với \(\varepsilon \sim \mathcal N(0, \sigma^2)\), thì việc <strong>cực đại hoá likelihood</strong> (ước lượng hợp lý cực đại, MLE) tương đương đúng với cực tiểu hoá tổng bình phương sai số. Nói cách khác, MSE không phải lựa chọn tuỳ tiện — nó là hệ quả của giả định nhiễu Gauss.</p>
+<p>Các lựa chọn khác:</p>
+<ul>
+  <li><strong>MAE</strong> \(\frac{1}{m}\sum |f - y|\): ít nhạy với ngoại lai (outlier) hơn, nhưng không khả vi tại 0.</li>
+  <li><strong>Huber loss</strong>: bình phương khi sai số nhỏ, tuyến tính khi sai số lớn — kết hợp ưu điểm của cả hai.</li>
+</ul>
+<p>Thước đo hay báo cáo: <strong>RMSE</strong> \(=\sqrt{\text{MSE}}\) (cùng đơn vị với \(y\)) và <strong>\(R^2\)</strong> \(= 1 - \frac{\sum (y - \hat y)^2}{\sum (y - \bar y)^2}\) — tỉ lệ phương sai được mô hình giải thích (1 là hoàn hảo, 0 là không hơn việc đoán trung bình).</p></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c1_w1/home/jovyan/work/C1_W1_Lab02_Model_Representation_Soln.ipynb">C1_W1_Lab02 — Model Representation</a></li>
+  <li><a data-nb="c1_w1/home/jovyan/work/C1_W1_Lab03_Cost_function_Soln.ipynb">C1_W1_Lab03 — Cost Function</a> (có đồ thị 3D tương tác của \(J\))</li>
+  <li><a data-nb="c1_w2_prac/home/jovyan/work/C1_W2_Linear_Regression.ipynb">C1_W2 Practice Lab — Linear Regression</a> (bài graded: <code>compute_cost</code>, <code>compute_gradient</code>)</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>Mô hình: \(f_{w,b}(x) = wx + b\).</li>
+  <li>Chi phí: \(J = \frac{1}{2m}\sum (f - y)^2\) — đo mức “tệ” của một bộ tham số.</li>
+  <li>Học = tìm \(w, b\) cực tiểu hoá \(J\). Với hồi quy tuyến tính, \(J\) lồi nên chỉ có một cực tiểu.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Nếu mọi dự đoán đều đúng hoàn toàn, J bằng bao nhiêu?</summary><p>\(J = 0\). Chi phí luôn \(\ge 0\) vì là tổng các bình phương.</p></details>
+<details class="quiz"><summary>Với x = [1, 2], y = [300, 500], tính J(w=200, b=0).</summary><p>Dự đoán [200, 400], sai số [−100, −100]. \(J = \frac{1}{2\cdot 2}(10000 + 10000) = 5000\).</p></details>
+<details class="quiz"><summary>Nếu nhân đôi số ví dụ bằng cách lặp lại toàn bộ dữ liệu, J thay đổi thế nào?</summary><p>Không đổi — đó là lý do chia cho \(m\): chi phí là <em>trung bình</em> chứ không phải tổng.</p></details>
+</article>
+</body>
+</html>

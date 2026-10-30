@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3. Gradient Descent · Sổ tay Machine Learning</title>
+<link rel="stylesheet" href="assets/style.css">
+<script defer src="assets/book.js"></script>
+<script defer src="assets/demos.js"></script>
+</head>
+<body class="no-js">
+<article>
+<header class="chapter-head">
+  <div class="eyebrow">Chương 3 · Khoá C1, tuần 1</div>
+  <h1>Gradient Descent</h1>
+  <p class="lede">Đứng trên sườn đồi trong sương mù, muốn xuống thung lũng: hãy nhìn quanh chân, bước một bước theo hướng dốc nhất, rồi lặp lại.</p>
+  <div class="meta"><span>⏱ 18 phút đọc</span><span>🧪 C1_W1_Lab04 · C1_W2 Practice</span><span>🎛 có demo</span></div>
+</header>
+
+<h2>Ý tưởng</h2>
+<p>Ta có hàm chi phí \(J(w,b)\) và muốn tìm điểm thấp nhất. Gradient descent là thuật toán lặp:</p>
+<ol>
+  <li>Bắt đầu từ một điểm bất kỳ, thường \(w = 0, b = 0\).</li>
+  <li>Tính <strong>gradient</strong> — hướng mà \(J\) tăng nhanh nhất.</li>
+  <li>Bước một bước nhỏ theo hướng <em>ngược</em> gradient.</li>
+  <li>Lặp lại cho tới khi hội tụ (J gần như không giảm nữa).</li>
+</ol>
+<figure class="medium"><img src="images/C1_W1_L4_S1_Lecture_GD.png" alt="Slide bài giảng về gradient descent" loading="lazy"><figcaption>Thuật toán gradient descent trong bài giảng.</figcaption></figure>
+
+<h2>Công thức cập nhật</h2>
+<div class="math-box">$$
+\begin{aligned}
+&\text{lặp đến khi hội tụ: } \{ \\
+&\quad w := w - \alpha \frac{\partial J(w,b)}{\partial w} \\
+&\quad b := b - \alpha \frac{\partial J(w,b)}{\partial b} \\
+&\}
+\end{aligned}
+$$</div>
+<p>Với hồi quy tuyến tính, hai đạo hàm riêng là:</p>
+<div class="math-box">$$
+\frac{\partial J}{\partial w} = \frac{1}{m}\sum_{i=1}^{m}\left(f_{w,b}(x^{(i)}) - y^{(i)}\right)x^{(i)}
+\qquad
+\frac{\partial J}{\partial b} = \frac{1}{m}\sum_{i=1}^{m}\left(f_{w,b}(x^{(i)}) - y^{(i)}\right)
+$$</div>
+<details class="quiz"><summary>Chứng minh đạo hàm theo w (bấm để xem)</summary>
+<p>\(J = \frac{1}{2m}\sum (wx^{(i)} + b - y^{(i)})^2\). Theo quy tắc chuỗi, đạo hàm của \((u)^2\) là \(2u \cdot u'\), với \(u' = \partial u / \partial w = x^{(i)}\). Vậy \(\frac{\partial J}{\partial w} = \frac{1}{2m}\sum 2(wx^{(i)} + b - y^{(i)})x^{(i)} = \frac{1}{m}\sum (f - y)x^{(i)}\). Số 2 triệt tiêu — đó là lý do có hệ số \(\frac{1}{2}\) trong \(J\).</p></details>
+
+<div class="box warn"><span class="box-title">⚠️ Cập nhật đồng thời</span>
+<p>Phải tính <em>cả hai</em> đạo hàm từ \(w, b\) <strong>cũ</strong> rồi mới cập nhật. Nếu cập nhật \(w\) trước rồi dùng \(w\) mới để tính đạo hàm theo \(b\), thuật toán sẽ khác (và thường tệ hơn).</p>
+<pre><code class="language-python"># ĐÚNG
+dj_dw, dj_db = compute_gradient(x, y, w, b)
+w = w - alpha * dj_dw
+b = b - alpha * dj_db</code></pre></div>
+
+<h2>Cài đặt</h2>
+<p>Hàm tính gradient mình viết trong bài Practice Lab:</p>
+<pre><code class="language-python">def compute_gradient(x, y, w, b):
+    m = x.shape[0]
+    dj_dw = 0
+    dj_db = 0
+    for i in range(m):
+        f_wb = w * x[i] + b
+        dj_db_i = f_wb - y[i]             # sai số
+        dj_dw_i = (f_wb - y[i]) * x[i]    # sai số × đặc trưng
+        dj_db += dj_db_i
+        dj_dw += dj_dw_i
+    dj_dw = dj_dw / m
+    dj_db = dj_db / m
+    return dj_dw, dj_db</code></pre>
+<p>Và vòng lặp gradient descent (theo Lab04):</p>
+<pre><code class="language-python">import math
+
+def gradient_descent(x, y, w_in, b_in, alpha, num_iters, cost_function, gradient_function):
+    w, b = w_in, b_in
+    J_history = []
+    for i in range(num_iters):
+        dj_dw, dj_db = gradient_function(x, y, w, b)
+        w = w - alpha * dj_dw
+        b = b - alpha * dj_db
+        if i &lt; 100000:
+            J_history.append(cost_function(x, y, w, b))
+        if i % math.ceil(num_iters / 10) == 0:
+            print(f"Iteration {i:4}: Cost {J_history[-1]:0.2e}")
+    return w, b, J_history
+
+w_final, b_final, J_hist = gradient_descent(x_train, y_train, 0, 0, 1.0e-2, 10000,
+                                            compute_cost, compute_gradient)
+# (w,b) ≈ (199.99, 100.01)</code></pre>
+
+<h2>Demo: tự tay chạy gradient descent</h2>
+<div class="demo" data-demo="gd"></div>
+<p>Hãy thử:</p>
+<ul>
+  <li>α ≈ 0.05: hội tụ êm, J giảm đều.</li>
+  <li>α rất nhỏ (0.001): hội tụ cực chậm.</li>
+  <li>α ≈ 0.4: J vẫn giảm nhưng đường thẳng “lắc” qua lại.</li>
+  <li>α ≥ 0.5: J <strong>tăng vọt</strong> — thuật toán phân kỳ.</li>
+</ul>
+
+<h2>Learning rate α</h2>
+<figure class="medium"><img src="images/C1_W1_Lab03_alpha_too_big.PNG" alt="Minh hoạ khi alpha quá lớn, gradient descent nhảy qua lại và phân kỳ" loading="lazy"><figcaption>α quá lớn: mỗi bước vượt quá điểm cực tiểu, nhảy sang bên kia và ngày càng xa.</figcaption></figure>
+<table>
+  <tr><th>α</th><th>Hiện tượng</th></tr>
+  <tr><td>Quá nhỏ</td><td>Hội tụ đúng nhưng rất chậm, tốn nhiều vòng lặp.</td></tr>
+  <tr><td>Vừa</td><td>J giảm nhanh và đều sau mỗi vòng.</td></tr>
+  <tr><td>Quá lớn</td><td>J dao động hoặc tăng lên — phân kỳ.</td></tr>
+</table>
+<p>Một chi tiết hay: dù α cố định, các bước sẽ <strong>tự nhỏ dần</strong> khi tới gần cực tiểu, vì đạo hàm ở đó tiến về 0.</p>
+<figure class="medium"><img src="images/C1_W1_Lab03_lecture_slopes.PNG" alt="Độ dốc của tiếp tuyến tại các điểm khác nhau trên parabol" loading="lazy"><figcaption>Bên phải cực tiểu đạo hàm dương → w giảm; bên trái đạo hàm âm → w tăng. Cả hai đều kéo về cực tiểu.</figcaption></figure>
+
+<h2>Batch, mini-batch và stochastic</h2>
+<p>Gradient descent trong khoá C1 là <strong>batch gradient descent</strong>: mỗi bước dùng <em>toàn bộ</em> \(m\) ví dụ. Với dữ liệu lớn (hàng triệu ví dụ), mỗi bước rất tốn kém. Các biến thể:</p>
+<ul>
+  <li><strong>Stochastic GD (SGD)</strong>: mỗi bước chỉ dùng 1 ví dụ — nhanh nhưng nhiễu.</li>
+  <li><strong>Mini-batch GD</strong>: mỗi bước dùng một lô nhỏ (32, 64, 256…) — cân bằng giữa hai cái trên, là chuẩn mực trong deep learning. TensorFlow mặc định <code>batch_size=32</code> (gặp lại ở chương 8).</li>
+</ul>
+
+<div class="box extra"><span class="box-title">📚 Mở rộng: kiểm tra gradient bằng số</span>
+<p>Khi tự cài đặt đạo hàm, rất dễ sai một dấu. Cách kiểm tra: so sánh với xấp xỉ sai phân trung tâm</p>
+$$ \frac{\partial J}{\partial w} \approx \frac{J(w + \varepsilon, b) - J(w - \varepsilon, b)}{2\varepsilon}, \quad \varepsilon \approx 10^{-4} $$
+<pre><code class="language-python">eps = 1e-4
+num = (compute_cost(x, y, w + eps, b) - compute_cost(x, y, w - eps, b)) / (2 * eps)
+ana, _ = compute_gradient(x, y, w, b)
+print(abs(num - ana))   # nên rất nhỏ, cỡ 1e-7</code></pre>
+<p>Đây cũng chính là ý tưởng trong lab Derivatives ở chương 10.</p></div>
+
+<div class="box lab"><span class="box-title">🧪 Từ lab</span><ul>
+  <li><a data-nb="c1_w1/home/jovyan/work/C1_W1_Lab04_Gradient_Descent_Soln.ipynb">C1_W1_Lab04 — Gradient Descent for Linear Regression</a></li>
+  <li><a data-nb="c1_w2_prac/home/jovyan/work/C1_W2_Linear_Regression.ipynb">C1_W2 Practice Lab</a> — kết quả: \(w \approx 1.166\), \(b \approx -3.63\); dự đoán lợi nhuận cho thành phố 35.000 dân ≈ 4.519$, 70.000 dân ≈ 45.342$.</li>
+</ul></div>
+
+<div class="keypoints"><h2>Ghi nhớ</h2>
+<ul>
+  <li>\(w := w - \alpha\,\partial J/\partial w\), \(b := b - \alpha\,\partial J/\partial b\), cập nhật đồng thời.</li>
+  <li>Đạo hàm của hồi quy tuyến tính: trung bình của (sai số × đặc trưng).</li>
+  <li>Luôn vẽ J theo số vòng lặp để kiểm tra: J phải giảm sau mỗi vòng.</li>
+</ul></div>
+
+<h2>Tự kiểm tra</h2>
+<details class="quiz"><summary>Tại điểm cực tiểu, một bước gradient descent làm gì với w?</summary><p>Không thay đổi gì: đạo hàm bằng 0 nên \(w := w - \alpha \cdot 0 = w\).</p></details>
+<details class="quiz"><summary>J tăng sau mỗi vòng lặp. Nguyên nhân khả dĩ nhất?</summary><p>α quá lớn, hoặc code gradient sai dấu (cộng thay vì trừ). Thử giảm α đi 3–10 lần.</p></details>
+</article>
+</body>
+</html>
